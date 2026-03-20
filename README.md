@@ -16,10 +16,10 @@ We are currently building the **PING 48-Hour MVP Core Engine**.
 
 Current chat applications (Slack, Teams) are "dumb pipes"—they treat an important architectural decision identical to a random meme, leaving humans to parse, prioritize, and constantly context-switch. 
 
-**PING inverts the model:**
-1. **The Copilot Inbox:** Instead of chronological walls of text that induce anxiety, you open an AI-curated "Inbox" showing a 3-bullet personalized summary of what actually matters.
-2. **Integration-First:** GitHub PRs and Linear tickets are not dead blue links; they are native objects inside the chat that the AI understands and can act upon.
-3. **The Graph-RAG Brain:** Every message, PR, and decision is instantly mapped into a semantic knowledge graph. When a new hire asks *"How do I restart the database from last Tuesday?"*, our `@KnowledgeBot` answers instantly, citing the exact people and tickets involved.
+**PING inverts the model via a Proactive Workspace Agent:**
+1. **The Eisenhower Inbox:** Stop drowning in noise. Every message in your DMs, Group Chats, and Channels is automatically ranked. You only see what's Urgent and Important.
+2. **Proactive Heartbeat:** PING doesn't wait for you. It proactively monitors your workspace and reaches out to resolve blockers or nudge work forward.
+3. **Knowledge Syncing:** Our Knowledge Agent proactively fact-checks real-time discussions and syncs context between teams, preventing "hidden" decisions and redundant work.
 
 ## 🛠 Tech Stack (The 48-Hour Build)
 PING is being engineered for absolute speed and immediate enterprise readiness.

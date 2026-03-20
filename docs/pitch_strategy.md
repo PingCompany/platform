@@ -36,51 +36,49 @@ To maximize PMF and leverage our Free and Open-Source foundation, we need bottom
 *   **Why they buy:** Visual "AI employee" deployment means they can build auto-routing workflows without writing code, enabling workflow acceleration immediately.
 
 ## 5. The Pitch (The Narrative)
-**The Hook:** We are not selling a "chat replacement". PING is the **AI operating layer for engineering teams**. Chat is just an implementation detail, permanently reducing the friction and fear of switching. 
+**The Hook:** We are not selling a "chat replacement". PING is the **AI operating layer for engineering teams**. Chat is just the interface for an autonomous workspace agent that permanently reduces the friction and fear of switching. 
 
 **The Vision / Category Framing:** Instead of "AI-first chat", we are **Company Brain Infrastructure**. We sit closer to search, knowledge, and automation—a significantly larger TAM story. 
 
-**The Value Proposition (Workflow Acceleration):** Our first value is NOT summarization, though summaries are nice. Real PMF is driven by the fact that **AI resolves blockers automatically:**
-*   **PR stuck?** AI automatically pings the right reviewer.
-*   **Incident alert?** AI routes it to the correct on-call engineer with full context.
-*   **Question asked?** AI answers instantly using deep workspace history.
+**The Value Proposition (Workflow Acceleration):** Our primary value is the **Proactive Workspace Agent**. It doesn't wait for your questions—it proactively manages your focus:
+*   **Eisenhower Ranking:** Automatically ranks every message in DMs, Group Chats, and Channels, ensuring you only see what's Urgent and Important.
+*   **Proactive Heartbeat:** Triggers periodically to push work forward, reaching out in relevant channels to resolve blockers.
+*   **Knowledge Syncing:** Proactively fact-checks discussions and syncs context between teams (e.g., "Actually, we tried that in 2023", "Frontend is shipping a fix on Monday").
 
-**Target Vertical:** Keep it narrow for faster love. We aim to be "The best async coordination tool for 50-200 person product teams," not a universal company chat.
+**Target Vertical:** Keep it narrow for faster love. We aim to be "The best proactive coordination tool for 50-200 person product teams," not a universal company chat.
 
-**"Memory Magic" Onboarding:** Within 5 minutes of signing up, a user must feel: *"This knows more about my company than I do."* We auto-ingest GitHub histories, auto-answer real questions accurately, and auto-surface hidden decisions automatically. This delivers huge value immediately, even for a 1-person team.
+**"Memory Magic" Onboarding:** Within 5 minutes of signing up, a user must feel: *"This knows more about my company than I do."* We auto-ingest history, auto-surface decisions, and immediately start ranking the current workspace noise.
 
 **The Moat & Business Model (Why it's investable):** 
-Our key leverage is being fully free and open-source. We gamify functionality—the more you use the platform, the more advanced features you unlock. Freemium monetization kicks in for advanced coordination capabilities that exclusively benefit 50+ person teams. 
+Our key leverage is being fully free and open-source. We gamify functionality—the more you use the platform, the more advanced features you unlock. Freemium monetization kicks in for specialized proactive automation that exclusively benefit 50+ person teams. 
 We completely flip the open-core narrative: we don't just pitch "self-hosting for privacy." We offer **self-hosting for AI infrastructure cost control and absolute customization**, a message that resonates far stronger with CTO buyers looking to train dedicated models on proprietary data.
 
 ---
 
 ## 6. The 3-Day MVP Execution Plan (5 Devs)
-With 3 days and 5 developers, you cannot build all of Slack. You must build the **"Aha!" moment** that proves the AI-first thesis. 
+With 3 days and 5 developers, you must build the **"Ah-ha!" moment** that proves the proactive, AI-native thesis. 
 
-**The Goal:** Prove the new UI paradigm (Linear-style inbox over Slack channels) and the power of Graph-RAG answering questions instantly based on integrations.
+**The Goal:** Prove the proactive Workspace Agent (Eisenhower ranking) and the power of cross-team knowledge syncing.
 
 **The Tech Stack (Optimized for Speed):**
-*   **Backend & State:** **Convex**. Perfect for this. It handles real-time WebSocket sync inherently, has built-in vector search/CRON jobs for AI polling, and acts as the reactive backend-as-a-service.
-*   **Identity & Enterprise Ready:** **WorkOS**. Drop this in on Day 1. It provides ready-to-go SAML SSO and directory sync. This instantly proves you can sell to mid-market/enterprise without building complex auth flows.
-*   **Knowledge Graph (Graph-RAG):** **Graphiti** (or similar semantic tool). Instead of just dumping regular vectors into Postgres, build a semantic relationship graph. The AI knows *who* wrote the code, *what* Linear issue it relates to, and *which* chat thread spawned it.
-*   **Frontend / Mobile:** React Native (Expo) or responsive Next.js/Tailwind. The UI must feel like Linear—keyboard shortcuts, command palettes, and an "Inbox" model focused on action, not endless scrolling on mobile.
+*   **Backend & State:** **Convex**. Handles real-time sync, vector search, and the proactive heartbeat CRON jobs.
+*   **Identity & Enterprise Ready:** **WorkOS**. Ready-to-go SAML SSO and directory sync.
+*   **Knowledge Graph (Graph-RAG):** **Graphiti**. Maps relationships between chat, code, and tickets for proactive fact-checking.
+*   **Frontend:** Next.js/Tailwind. Focused on the "Copilot Inbox" and Eisenhower-ranked views.
 
 **Resource Allocation:**
-*   **Dev 1 & 2 (Frontend UI/UX):** Next.js UI. Focus on a radical redesign: A "Copilot Inbox" where the AI pre-reads channels and presents actionable cards (e.g., "3 PRs need review", "New Jira ticket assigned").
-*   **Dev 3 (Backend & Auth):** Convex schema design & real-time sync + WorkOS integration for instant enterprise readiness.
-*   **Dev 4 (Knowledge Engine):** Build the ingestion pipeline using Graphiti to map relationships between incoming chat messages and simulated Linear/Jira/GitHub webhooks.
-*   **Dev 5 (AI Agents):** Build the `@KnowledgeBot` that queries the Graphiti/Convex backend when mentioned and formulates an answer.
+*   **Dev 1 & 2 (Frontend UI/UX):** Next.js UI. Focus on the **Eisenhower-ranked Inbox** and interactive "Add Agent" buttons in DMs and Group Chats.
+*   **Dev 3 (Backend & Auth):** Convex schema design (`users`, `channels`, `dms`, `group_chats`, `messages`) & WorkOS integration.
+*   **Dev 4 (Knowledge Engine):** Build the ingestion pipeline using Graphiti for proactive fact-checking and context syncing.
+*   **Dev 5 (Workspace Agent):** Build the heartbeat-driven Workspace Agent that ranks messages and pushes work forward.
 
 **Scope Cuts (DO NOT BUILD IN 3 DAYS):**
-*   Direct Messages (DMs)
-*   Complex threaded UI (just use a flat channel for now)
 *   File uploads (focus strictly on text/code snippets)
-*   SAML/SSO (just use simple magic links or Google Auth)
-*   Custom Agent Builder (hardcode one powerful answering bot)
+*   SAML/SSO (just use simple magic links or Google Auth for the demo)
+*   Complex threading (rely on flat channels/DMs for speed)
 
 **The Demo Flow (Day 3):**
-1.  Flood the channel with 100 messages of dense technical discussion between humans.
-2.  Switch to the "Copilot Inbox" to show a beautiful, 3-bullet-point summary of the decisions made. *(Aha moment #1)*
-3.  Ask the channel, "@bot how did we decide to configure the database earlier?" 
-4.  The bot replies instantly with the exact context and cites the specific messages from the flood. *(Aha moment #2)*
+1.  **Noise Injection:** Flood a channel and several DMs with 100+ messages of dense technical discussion.
+2.  **The Eisenhower Reveal:** Open the "Copilot Inbox" to show all messages perfectly ranked by the Workspace Agent. *(Aha moment #1)*
+3.  **Proactive Sync:** A user post a wrong assumption in a channel; the Knowledge Agent proactively replies: *"Actually, we tried that in 2023, see [link to old thread]."* *(Aha moment #2)*
+4.  **The Heartbeat:** The Workspace Agent pings a DM: *"This PR has been idle for 4 hours and is marked as 'Important'. Should I nudge the reviewer?"* *(Aha moment #3)*

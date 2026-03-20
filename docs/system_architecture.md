@@ -22,22 +22,21 @@ graph TD;
     
     %% Core Reactive State
     subgraph Convex
-        DB[(Convex DB \n Messages/Channels)]
+        DB[(Convex DB \n Messages/Channels/DMs/GroupChats)]
         VectorDB[(Convex Vector Search)]
         Cron[Convex CRON \n Summaries]
     end
     
-    %% Integration & AI Flow
-    Convex -->|Message Webhooks| Graphiti[Temporal Knowledge Graph]
-    Ext[Jira / GitHub / Linear] -->|Webhooks| Graphiti
+    %% AI Agents
+    Convex -->|Proactive Heartbeat| WorkspaceAgent[Workspace Agent]
+    WorkspaceAgent -->|Eisenhower Matrix| Client
+    WorkspaceAgent -->|Actionable Pings| Convex
     
-    subgraph Graphiti
-        Graph[(Continuous Temporal Graph)]
-    end
+    Convex -->|Message Stream| KnowledgeAgent[Knowledge Agent]
+    KnowledgeAgent -->|Fact Check/Sync| Convex
     
-    %% Bot Queries
-    Convex -->|@KnowledgeBot Query| Model[OpenAI / Claude \n via Vercel AI SDK]
-    Model -->|Graph-RAG Retrieval| Graphiti
+    Convex -->|User Mention| CopilotInbox[Copilot Inbox]
+    CopilotInbox -->|Reply Suggestions| Client
 ```
 
 ---
@@ -63,12 +62,14 @@ graph TD;
 *   **Data Ownership & Custom Models:** Our open-source foundation allows CTOs to own their graph data entirely and train custom LLMs directly on company knowledge for maximum precision.
 
 ### 3.5 Proactive Agents & Workflow Acceleration
-*   **Event-Driven Resolvers:** Instead of waiting to be asked, agents proactively monitor integrations to automatically resolve blockers (e.g., pinging reviewers on stuck PRs, routing PagerDuty alerts to the right engineer based on commit history).
-*   **Gamification Engine:** Tracks user engagement and AI interactions to unlock freemium features dynamically as teams adopt the system.
+*   **Workspace Agent (Core):** The primary engine that ranks all incoming messages and reminds users based on the **Eisenhower Matrix** (Urgent/Important). It triggers on a system heartbeat and proactive message analysis to push work forward in relevant channels.
+*   **Copilot Inbox:** Transformed from a simple summary tool into an interactive assistant that flags follow-ups and generates high-context reply suggestions.
+*   **Knowledge Agent:** A proactive listener that fact-checks real-time discussions (e.g., "Actually, we tried that migration in 2023") and syncs context between teams (e.g., "Frontend is shipping a fix on Monday").
+*   **Proactive vs. Reactive:** All AI work is proactive by default. Reactive work (direct queries) is only triggered via an "Add Agent" button within DMs, Group Chats, or the dedicated User Agent Chat.
 
 ## 4. The 48-Hour Execution Flow
 
-1.  **Hours 0-12 (Foundation):** Next.js setup, WorkOS integration, and Convex schema definition (`users`, `channels`, `messages`).
-2.  **Hours 12-24 (The UI Shift):** Build the Copilot Inbox UI. Write Convex Actions that run a cron job over the last 100 messages, summarize them via OpenAI, and push to the Inbox view.
-3.  **Hours 24-40 (The Brain):** Connect Graphiti. Pipe every inbound chat message into Graphiti. Create webhook endpoints for simulated Jira/Linear tickets to populate the graph.
-4.  **Hours 40-48 (The Magic Bot):** Build `@KnowledgeBot` using Vercel AI SDK, utilizing Graphiti as its primary tool for RAG retrieval.
+1.  **Hours 0-12 (Foundation):** Next.js setup, WorkOS integration, and Convex schema definition (`users`, `channels`, `dms`, `group_chats`, `messages`).
+2.  **Hours 12-24 (The Proactive Shift):** Build the Workspace Agent heartbeat. Implement the Eisenhower Matrix ranking logic for incoming messages.
+3.  **Hours 24-40 (The Brain):** Connect Graphiti. Pipe every inbound chat message into Graphiti. Create proactive Knowledge Agent hooks for fact-checking and cross-team syncing.
+4.  **Hours 40-48 (The Magic Bot):** Build the interactive Copilot Inbox for reply suggestions and follow-up flagging.

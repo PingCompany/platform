@@ -16,23 +16,23 @@
     *   **Information Overload:** Chat apps are "dumb pipes" that treat all messages equally, forcing humans to act as routers.
     *   **Ephemeral Knowledge:** Crucial setup decisions are buried in unsearchable, giant threads.
 
-### Slide 3: The Solution (Integration-First & AI-Routed)
-*   **Visual:** A sleek, "Linear-style" Copilot Inbox showing actionable, summarized cards instead of a wall of text.
-*   **Header:** Invert the model: AI routes the information, humans make the decisions.
+### Slide 3: The Solution (Proactive & Ranked)
+*   **Visual:** A sleek, "Linear-style" Eisenhower Inbox showing actionable, ranked messages and a heartbeat notification.
+*   **Header:** Invert the model: AI ranks the noise, actively pushes work forward.
 *   **Talking Points:** 
-    *   **Copilot Inbox:** Stop scrolling unreads. Get a 3-bullet personalized summary of what matters.
-    *   **Integration-First:** A GitHub PR isn't a blue link; it's a native, actionable object inside the chat UI.
-    *   **Auto-RAG on Everything:** Every message and integration is mapped instantly into a semantic graph.
+    *   **The Eisenhower Inbox:** Stop scrolling unreads. Every message across DMs, Groups, and Channels is automatically ranked by urgency and importance.
+    *   **Proactive Workspace Agent:** PING doesn't wait for questions. It triggers on a heartbeat to nudge reviewers or resolve blockers autonomously.
+    *   **Knowledge Syncing:** Our Knowledge Agent proactively fact-checks and syncs context between teams, eliminating siloed decisions.
 
 ### Slide 4: Why Now?
 *   **Visual:** Graph showing dropping LLM/Token costs vs increasing context windows over the last 12 months.
 *   **Header:** Real-time AI processing is finally cheap and fast enough.
-*   **Talking Points:** Doing Graph-RAG on *every single chat message* was economically impossible two years ago. Today (via Convex + Graphiti), we can build a real-time semantic brain for pennies.
+*   **Talking Points:** Doing proactive Graph-RAG on *every single chat message* was economically impossible two years ago. Today (via Convex + Graphiti), we can build a proactive semantic brain for pennies.
 
 ### Slide 5: The "Aha!" Moment (The Demo / MVP)
-*   **Visual:** A quick GIF or 2-part screenshot flow of the 3-day MVP.
-*   **Header:** Unlocking the company's digital brain.
-*   **Talking Points:** Show an engineer asking: *"@KnowledgeBot, why did we roll back the staging DB yesterday?"* and the bot instantly answering by citing two different engineers' chat messages and a connected Linear ticket.
+*   **Visual:** A quick GIF or 3-part screenshot flow of the Eisenhower Reveal and Proactive Heartbeat.
+*   **Header:** Unlocking the proactive digital brain.
+*   **Talking Points:** Show a slack-like channel flooded with 100 messages. Then, show the Eisenhower Reveal where everything is perfectly ranked. Finally, show the Workspace Agent proactively pinging a DM: *"This PR has been idle for 4 hours and is marked as 'Important'. Nudge the reviewer?"*
 
 ### Slide 6: The Moat (Defensibility)
 *   **Visual:** A simple node-connector diagram showing the Graphiti knowledge graph mapping a User -> Message -> Jira Ticket.
