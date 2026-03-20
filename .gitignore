@@ -41,6 +41,9 @@ convex/_generated/
 *.swp
 *.swo
 
+# Misc
+*.pptx
+
 # OS
 .DS_Store
 Thumbs.db
