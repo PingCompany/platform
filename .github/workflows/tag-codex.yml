@@ -20,9 +20,9 @@ jobs:
             
             let message;
             if (eventType === 'opened') {
-              message = `👋 @codex — new PR opened with ${commitCount} commit(s).`;
+              message = `@codex — new PR opened with ${commitCount} commit(s). Please review.`;
             } else {
-              message = `📝 @codex — new commit(s) pushed to this PR.`;
+              message = `@codex — new commit(s) pushed to this PR. Please review.`;
             }
             
             github.rest.issues.createComment({
