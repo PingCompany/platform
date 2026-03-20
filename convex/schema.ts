@@ -15,6 +15,9 @@ export default defineSchema({
       v.literal("deactivated"),
     ),
     lastSeenAt: v.optional(v.number()),
+    presenceStatus: v.optional(v.union(v.literal("online"), v.literal("away"), v.literal("offline"))),
+    statusMessage: v.optional(v.string()),
+    statusEmoji: v.optional(v.string()),
   })
     .index("by_workos_id", ["workosUserId"])
     .index("by_email", ["email"])
