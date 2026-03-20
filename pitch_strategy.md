@@ -1,17 +1,17 @@
-# PING: AI-First Open-Core Strategy & Pitch
+# PING: Company Brain Infrastructure & Pitch
 
 ## 1. The Problem Space: Why People Hate Slack & Teams
 Current chat platforms were designed for a purely human-to-human, synchronous era. They are "dumb pipes" that simply deliver messages, leaving the cognitive load of parsing, prioritizing, and acting on that information entirely to humans. 
 
 **The pain points:**
-*   **UI/UX Clutter & Mobile Nightmares:** Teams and Slack feel bloated, slow, and overly complex. Their mobile apps are adapted for reading short texts, not catching up on structured company decisions on the go.
-*   **The Context-Switching Tax:** Chat apps are completely siloed from where work actually happens. Jumping between Jira, GitHub, Linear, and Slack just to understand a project's status drains productivity.
-*   **Information Overload & "Unread Anxiety":** Users return from deep work or sleep to a "wall of text" and red badges. Finding what actually matters is a manual, anxiety-inducing process.
-*   **Context Fragmentation & Ephemeral Knowledge:** Important decisions get buried in endless threads. When someone new joins, or a similar issue arises 6 months later, that knowledge is practically lost.
-*   **Bolt-on AI is Clunky:** Existing tools treat AI as an app integration (a bot you talk to) rather than a native intelligence layer that understands the entire workspace.
+*   **UI/UX Clutter & Mobile Nightmares:** Teams and Slack feel bloated, slow, and overly complex. 
+*   **The Context-Switching Tax:** Chat apps are completely siloed from where work actually happens. Jumping between Jira, GitHub, Linear, and Slack drains productivity.
+*   **Information Overload & "Unread Anxiety":** Users return from deep work to a "wall of text" and red badges. Finding what matters is a manual, anxiety-inducing process.
+*   **Context Fragmentation & Ephemeral Knowledge:** Important decisions get buried in endless threads. 
+*   **Bolt-on AI is Clunky:** Existing tools treat AI as an app integration rather than a native intelligence layer that understands the entire workspace.
 
 ## 2. The Problem (Defined for Investors)
-**"Knowledge workers spend 20% of their day searching for internal information or catching up on communications. Legacy chat apps (Slack, Teams) exacerbate this by treating all messages with equal priority and acting as transient data silos."**
+**"Knowledge workers spend 20% of their day searching for internal information or catching up on communications. Legacy chat apps exacerbate this by treating all messages with equal priority and acting as transient data silos."**
 
 We are solving the **Enterprise Context Cost**. Companies are paying highly skilled workers (developers, PMs) to act as human routers—reading, summarizing, and repeating information. 
 
@@ -23,25 +23,35 @@ If companies stick to the status quo, they incur massive hidden costs:
 4.  **Lost Velocity:** Wait times. An engineer in Europe blocked on a deployment issue waits 8 hours for the US DevOps lead to wake up and answer a question that was already solved in a different channel last year.
 
 ## 4. Target Personas
-To maximize PMF and leverage the Open-Core model, we need bottom-up adoption from technical users who feel the pain of context-switching the most.
+To maximize PMF and leverage our Free and Open-Source foundation, we need bottom-up adoption from technical users who feel the pain of context-switching the most.
 
 **Primary Persona: "The Overwhelmed DevOps/Eng Lead" (Bottom-up Champion)**
-*   **Profile:** CTO, VP of Eng, or Lead Developer at a 50-250 person startup.
-*   **Pain:** Spends half their day answering "How do I..." questions in Slack, breaking their flow state. Worries about vendor lock-in and data privacy with proprietary AI tools.
-*   **Why they buy:** They can self-host the open-core version on a Friday afternoon using Docker. It instantly saves them 10 hours a week by auto-answering repetitive team questions.
+*   **Profile:** CTO, VP of Eng, or Lead Developer at a 50-200 person product team.
+*   **Pain:** Spends half their day answering "How do I..." questions in Slack, breaking their flow state. Worries about spiraling cloud AI infrastructure costs and data privacy.
+*   **Why they buy:** They can self-host the open-core version for absolute AI infra cost control and ultimate customization—allowing them to train their own custom models on company data. It instantly resolves blockers automatically by pinging PR reviewers and routing incident alerts.
 
 **Secondary Persona: "The glued-together Ops Manager" (Expansion User)**
 *   **Profile:** Head of Ops, Product Manager, or Support Lead.
 *   **Pain:** Constantly moving data between Zendesk, Jira, and Slack.
-*   **Why they buy:** Visual "AI employee" deployment means they can build auto-routing workflows without writing code.
+*   **Why they buy:** Visual "AI employee" deployment means they can build auto-routing workflows without writing code, enabling workflow acceleration immediately.
 
 ## 5. The Pitch (The Narrative)
-**The Hook:** "Slack was built for the human era. PING is the communication protocol for the AI era."
+**The Hook:** We are not selling a "chat replacement". PING is the **AI operating layer for engineering teams**. Chat is just an implementation detail, permanently reducing the friction and fear of switching. 
 
-**The Vision:** "We are inverting the enterprise chat model. In legacy chat, humans talk and bots occasionally listen. In our platform, the AI is the primary router of information. We don't just host chat; we are **Integration-First**. GitHub PRs, Linear issues, and Sentry alerts aren't just dead links—they are native objects that the AI understands and acts upon without you ever leaving the chat UI."
+**The Vision / Category Framing:** Instead of "AI-first chat", we are **Company Brain Infrastructure**. We sit closer to search, knowledge, and automation—a significantly larger TAM story. 
+
+**The Value Proposition (Workflow Acceleration):** Our first value is NOT summarization, though summaries are nice. Real PMF is driven by the fact that **AI resolves blockers automatically:**
+*   **PR stuck?** AI automatically pings the right reviewer.
+*   **Incident alert?** AI routes it to the correct on-call engineer with full context.
+*   **Question asked?** AI answers instantly using deep workspace history.
+
+**Target Vertical:** Keep it narrow for faster love. We aim to be "The best async coordination tool for 50-200 person product teams," not a universal company chat.
+
+**"Memory Magic" Onboarding:** Within 5 minutes of signing up, a user must feel: *"This knows more about my company than I do."* We auto-ingest GitHub histories, auto-answer real questions accurately, and auto-surface hidden decisions automatically. This delivers huge value immediately, even for a 1-person team.
 
 **The Moat & Business Model (Why it's investable):** 
-"We use an Open-Core model (like Linear/PostHog) to drive massive, cheap bottom-up developer adoption. But our true moat is our **Graph-RAG Knowledge Graph**. Because every message, Slack integration, and Linear ticket is mapped relationally, the longer a company uses us, the smarter their workspace becomes. Moving back to Slack would mean losing their company's digital brain. We monetize via SaaS hosting, compute scale, and enterprise features immediately via WorkOS."
+Our key leverage is being fully free and open-source. We gamify functionality—the more you use the platform, the more advanced features you unlock. Freemium monetization kicks in for advanced coordination capabilities that exclusively benefit 50+ person teams. 
+We completely flip the open-core narrative: we don't just pitch "self-hosting for privacy." We offer **self-hosting for AI infrastructure cost control and absolute customization**, a message that resonates far stronger with CTO buyers looking to train dedicated models on proprietary data.
 
 ---
 

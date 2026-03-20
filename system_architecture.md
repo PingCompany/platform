@@ -28,11 +28,11 @@ graph TD;
     end
     
     %% Integration & AI Flow
-    Convex -->|Message Webhooks| Graphiti[Graphiti Knowledge Engine]
+    Convex -->|Message Webhooks| Graphiti[Temporal Knowledge Graph]
     Ext[Jira / GitHub / Linear] -->|Webhooks| Graphiti
     
     subgraph Graphiti
-        Graph[(Relational Graph)]
+        Graph[(Continuous Temporal Graph)]
     end
     
     %% Bot Queries
@@ -57,10 +57,14 @@ graph TD;
 *   **User Provisioning:** Handled immediately via SCIM / Directory Sync.
 *   **SSO:** Replaces complex Auth0 or NextAuth setups to ensure immediate SOC2 compliance and enterprise readiness for mid-market customers.
 
-### 3.4 Knowledge Engine (Graphiti)
-*   **Graph-RAG:** Instead of merely chunking text into vectors, Graphiti constructs a semantic web of the workspace.
-*   **Entities:** Maps `Users` -> `Messages` -> `Linear Tickets` -> `GitHub PRs`.
-*   **Agent Queries:** When a user queries `@KnowledgeBot`, the AI utilizes Graphiti to traverse relationships, providing significantly more accurate context than standard semantic search.
+### 3.4 Knowledge Engine (Temporal Knowledge Graph)
+*   **Temporal Graph-RAG:** Constructs a continuous, temporal semantic web of the workspace. It understands how your project structures, PRs, and team members evolve over time.
+*   **Insane "Memory Magic" Onboarding:** Auto-ingests GitHub, Jira, and Linear history instantly upon connection, surfacing hidden decisions immediately to provide value even for 1-person teams.
+*   **Data Ownership & Custom Models:** Our open-source foundation allows CTOs to own their graph data entirely and train custom LLMs directly on company knowledge for maximum precision.
+
+### 3.5 Proactive Agents & Workflow Acceleration
+*   **Event-Driven Resolvers:** Instead of waiting to be asked, agents proactively monitor integrations to automatically resolve blockers (e.g., pinging reviewers on stuck PRs, routing PagerDuty alerts to the right engineer based on commit history).
+*   **Gamification Engine:** Tracks user engagement and AI interactions to unlock freemium features dynamically as teams adopt the system.
 
 ## 4. The 48-Hour Execution Flow
 
