@@ -190,4 +190,12 @@ export default defineSchema({
   })
     .index("by_session_id", ["workosSessionId"])
     .index("by_user", ["userId"]),
+
+  typingIndicators: defineTable({
+    channelId: v.id("channels"),
+    userId: v.id("users"),
+    expiresAt: v.number(),
+  })
+    .index("by_channel", ["channelId"])
+    .index("by_channel_user", ["channelId", "userId"]),
 });
