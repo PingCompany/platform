@@ -12,6 +12,10 @@ function useConvexAuth() {
   const fetchAccessToken = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
+      if (!forceRefreshToken && token) {
+        return token;
+      }
+
       try {
         const res = await fetch("/api/auth/token");
         if (!res.ok) return null;
@@ -24,7 +28,7 @@ function useConvexAuth() {
         setIsLoading(false);
       }
     },
-    [],
+    [token],
   );
 
   return useMemo(
