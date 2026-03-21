@@ -23,7 +23,7 @@ function alertToQuadrant(
   if (alertType === "cross_team_sync" || alertType === "fact_check")
     return "fyi";
   if (priority === "medium") return "important";
-  return "urgent";
+  return "fyi";
 }
 
 // ─── Internal mutation to insert a decision ──────────────────────────────────

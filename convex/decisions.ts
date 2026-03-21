@@ -149,14 +149,14 @@ export const getStats = query({
       .withIndex("by_user_status", (q) =>
         q.eq("userId", user._id).eq("status", "decided"),
       )
-      .collect();
+      .take(500);
 
     const delegated = await ctx.db
       .query("decisions")
       .withIndex("by_user_status", (q) =>
         q.eq("userId", user._id).eq("status", "delegated"),
       )
-      .collect();
+      .take(500);
 
     const allResolved = [...decided, ...delegated];
 
@@ -190,7 +190,7 @@ export const getStats = query({
       .withIndex("by_user_status", (q) =>
         q.eq("userId", user._id).eq("status", "pending"),
       )
-      .collect();
+      .take(500);
     for (const d of pending) {
       quadrants[d.eisenhowerQuadrant]++;
     }
