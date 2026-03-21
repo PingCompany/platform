@@ -1,56 +1,59 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { TOPBAR_HEIGHT } from "@/lib/constants";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Kbd } from "@/components/ui/kbd";
+
+function titleFromPath(pathname: string): string {
+  if (pathname === "/inbox") return "Inbox";
+  if (pathname === "/dms") return "Direct Messages";
+  if (pathname.startsWith("/dm/")) return "Direct Message";
+  if (pathname.startsWith("/channel/")) return `# ${pathname.split("/channel/")[1]}`;
+  if (pathname === "/settings/profile") return "Profile";
+  if (pathname === "/settings/workspace") return "Workspace";
+  if (pathname === "/settings/team") return "Team";
+  if (pathname === "/settings/agents") return "Agents";
+  if (pathname === "/settings/knowledge-graph") return "Knowledge Graph";
+  if (pathname === "/settings/analytics") return "Analytics";
+  if (pathname === "/admin") return "Backoffice";
+  if (pathname.includes("/security")) return "Security";
+  if (pathname.includes("/proxy")) return "Impersonation";
+  return "PING";
+}
 
 interface TopBarProps {
   onToggleSidebar: () => void;
+  onOpenSearch?: () => void;
 }
 
-export function TopBar({ onToggleSidebar }: TopBarProps) {
+export function TopBar({ onToggleSidebar, onOpenSearch }: TopBarProps) {
+  const title = titleFromPath(usePathname());
+
   return (
     <header
-      className="flex items-center justify-between border-b border-border px-4"
+      className="flex items-center justify-between border-b border-subtle bg-background/80 px-3 backdrop-blur-sm"
       style={{ height: TOPBAR_HEIGHT, minHeight: TOPBAR_HEIGHT }}
     >
-      <div className="flex items-center gap-3">
-        {/* Hamburger for mobile / collapsed sidebar */}
+      <div className="flex items-center gap-2">
         <button
           onClick={onToggleSidebar}
-          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="rounded p-1 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground md:hidden"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-4 w-4" />
         </button>
-        <h1 className="text-lg font-semibold text-foreground">Inbox</h1>
+        <h1 className="text-sm font-medium text-foreground">{title}</h1>
       </div>
 
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
-              <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-[#6366F1] text-xs text-white">
-                  U
-                </AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem
-              onClick={() => (window.location.href = "/login")}
-              className="cursor-pointer"
-            >
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          onClick={onOpenSearch}
+          className="hidden items-center gap-2 rounded border border-subtle px-2.5 py-1 text-xs text-white/35 transition-colors hover:border-white/10 hover:text-white/60 sm:flex"
+        >
+          <Search className="h-3 w-3" />
+          <span>Search or jump to...</span>
+          <Kbd>⌘K</Kbd>
+        </button>
       </div>
     </header>
   );

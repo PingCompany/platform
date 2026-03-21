@@ -15,9 +15,12 @@ export default defineSchema({
       v.literal("deactivated"),
     ),
     lastSeenAt: v.optional(v.number()),
-    presenceStatus: v.optional(v.union(v.literal("online"), v.literal("away"), v.literal("offline"))),
-    statusMessage: v.optional(v.string()),
-    statusEmoji: v.optional(v.string()),
+    notificationPrefs: v.optional(
+      v.object({
+        inboxNotifications: v.boolean(),
+        proactiveAlerts: v.boolean(),
+      }),
+    ),
   })
     .index("by_workos_id", ["workosUserId"])
     .index("by_email", ["email"])
@@ -27,7 +30,7 @@ export default defineSchema({
     name: v.string(),
     slug: v.string(),
     workosOrgId: v.optional(v.string()),
-    createdBy: v.id("users"),
+    createdBy: v.optional(v.id("users")),
     integrations: v.optional(v.any()),
   })
     .index("by_slug", ["slug"])
@@ -40,11 +43,9 @@ export default defineSchema({
     createdBy: v.id("users"),
     isDefault: v.boolean(),
     isArchived: v.boolean(),
-    type: v.optional(v.union(v.literal("public"), v.literal("dm"), v.literal("group"))),
   })
     .index("by_workspace", ["workspaceId"])
-    .index("by_workspace_name", ["workspaceId", "name"])
-    .index("by_workspace_type", ["workspaceId", "type"]),
+    .index("by_workspace_name", ["workspaceId", "name"]),
 
   channelMembers: defineTable({
     channelId: v.id("channels"),
@@ -105,13 +106,20 @@ export default defineSchema({
   inboxSummaries: defineTable({
     userId: v.id("users"),
     channelId: v.id("channels"),
+    eisenhowerQuadrant: v.union(
+      v.literal("urgent-important"),
+      v.literal("important"),
+      v.literal("urgent"),
+      v.literal("fyi"),
+    ),
     bullets: v.array(
       v.object({
         text: v.string(),
         priority: v.union(
-          v.literal("high"),
-          v.literal("medium"),
-          v.literal("low"),
+          v.literal("urgent-important"),
+          v.literal("important"),
+          v.literal("urgent"),
+          v.literal("fyi"),
         ),
         relatedMessageIds: v.array(v.id("messages")),
       }),
@@ -163,8 +171,11 @@ export default defineSchema({
       v.literal("pr_review_nudge"),
       v.literal("incident_route"),
       v.literal("blocked_task"),
+      v.literal("fact_check"),
+      v.literal("cross_team_sync"),
     ),
     channelId: v.id("channels"),
+    sourceChannelId: v.optional(v.id("channels")),
     title: v.string(),
     body: v.string(),
     sourceMessageId: v.optional(v.id("messages")),
@@ -196,19 +207,37 @@ export default defineSchema({
     .index("by_session_id", ["workosSessionId"])
     .index("by_user", ["userId"]),
 
-  reactions: defineTable({
-    messageId: v.id("messages"),
-    userId: v.id("users"),
-    emoji: v.string(),
+  directConversations: defineTable({
+    workspaceId: v.id("workspaces"),
+    kind: v.union(
+      v.literal("1to1"),
+      v.literal("group"),
+      v.literal("agent_1to1"),
+      v.literal("agent_group"),
+    ),
+    name: v.optional(v.string()),
+    createdBy: v.id("users"),
+    isArchived: v.boolean(),
   })
-    .index("by_message", ["messageId"])
-    .index("by_message_user", ["messageId", "userId"]),
+    .index("by_workspace", ["workspaceId"]),
 
-  typingIndicators: defineTable({
-    channelId: v.id("channels"),
+  directConversationMembers: defineTable({
+    conversationId: v.id("directConversations"),
     userId: v.id("users"),
-    expiresAt: v.number(),
+    isAgent: v.boolean(),
+    lastReadAt: v.optional(v.number()),
   })
-    .index("by_channel", ["channelId"])
-    .index("by_channel_user", ["channelId", "userId"]),
+    .index("by_conversation", ["conversationId"])
+    .index("by_user", ["userId"])
+    .index("by_conversation_user", ["conversationId", "userId"]),
+
+  directMessages: defineTable({
+    conversationId: v.id("directConversations"),
+    authorId: v.id("users"),
+    body: v.string(),
+    type: v.union(v.literal("user"), v.literal("bot"), v.literal("system")),
+    isEdited: v.boolean(),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_author", ["authorId"]),
 });

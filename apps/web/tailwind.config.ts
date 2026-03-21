@@ -52,27 +52,57 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // PING custom tokens
-        "accent-primary": "#6366F1",
-        "accent-hover": "#818CF8",
-        "text-tertiary": "#5C5C5F",
-        "bg-elevated": "#222226",
+        // PING design tokens
+        ping: {
+          purple: "#5E6AD2",          // Linear purple — primary accent
+          "purple-hover": "#6E79D6",
+          "purple-muted": "rgba(94,106,210,0.12)",
+        },
+        surface: {
+          0: "hsl(240 7% 6%)",
+          1: "hsl(240 6% 9%)",
+          2: "hsl(240 5% 11%)",
+          3: "hsl(240 4% 15%)",
+        },
         status: {
-          online: "#22C55E",
-          danger: "#EF4444",
+          online:  "#22C55E",
+          danger:  "#EF4444",
           warning: "#F59E0B",
-          info: "#3B82F6",
-          merged: "#A855F7",
+          info:    "#3B82F6",
+          merged:  "#A855F7",
+        },
+        // Priority colors for inbox cards
+        priority: {
+          urgent:    "#EF4444",  // Do Now
+          important: "#F59E0B",  // Schedule
+          delegate:  "#3B82F6",  // Delegate
+          low:       "#5E6AD2",  // Eliminate/Low
         },
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
+        sans: ["var(--font-geist)", "var(--font-inter)", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "var(--font-mono)", "JetBrains Mono", "monospace"],
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 1px)",
+        sm: "calc(var(--radius) - 2px)",
+        xl: "calc(var(--radius) + 4px)",
+      },
+      fontSize: {
+        "2xs": ["10px", { lineHeight: "14px" }],
+        xs:   ["11px", { lineHeight: "16px" }],
+        sm:   ["12px", { lineHeight: "18px" }],
+        base: ["13px", { lineHeight: "20px" }],
+        md:   ["14px", { lineHeight: "20px" }],
+        lg:   ["15px", { lineHeight: "22px" }],
+        xl:   ["17px", { lineHeight: "24px" }],
+        "2xl": ["20px", { lineHeight: "28px" }],
+        "3xl": ["24px", { lineHeight: "32px" }],
+      },
+      spacing: {
+        "topbar": "48px",
+        "sidebar": "240px",
       },
       keyframes: {
         "accordion-down": {
@@ -83,10 +113,20 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "slide-up": {
+          from: { transform: "translateY(100%)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(4px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "slide-up": "slide-up 200ms ease forwards",
+        "fade-in": "fade-in 160ms ease forwards",
       },
     },
   },

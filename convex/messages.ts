@@ -1,59 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { requireAuth, requireChannelMember } from "./auth";
-import { internal } from "./_generated/api";
-
-export const send = mutation({
-  args: {
-    channelId: v.id("channels"),
-    body: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
-    const channel = await ctx.db.get(args.channelId);
-    if (!channel) throw new Error("Channel not found");
-    if (channel.isArchived) throw new Error("Channel is archived");
-
-    const membership = await ctx.db
-      .query("channelMembers")
-      .withIndex("by_channel_user", (q) =>
-        q.eq("channelId", args.channelId).eq("userId", user._id),
-      )
-      .unique();
-    if (!membership) throw new Error("Not a member of this channel");
-
-    const body = args.body.trim();
-    if (!body) throw new Error("Message body cannot be empty");
-
-    const mentionMatches = body.match(/@(\w+)/g);
-    const mentions = mentionMatches?.map((m) => m.slice(1));
-
-    const messageId = await ctx.db.insert("messages", {
-      channelId: args.channelId,
-      authorId: user._id,
-      body,
-      type: "user",
-      mentions: mentions && mentions.length > 0 ? mentions : undefined,
-      isEdited: false,
-    });
-
-    if (mentions?.includes("knowledgebot")) {
-      await ctx.scheduler.runAfter(0, internal.bot.respond, {
-        channelId: args.channelId,
-        query: body,
-        triggerMessageId: messageId,
-      });
-    }
-
-    await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
-      messageId,
-    });
-
-    return messageId;
-  },
-});
+import { requireAuth } from "./auth";
 
 export const list = query({
   args: {
@@ -61,8 +9,7 @@ export const list = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-    await requireChannelMember(ctx, args.channelId, user._id);
+    await requireAuth(ctx);
 
     const results = await ctx.db
       .query("messages")
@@ -70,97 +17,8 @@ export const list = query({
       .order("desc")
       .paginate(args.paginationOpts);
 
-    const enrichedPage = await Promise.all(
+    const messagesWithAuthors = await Promise.all(
       results.page.map(async (message) => {
-        const [author, integrationObject] = await Promise.all([
-          ctx.db.get(message.authorId),
-          message.integrationObjectId
-            ? ctx.db.get(message.integrationObjectId)
-            : null,
-        ]);
-
-        return {
-          ...message,
-          author: author
-            ? { name: author.name, avatarUrl: author.avatarUrl }
-            : null,
-          integrationObject,
-        };
-      }),
-    );
-
-    return { ...results, page: enrichedPage };
-  },
-});
-
-export const getById = query({
-  args: {
-    messageId: v.id("messages"),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
-    const message = await ctx.db.get(args.messageId);
-    if (!message) return null;
-    await requireChannelMember(ctx, message.channelId, user._id);
-
-    const [author, integrationObject] = await Promise.all([
-      ctx.db.get(message.authorId),
-      message.integrationObjectId
-        ? ctx.db.get(message.integrationObjectId)
-        : null,
-    ]);
-
-    return {
-      ...message,
-      author: author
-        ? { name: author.name, avatarUrl: author.avatarUrl }
-        : null,
-      integrationObject,
-    };
-  },
-});
-
-export const search = query({
-  args: {
-    query: v.string(),
-    channelId: v.optional(v.id("channels")),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
-    if (args.channelId) {
-      await requireChannelMember(ctx, args.channelId, user._id);
-    }
-
-    const searchTerm = args.query.trim();
-    if (!searchTerm) return [];
-
-    const messages = await ctx.db
-      .query("messages")
-      .withSearchIndex("search_body", (q) => {
-        const sq = q.search("body", searchTerm);
-        return args.channelId ? sq.eq("channelId", args.channelId) : sq;
-      })
-      .take(20);
-
-    // For global search, filter to only channels the user is a member of
-    let accessibleMessages = messages;
-    if (!args.channelId) {
-      const userMemberships = await ctx.db
-        .query("channelMembers")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .collect();
-      const memberChannelIds = new Set(
-        userMemberships.map((m) => m.channelId),
-      );
-      accessibleMessages = messages.filter((m) =>
-        memberChannelIds.has(m.channelId),
-      );
-    }
-
-    const enrichedMessages = await Promise.all(
-      accessibleMessages.map(async (message) => {
         const author = await ctx.db.get(message.authorId);
         return {
           ...message,
@@ -171,71 +29,74 @@ export const search = query({
       }),
     );
 
-    return enrichedMessages;
+    return {
+      ...results,
+      page: messagesWithAuthors,
+    };
   },
 });
 
-export const edit = mutation({
+export const send = mutation({
   args: {
-    messageId: v.id("messages"),
+    channelId: v.id("channels"),
     body: v.string(),
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
 
-    const message = await ctx.db.get(args.messageId);
-    if (!message) throw new Error("Message not found");
-    if (message.authorId !== user._id) throw new Error("Can only edit your own messages");
-    if (message.type !== "user") throw new Error("Can only edit user messages");
-
-    const body = args.body.trim();
-    if (!body) throw new Error("Message body cannot be empty");
-
-    const mentionMatches = body.match(/@(\w+)/g);
-    const mentions = mentionMatches?.map((m) => m.slice(1));
-
-    await ctx.db.patch(args.messageId, {
-      body,
-      mentions: mentions && mentions.length > 0 ? mentions : undefined,
-      isEdited: true,
+    const messageId = await ctx.db.insert("messages", {
+      channelId: args.channelId,
+      authorId: user._id,
+      body: args.body,
+      type: "user",
+      isEdited: false,
     });
-  },
-});
 
-export const remove = mutation({
-  args: {
-    messageId: v.id("messages"),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
-    const message = await ctx.db.get(args.messageId);
-    if (!message) throw new Error("Message not found");
-
-    const isAuthor = message.authorId === user._id;
-    const isAdmin = user.role === "admin";
-    if (!isAuthor && !isAdmin) throw new Error("Can only delete your own messages");
-    if (message.type !== "user") throw new Error("Can only delete user messages");
-
-    await ctx.db.delete(args.messageId);
-  },
-});
-
-export const updateLastRead = mutation({
-  args: {
-    channelId: v.id("channels"),
-  },
-  handler: async (ctx, args) => {
-    const user = await requireAuth(ctx);
-
+    // Update sender's lastReadAt so their own message doesn't count as unread
     const membership = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel_user", (q) =>
         q.eq("channelId", args.channelId).eq("userId", user._id),
       )
       .unique();
-    if (!membership) throw new Error("Not a member of this channel");
 
-    await ctx.db.patch(membership._id, { lastReadAt: Date.now() });
+    if (membership) {
+      await ctx.db.patch(membership._id, { lastReadAt: Date.now() });
+    }
+
+    return messageId;
+  },
+});
+
+export const search = query({
+  args: {
+    query: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireAuth(ctx);
+
+    if (!args.query.trim()) return [];
+
+    const results = await ctx.db
+      .query("messages")
+      .withSearchIndex("search_body", (q) => q.search("body", args.query))
+      .take(10);
+
+    const enriched = await Promise.all(
+      results.map(async (msg) => {
+        const author = await ctx.db.get(msg.authorId);
+        const channel = await ctx.db.get(msg.channelId);
+        return {
+          _id: msg._id,
+          body: msg.body,
+          channelId: msg.channelId,
+          channelName: channel?.name ?? "unknown",
+          authorName: author?.name ?? "Unknown",
+          timestamp: msg._creationTime,
+        };
+      }),
+    );
+
+    return enriched;
   },
 });

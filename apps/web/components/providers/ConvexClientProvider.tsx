@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useCallback, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -9,8 +9,24 @@ function useConvexAuth() {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      try {
+        const res = await fetch("/api/auth/token");
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setToken(data.token);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    init();
+    return () => { cancelled = true; };
+  }, []);
+
   const fetchAccessToken = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
       if (!forceRefreshToken && token) {
         return token;
@@ -18,14 +34,16 @@ function useConvexAuth() {
 
       try {
         const res = await fetch("/api/auth/token");
-        if (!res.ok) return null;
+        if (!res.ok) {
+          setToken(null);
+          return null;
+        }
         const data = await res.json();
         setToken(data.token);
         return data.token;
       } catch {
+        setToken(null);
         return null;
-      } finally {
-        setIsLoading(false);
       }
     },
     [token],

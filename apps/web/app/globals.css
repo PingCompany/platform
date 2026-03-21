@@ -3,27 +3,36 @@
 
 @layer base {
   :root {
-    --background: 240 7% 4%;
-    --foreground: 240 5% 93%;
-    --card: 240 5% 7%;
-    --card-foreground: 240 5% 93%;
-    --popover: 240 3% 14%;
-    --popover-foreground: 240 5% 93%;
-    --primary: 239 84% 67%;
+    /* Surface scale */
+    --surface-0: 240 7% 6%;
+    --surface-1: 240 6% 9%;
+    --surface-2: 240 5% 11%;
+    --surface-3: 240 4% 15%;
+
+    /* shadcn token mapping */
+    --background: 240 7% 6%;
+    --foreground: 240 6% 96%;
+    --card: 240 6% 9%;
+    --card-foreground: 240 6% 96%;
+    --popover: 240 5% 11%;
+    --popover-foreground: 240 6% 96%;
+    --primary: 237 56% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 11%;
-    --secondary-foreground: 240 5% 93%;
-    --muted: 240 4% 11%;
-    --muted-foreground: 240 1% 55%;
-    --accent: 240 4% 11%;
-    --accent-foreground: 240 5% 93%;
-    --destructive: 0 84% 60%;
+    --secondary: 240 5% 13%;
+    --secondary-foreground: 240 4% 75%;
+    --muted: 240 5% 13%;
+    --muted-foreground: 240 3% 52%;
+    --accent: 240 5% 13%;
+    --accent-foreground: 240 6% 96%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 3% 16%;
-    --input: 240 3% 16%;
-    --ring: 239 84% 67%;
-    --radius: 0.375rem;
-    --chart-1: 239 84% 67%;
+    --border: 240 4% 14%;
+    --input: 240 4% 14%;
+    --ring: 237 56% 60%;
+    --radius: 0.25rem;
+
+    /* chart */
+    --chart-1: 237 56% 60%;
     --chart-2: 142 71% 45%;
     --chart-3: 47 96% 53%;
     --chart-4: 217 91% 60%;
@@ -31,26 +40,32 @@
   }
 
   .dark {
-    --background: 240 7% 4%;
-    --foreground: 240 5% 93%;
-    --card: 240 5% 7%;
-    --card-foreground: 240 5% 93%;
-    --popover: 240 3% 14%;
-    --popover-foreground: 240 5% 93%;
-    --primary: 239 84% 67%;
+    --surface-0: 240 7% 6%;
+    --surface-1: 240 6% 9%;
+    --surface-2: 240 5% 11%;
+    --surface-3: 240 4% 15%;
+
+    --background: 240 7% 6%;
+    --foreground: 240 6% 96%;
+    --card: 240 6% 9%;
+    --card-foreground: 240 6% 96%;
+    --popover: 240 5% 11%;
+    --popover-foreground: 240 6% 96%;
+    --primary: 237 56% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 11%;
-    --secondary-foreground: 240 5% 93%;
-    --muted: 240 4% 11%;
-    --muted-foreground: 240 1% 55%;
-    --accent: 240 4% 11%;
-    --accent-foreground: 240 5% 93%;
-    --destructive: 0 84% 60%;
+    --secondary: 240 5% 13%;
+    --secondary-foreground: 240 4% 75%;
+    --muted: 240 5% 13%;
+    --muted-foreground: 240 3% 52%;
+    --accent: 240 5% 13%;
+    --accent-foreground: 240 6% 96%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 3% 16%;
-    --input: 240 3% 16%;
-    --ring: 239 84% 67%;
-    --chart-1: 239 84% 67%;
+    --border: 240 4% 14%;
+    --input: 240 4% 14%;
+    --ring: 237 56% 60%;
+
+    --chart-1: 237 56% 60%;
     --chart-2: 142 71% 45%;
     --chart-3: 47 96% 53%;
     --chart-4: 217 91% 60%;
@@ -65,7 +80,71 @@
 
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-    font-size: 14px;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Smooth micro-interactions */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, opacity, box-shadow;
+    transition-duration: 100ms;
+    transition-timing-function: ease;
+  }
+
+  /* Remove transition from layout-affecting properties */
+  .no-transition {
+    transition: none !important;
   }
 }
+
+@layer utilities {
+  /* Surface helpers */
+  .bg-surface-0 { background-color: hsl(var(--surface-0)); }
+  .bg-surface-1 { background-color: hsl(var(--surface-1)); }
+  .bg-surface-2 { background-color: hsl(var(--surface-2)); }
+  .bg-surface-3 { background-color: hsl(var(--surface-3)); }
+
+  /* Ultra-subtle borders (Linear style) */
+  .border-subtle { border-color: rgba(255, 255, 255, 0.06); }
+  .border-subtle-md { border-color: rgba(255, 255, 255, 0.10); }
+
+  /* Text scale */
+  .text-primary-fg { color: hsl(240 6% 96%); }
+  .text-secondary-fg { color: hsl(240 4% 64%); }
+  .text-tertiary-fg { color: hsl(240 3% 42%); }
+
+  /* Scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(255,255,255,0.08);
+    border-radius: 2px;
+  }
+}
+
+/* Alert banner slide-in */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up { animation: slide-up 200ms ease forwards; }
+.animate-slide-in-right { animation: slide-in-right 200ms ease forwards; }
+.animate-fade-in { animation: fade-in 160ms ease forwards; }

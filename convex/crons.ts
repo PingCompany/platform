@@ -4,45 +4,21 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 crons.interval(
-  "generate-inbox-summaries",
+  "generate-channel-summaries",
   { minutes: 15 },
   internal.summaries.generateChannelSummaries,
 );
 
 crons.interval(
-  "scan-unanswered-questions",
+  "scan-fact-checks",
   { minutes: 10 },
-  internal.proactive.scanUnansweredQuestions,
+  internal.proactiveAlerts.scanForFactChecks,
 );
 
 crons.interval(
-  "scan-pr-review-nudges",
+  "scan-cross-team-sync",
   { minutes: 15 },
-  internal.proactive.scanPRReviewNudges,
-);
-
-crons.interval(
-  "scan-blocked-tasks",
-  { minutes: 30 },
-  internal.proactive.scanBlockedTasks,
-);
-
-crons.interval(
-  "expire-stale-alerts",
-  { minutes: 60 },
-  internal.proactive.expireStaleAlerts,
-);
-
-crons.interval(
-  "cleanup-expired-typing",
-  { minutes: 1 },
-  internal.typing.cleanupExpired,
-);
-
-crons.interval(
-  "decay-presence",
-  { minutes: 2 },
-  internal.presence.decayPresence,
+  internal.proactiveAlerts.scanCrossTeamSync,
 );
 
 export default crons;
