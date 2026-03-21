@@ -301,4 +301,45 @@ export default defineSchema({
   })
     .index("by_message", ["messageId"])
     .index("by_message_user", ["messageId", "userId"]),
+
+  decisions: defineTable({
+    userId: v.id("users"),
+    workspaceId: v.id("workspaces"),
+    alertId: v.optional(v.id("proactiveAlerts")),
+    type: v.union(
+      v.literal("pr_review"),
+      v.literal("ticket_triage"),
+      v.literal("blocked_unblock"),
+      v.literal("question_answer"),
+    ),
+    title: v.string(),
+    body: v.string(),
+    sourceChannelId: v.optional(v.id("channels")),
+    sourceMessageId: v.optional(v.id("messages")),
+    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
+    outcome: v.object({
+      action: v.string(),
+      comment: v.optional(v.string()),
+      delegateTo: v.optional(v.id("users")),
+      metadata: v.optional(v.any()),
+    }),
+    agentExecutionStatus: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+    ),
+    agentExecutionResult: v.optional(
+      v.object({
+        message: v.string(),
+        error: v.optional(v.string()),
+        completedAt: v.optional(v.number()),
+      }),
+    ),
+    decidedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "agentExecutionStatus"])
+    .index("by_workspace", ["workspaceId"])
+    .index("by_alert", ["alertId"]),
 });
