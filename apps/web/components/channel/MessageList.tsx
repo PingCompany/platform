@@ -107,6 +107,34 @@ function MessageSkeleton() {
   );
 }
 
+export interface TypingUser {
+  _id: string;
+  name: string;
+  avatarUrl?: string | null;
+}
+
+function TypingIndicator({ users }: { users: TypingUser[] }) {
+  if (users.length === 0) return null;
+
+  const label =
+    users.length === 1
+      ? `${users[0].name} is typing`
+      : users.length === 2
+        ? `${users[0].name} and ${users[1].name} are typing`
+        : `${users[0].name} and ${users.length - 1} others are typing`;
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-1 text-2xs text-muted-foreground">
+      <span className="inline-flex gap-0.5">
+        <span className="animate-bounce [animation-delay:0ms]">·</span>
+        <span className="animate-bounce [animation-delay:150ms]">·</span>
+        <span className="animate-bounce [animation-delay:300ms]">·</span>
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
 interface MessageListProps {
   channelName: string;
   messages: Message[];
@@ -118,6 +146,10 @@ interface MessageListProps {
   onLoadMore?: () => void;
   /** When true, renders a DM-style header (no # prefix, avatar shown) */
   isDM?: boolean;
+  /** Users currently typing */
+  typingUsers?: TypingUser[];
+  /** Called on input keystrokes for typing indicator */
+  onTyping?: () => void;
 }
 
 export function MessageList({
@@ -130,6 +162,8 @@ export function MessageList({
   hasMore,
   onLoadMore,
   isDM = false,
+  typingUsers = [],
+  onTyping,
 }: MessageListProps) {
   const [input, setInput] = useState("");
   const [showNewMessages, setShowNewMessages] = useState(false);
@@ -262,13 +296,19 @@ export function MessageList({
         </div>
       )}
 
+      {/* Typing indicator */}
+      <TypingIndicator users={typingUsers} />
+
       {/* Composer */}
       <div className="border-t border-subtle p-3">
         <div className="flex items-end gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 focus-within:border-white/15">
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              onTyping?.();
+            }}
             onKeyDown={handleKeyDown}
             placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
             rows={1}
