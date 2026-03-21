@@ -91,7 +91,7 @@ export function DecisionActions({ type, onAction }: DecisionActionsProps) {
             className={cn(
               "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
               action.primary
-                ? "bg-[#5E6AD2] text-white hover:bg-[#6E7AE2]"
+                ? "bg-ping-purple text-white hover:bg-ping-purple/90"
                 : "bg-white/5 text-foreground hover:bg-white/10"
             )}
           >
@@ -106,12 +106,12 @@ export function DecisionActions({ type, onAction }: DecisionActionsProps) {
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder={`Add reasoning for "${pendingAction}"...`}
-            className="min-h-[60px] w-full resize-none rounded border border-subtle bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#5E6AD2]"
+            className="min-h-[60px] w-full resize-none rounded border border-subtle bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ping-purple"
           />
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleSubmitComment}
-              className="rounded bg-[#5E6AD2] px-2 py-1 text-xs font-medium text-white hover:bg-[#6E7AE2]"
+              className="rounded bg-ping-purple px-2 py-1 text-xs font-medium text-white hover:bg-ping-purple/90"
             >
               Submit
             </button>

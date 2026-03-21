@@ -144,6 +144,8 @@ export function DecisionCard({ item, onAction, children }: DecisionCardProps) {
         {/* Expand toggle + type icon */}
         <button
           onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          aria-label={expanded ? "Collapse decision details" : "Expand decision details"}
           className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
         >
           {expanded ? (
