@@ -305,41 +305,57 @@ export default defineSchema({
   decisions: defineTable({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
-    alertId: v.optional(v.id("proactiveAlerts")),
     type: v.union(
       v.literal("pr_review"),
       v.literal("ticket_triage"),
-      v.literal("blocked_unblock"),
       v.literal("question_answer"),
+      v.literal("blocked_unblock"),
+      v.literal("fact_verify"),
+      v.literal("cross_team_ack"),
+      v.literal("channel_summary"),
     ),
     title: v.string(),
-    body: v.string(),
-    sourceChannelId: v.optional(v.id("channels")),
-    sourceMessageId: v.optional(v.id("messages")),
-    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
-    outcome: v.object({
-      action: v.string(),
-      comment: v.optional(v.string()),
-      delegateTo: v.optional(v.id("users")),
-      metadata: v.optional(v.any()),
-    }),
-    agentExecutionStatus: v.union(
-      v.literal("pending"),
-      v.literal("running"),
-      v.literal("completed"),
-      v.literal("failed"),
+    summary: v.string(),
+    eisenhowerQuadrant: v.union(
+      v.literal("urgent-important"),
+      v.literal("important"),
+      v.literal("urgent"),
+      v.literal("fyi"),
     ),
-    agentExecutionResult: v.optional(
+    status: v.union(
+      v.literal("pending"),
+      v.literal("decided"),
+      v.literal("delegated"),
+      v.literal("snoozed"),
+      v.literal("expired"),
+    ),
+    sourceAlertId: v.optional(v.id("proactiveAlerts")),
+    sourceSummaryId: v.optional(v.id("inboxSummaries")),
+    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
+    sourceMessageId: v.optional(v.id("messages")),
+    channelId: v.optional(v.id("channels")),
+    outcome: v.optional(
       v.object({
-        message: v.string(),
-        error: v.optional(v.string()),
-        completedAt: v.optional(v.number()),
+        action: v.string(),
+        comment: v.optional(v.string()),
+        delegatedTo: v.optional(v.id("users")),
+        decidedAt: v.number(),
       }),
     ),
-    decidedAt: v.number(),
+    agentExecutionStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
+    agentExecutionResult: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
   })
-    .index("by_user", ["userId"])
-    .index("by_user_status", ["userId", "agentExecutionStatus"])
-    .index("by_workspace", ["workspaceId"])
-    .index("by_alert", ["alertId"]),
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
+    .index("by_source_alert", ["sourceAlertId"])
+    .index("by_source_summary", ["sourceSummaryId"]),
 });

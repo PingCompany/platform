@@ -1,61 +1,32 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "@convex/_generated/api";
-import type { Id } from "@convex/_generated/dataModel";
-import { Activity, Clock, AlertCircle } from "lucide-react";
-
 interface InboxStatsProps {
-  workspaceId: Id<"workspaces">;
+  stats?: {
+    todayCount: number;
+    avgResponseMinutes: number;
+    pendingCount: number;
+    delegationRate: number;
+  };
 }
 
-export function InboxStats({ workspaceId }: InboxStatsProps) {
-  const stats = useQuery(api.decisions.getStats, { workspaceId });
+export function InboxStats({ stats }: InboxStatsProps) {
+  if (!stats) return null;
 
-  if (!stats) {
-    return null;
-  }
-
-  const avgMinutes =
-    stats.avgDecisionTimeMs > 0
-      ? Math.round(stats.avgDecisionTimeMs / 60000)
-      : 0;
+  const items = [
+    `${stats.todayCount} decisions today`,
+    `Avg response: ${stats.avgResponseMinutes}m`,
+    `${stats.pendingCount} pending`,
+    `${stats.delegationRate}% delegated`,
+  ];
 
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-border bg-card/50 px-4 py-2 text-xs text-muted-foreground">
-      <div className="flex items-center gap-1.5">
-        <Activity className="h-3.5 w-3.5 text-white/40" />
-        <span>
-          <span className="font-medium text-foreground">
-            {stats.totalToday}
-          </span>{" "}
-          decisions today
+    <div className="flex items-center gap-4 px-4 py-1.5 border-b border-subtle">
+      {items.map((label, i) => (
+        <span key={label} className="flex items-center gap-4">
+          {i > 0 && <span className="text-2xs text-white/20">&middot;</span>}
+          <span className="text-2xs text-muted-foreground">{label}</span>
         </span>
-      </div>
-
-      <div className="h-3 w-px bg-border" />
-
-      <div className="flex items-center gap-1.5">
-        <Clock className="h-3.5 w-3.5 text-white/40" />
-        <span>
-          Avg response:{" "}
-          <span className="font-medium text-foreground">
-            {avgMinutes > 0 ? `${avgMinutes}m` : "--"}
-          </span>
-        </span>
-      </div>
-
-      <div className="h-3 w-px bg-border" />
-
-      <div className="flex items-center gap-1.5">
-        <AlertCircle className="h-3.5 w-3.5 text-white/40" />
-        <span>
-          <span className="font-medium text-foreground">
-            {stats.pendingCount}
-          </span>{" "}
-          pending
-        </span>
-      </div>
+      ))}
     </div>
   );
 }
