@@ -352,10 +352,14 @@ export default defineSchema({
       ),
     ),
     agentExecutionResult: v.optional(v.string()),
+    delegatedTo: v.optional(v.id("users")),
+    snoozedUntil: v.optional(v.number()),
+    sourceChannelId: v.optional(v.id("channels")),
     expiresAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_user_status", ["userId", "status"])
+    .index("by_user_workspace", ["userId", "workspaceId"])
     .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
     .index("by_source_alert", ["sourceAlertId"])
     .index("by_source_summary", ["sourceSummaryId"]),
