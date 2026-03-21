@@ -21,4 +21,16 @@ crons.interval(
   internal.proactiveAlerts.scanCrossTeamSync,
 );
 
+crons.interval(
+  "generate-decisions-from-alerts",
+  { minutes: 5 },
+  internal.decisionGenerator.generateFromAlerts,
+);
+
+crons.interval(
+  "generate-decisions-from-summaries",
+  { minutes: 5 },
+  internal.decisionGenerator.generateFromSummaries,
+);
+
 export default crons;

@@ -301,4 +301,59 @@ export default defineSchema({
   })
     .index("by_message", ["messageId"])
     .index("by_message_user", ["messageId", "userId"]),
+
+  decisions: defineTable({
+    userId: v.id("users"),
+    workspaceId: v.id("workspaces"),
+    type: v.union(
+      v.literal("pr_review"),
+      v.literal("ticket_triage"),
+      v.literal("question_answer"),
+      v.literal("blocked_unblock"),
+      v.literal("fact_verify"),
+      v.literal("cross_team_ack"),
+      v.literal("channel_summary"),
+    ),
+    title: v.string(),
+    summary: v.string(),
+    eisenhowerQuadrant: v.union(
+      v.literal("urgent-important"),
+      v.literal("important"),
+      v.literal("urgent"),
+      v.literal("fyi"),
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("decided"),
+      v.literal("delegated"),
+      v.literal("snoozed"),
+      v.literal("expired"),
+    ),
+    sourceAlertId: v.optional(v.id("proactiveAlerts")),
+    sourceSummaryId: v.optional(v.id("inboxSummaries")),
+    sourceChannelId: v.optional(v.id("channels")),
+    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
+    outcome: v.optional(
+      v.object({
+        action: v.string(),
+        decidedAt: v.number(),
+        comment: v.optional(v.string()),
+      }),
+    ),
+    delegatedTo: v.optional(v.id("users")),
+    snoozedUntil: v.optional(v.number()),
+    agentExecutionStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
+    agentExecutionResult: v.optional(v.string()),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_workspace", ["userId", "workspaceId"])
+    .index("by_source_alert", ["sourceAlertId"])
+    .index("by_source_summary", ["sourceSummaryId"]),
 });
