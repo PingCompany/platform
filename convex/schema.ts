@@ -59,6 +59,24 @@ export default defineSchema({
     workosOrgId: v.optional(v.string()),
     createdBy: v.optional(v.id("users")),
     integrations: v.optional(v.any()),
+    integrationConfig: v.optional(
+      v.object({
+        github: v.optional(
+          v.object({
+            connected: v.boolean(),
+            accountName: v.optional(v.string()),
+            connectedAt: v.optional(v.number()),
+          }),
+        ),
+        linear: v.optional(
+          v.object({
+            connected: v.boolean(),
+            orgName: v.optional(v.string()),
+            connectedAt: v.optional(v.number()),
+          }),
+        ),
+      }),
+    ),
     industry: v.optional(v.string()),
     companySize: v.optional(v.string()),
     companyDescription: v.optional(v.string()),
@@ -302,49 +320,18 @@ export default defineSchema({
     .index("by_message", ["messageId"])
     .index("by_message_user", ["messageId", "userId"]),
 
-  agents: defineTable({
+  integrationRouting: defineTable({
+    channelId: v.id("channels"),
     workspaceId: v.id("workspaces"),
-    name: v.string(),
-    description: v.optional(v.string()),
-    status: v.union(v.literal("active"), v.literal("inactive"), v.literal("revoked")),
+    integrationType: v.union(v.literal("github"), v.literal("linear")),
+    /** For GitHub: "owner/repo"; for Linear: project ID or slug */
+    externalTarget: v.string(),
+    /** Human-readable label shown in the UI */
+    externalTargetLabel: v.optional(v.string()),
     createdBy: v.id("users"),
-    color: v.optional(v.string()),
-    systemPrompt: v.optional(v.string()),
-    userId: v.id("users"),
-    lastActiveAt: v.optional(v.number()),
   })
+    .index("by_channel", ["channelId"])
     .index("by_workspace", ["workspaceId"])
-    .index("by_workspace_status", ["workspaceId", "status"])
-    .index("by_user", ["userId"]),
-
-  agentApiTokens: defineTable({
-    agentId: v.id("agents"),
-    workspaceId: v.id("workspaces"),
-    tokenHash: v.string(),
-    tokenPrefix: v.string(),
-    label: v.string(),
-    status: v.union(v.literal("active"), v.literal("revoked")),
-    createdBy: v.id("users"),
-    lastUsedAt: v.optional(v.number()),
-    expiresAt: v.optional(v.number()),
-  })
-    .index("by_agent", ["agentId"])
-    .index("by_token_hash", ["tokenHash"])
-    .index("by_workspace", ["workspaceId"]),
-
-  agentAuditLogs: defineTable({
-    agentId: v.id("agents"),
-    workspaceId: v.id("workspaces"),
-    action: v.string(),
-    resourceType: v.optional(v.string()),
-    resourceId: v.optional(v.string()),
-    metadata: v.optional(v.any()),
-    tokenPrefix: v.string(),
-    timestamp: v.number(),
-    durationMs: v.optional(v.number()),
-  })
-    .index("by_agent", ["agentId"])
-    .index("by_workspace", ["workspaceId"])
-    .index("by_workspace_timestamp", ["workspaceId", "timestamp"])
-    .index("by_agent_action", ["agentId", "action"]),
+    .index("by_workspace_type", ["workspaceId", "integrationType"])
+    .index("by_channel_type_target", ["channelId", "integrationType", "externalTarget"]),
 });
