@@ -91,7 +91,7 @@ export const list = query({
     const channels = await ctx.db
       .query("channels")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
+      .take(500);
 
     // Get unread counts for each channel
     const channelsWithUnread = await Promise.all(
@@ -115,7 +115,7 @@ export const list = query({
                   .eq("channelId", channel._id)
                   .gt("_creationTime", lastReadAt),
               )
-              .collect();
+              .take(100);
             unreadCount = unreadMessages.length;
           }
 
@@ -169,7 +169,7 @@ export const memberCount = query({
     const members = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .collect();
+      .take(1000);
     return members.length;
   },
 });
@@ -314,7 +314,7 @@ export const listMembers = query({
     const memberships = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .collect();
+      .take(1000);
 
     const members = await Promise.all(
       memberships.map(async (membership) => {

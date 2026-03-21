@@ -55,7 +55,7 @@ export const getTypingUsers = query({
     const indicators = await ctx.db
       .query("typingIndicators")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
-      .collect();
+      .take(50);
 
     const now = Date.now();
     const activeIndicators = indicators.filter(
@@ -75,7 +75,7 @@ export const getTypingUsers = query({
 export const cleanupExpired = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const indicators = await ctx.db.query("typingIndicators").collect();
+    const indicators = await ctx.db.query("typingIndicators").take(1000);
     const now = Date.now();
 
     for (const ind of indicators) {

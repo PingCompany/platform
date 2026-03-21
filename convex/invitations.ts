@@ -17,7 +17,7 @@ export const send = mutation({
     const existingUsers = await ctx.db
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
-      .collect();
+      .take(10);
     const existingMember = await Promise.all(
       existingUsers.map(async (u) => {
         if (u.status === "deactivated") return null;
@@ -37,7 +37,7 @@ export const send = mutation({
     const existingInvitations = await ctx.db
       .query("invitations")
       .withIndex("by_email", (q) => q.eq("email", args.email))
-      .collect();
+      .take(100);
     const duplicateInvitation = existingInvitations.find(
       (inv) => inv.workspaceId === args.workspaceId && inv.status === "pending",
     );
@@ -72,7 +72,7 @@ export const list = query({
     const invitations = await ctx.db
       .query("invitations")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
-      .collect();
+      .take(500);
 
     return invitations.filter((inv) => inv.status === "pending");
   },
@@ -84,7 +84,7 @@ export const findPendingByEmail = internalQuery({
     const invitations = await ctx.db
       .query("invitations")
       .withIndex("by_email", (q) => q.eq("email", args.email))
-      .collect();
+      .take(100);
 
     const now = Date.now();
     return invitations.find(

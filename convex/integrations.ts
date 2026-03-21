@@ -55,7 +55,7 @@ export const listOpenPRs = internalQuery({
       .withIndex("by_workspace_type", (q) =>
         q.eq("workspaceId", args.workspaceId).eq("type", "github_pr"),
       )
-      .collect();
+      .take(500);
 
     return prs.filter((pr) => pr.status === "open" || pr.status === "draft");
   },
@@ -71,7 +71,7 @@ export const listInProgressTickets = internalQuery({
       .withIndex("by_workspace_type", (q) =>
         q.eq("workspaceId", args.workspaceId).eq("type", "linear_ticket"),
       )
-      .collect();
+      .take(500);
 
     return tickets.filter((t) => t.status === "In Progress");
   },
@@ -107,7 +107,7 @@ export const listByWorkspace = query({
         .withIndex("by_workspace_type", (q) =>
           q.eq("workspaceId", args.workspaceId).eq("type", args.type!),
         )
-        .collect();
+        .take(500);
     }
 
     return await ctx.db
@@ -115,6 +115,6 @@ export const listByWorkspace = query({
       .withIndex("by_workspace", (q) =>
         q.eq("workspaceId", args.workspaceId),
       )
-      .collect();
+      .take(500);
   },
 });

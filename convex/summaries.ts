@@ -118,7 +118,7 @@ export const getActiveChannels = internalQuery({
         const memberRows = await ctx.db
           .query("channelMembers")
           .withIndex("by_channel", (q) => q.eq("channelId", channel._id))
-          .collect();
+          .take(1000);
 
         const members = (
           await Promise.all(memberRows.map((m) => ctx.db.get(m.userId)))
