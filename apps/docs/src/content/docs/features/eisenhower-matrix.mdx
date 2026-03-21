@@ -1,6 +1,61 @@
 ---
 title: Eisenhower Matrix
-description: Organize tasks by urgency and importance using the Eisenhower Matrix.
+description: How PING uses the Eisenhower Matrix to classify and prioritize your messages automatically.
+sidebar:
+  order: 2
 ---
 
-Content coming soon.
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+The **Eisenhower Matrix** is a time-management framework that categorizes tasks along two axes: urgency and importance. PING applies this framework to every conversation in your workspace, so you always know where to focus your attention.
+
+## The four quadrants
+
+PING maps every inbox summary to one of four quadrants, each with a distinct color so you can scan your inbox at a glance:
+
+<CardGrid>
+  <Card title="Do -- Urgent + Important">
+    **Color: Red (#EF4444)**
+
+    These items need your immediate attention. Examples include production incidents, blocked PRs that you own, and direct questions from leadership. Handle these first.
+  </Card>
+  <Card title="Schedule -- Important">
+    **Color: Amber (#F59E0B)**
+
+    Important but not time-sensitive. Architecture discussions, planning threads, and code review requests that are not blocking anyone fall here. Schedule time to address these.
+  </Card>
+  <Card title="Delegate -- Urgent">
+    **Color: Blue (#3B82F6)**
+
+    Time-sensitive but not necessarily requiring your personal attention. Meeting scheduling, routine approvals, and questions that a teammate could answer. Consider delegating these.
+  </Card>
+  <Card title="Eliminate -- Neither">
+    **Color: Purple (#5E6AD2)**
+
+    Informational messages that do not require action. General announcements, social chatter, and FYI threads. Read these when you have downtime, or archive them.
+  </Card>
+</CardGrid>
+
+## How AI classifies messages
+
+The classification engine considers multiple signals when assigning a quadrant to each conversation:
+
+- **Urgency signals** -- Direct mentions of your name, keywords like "ASAP" or "blocking", deadlines within 24 hours, incident-related terminology, and messages from conversations with historically fast response expectations.
+- **Importance signals** -- Your role relative to the topic (are you the code owner?), the seniority of the person asking, alignment with your current sprint work, and references to integration objects you are assigned to (such as PRs or tickets).
+- **Historical patterns** -- How you have triaged similar conversations in the past. If you always act on messages from the `#infrastructure` channel immediately, the AI will learn to classify those as more urgent.
+
+<Aside type="tip">
+Each individual bullet within an inbox card also carries its own priority classification. A single conversation might contain one urgent action item and several informational updates. PING surfaces the most critical bullet at the top of each card.
+</Aside>
+
+## User control
+
+AI classification is a starting point, not a final verdict. You retain full control:
+
+- **Override classifications** -- Drag a card to a different quadrant or manually change its priority. This is useful when context the AI cannot see (like a verbal agreement) changes the urgency of a conversation.
+- **Teach preferences** -- Every override trains the model. Over time, PING adapts to your personal definition of "urgent" and "important" based on your correction history.
+- **Channel-level defaults** -- Admins can set a default quadrant for specific channels. For example, mark `#incidents` as always urgent-important so those messages are never deprioritized.
+
+<Aside>
+Under the hood, each inbox summary stores its quadrant as one of four values: `urgent-important`, `important`, `urgent`, or `fyi`. This classification is computed per-user, meaning two people in the same channel may see different priorities based on their roles and history.
+</Aside>

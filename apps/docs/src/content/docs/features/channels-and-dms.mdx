@@ -1,6 +1,74 @@
 ---
-title: Channels & DMs
-description: Real-time messaging through channels and direct messages.
+title: Channels & Direct Messages
+description: Real-time channels, DMs, and group conversations powered by Convex.
+sidebar:
+  order: 3
 ---
 
-Content coming soon.
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+PING provides familiar communication primitives -- channels and direct messages -- enhanced with AI capabilities and real-time sync powered by Convex.
+
+## Channels
+
+Channels are shared conversation spaces within a workspace. They are the primary way teams communicate about topics, projects, and workflows.
+
+### Creating and joining channels
+
+Any workspace member can create a new channel. Each channel has a name, an optional description, and a visibility setting. When a workspace is first created, a default channel (typically `#general`) is created automatically.
+
+Channel types include:
+
+- **Public** -- Visible to all workspace members. Anyone can join and read the full message history.
+- **DM** -- Private channels used for direct messaging (managed through the DM interface).
+- **Group** -- Multi-person private channels for focused collaboration.
+
+### Messaging
+
+Messages in channels support several content types:
+
+- Plain text with standard formatting
+- User mentions via `@username` to notify specific people
+- Integration references linking to GitHub PRs and Linear tickets
+- Bot and system messages for automated updates
+
+<Aside type="tip">
+PING indexes all channel messages for full-text search. You can search across your entire workspace to find past conversations, decisions, and shared links.
+</Aside>
+
+### Channel membership
+
+Users join channels to receive messages and participate in conversations. PING tracks each member's last read timestamp per channel, so unread indicators are always accurate even across multiple devices.
+
+## Direct Messages
+
+Direct messages provide private, real-time conversations outside of channels.
+
+<CardGrid>
+  <Card title="1:1 conversations">
+    Private conversations between two workspace members. Ideal for quick questions, feedback, and personal coordination.
+  </Card>
+  <Card title="Group conversations">
+    Multi-person private threads for focused discussions that do not warrant a full channel. Create a group DM with any combination of workspace members.
+  </Card>
+  <Card title="Agent conversations">
+    DMs with AI agents. PING supports both 1:1 agent chats (for private AI assistance) and agent group chats (where AI participates alongside humans). These use the `agent_1to1` and `agent_group` conversation types.
+  </Card>
+</CardGrid>
+
+## Real-time sync
+
+All messaging in PING is powered by Convex, which provides:
+
+- **Instant delivery** -- Messages appear in real time for all participants without polling or manual refresh.
+- **Typing indicators** -- See when others are composing a message, with automatic expiration so stale indicators never linger.
+- **Reactions** -- React to any message with emoji. Reactions are stored per-message and per-user to prevent duplicates.
+- **Consistent state** -- Read receipts, membership changes, and message edits propagate instantly across all connected clients.
+
+<Aside>
+Every message stores an `isEdited` flag so the UI can indicate when content has been modified after sending. Original message content is preserved in the edit history.
+</Aside>
+
+## Integration messages
+
+Messages can be linked to external integration objects like GitHub pull requests and Linear tickets. When a message references an integration object, PING displays rich previews with the title, status, author, and a direct link to the external tool. This keeps conversations grounded in the actual work being discussed.

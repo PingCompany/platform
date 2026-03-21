@@ -1,6 +1,74 @@
 ---
 title: Knowledge Graph
-description: Contextual knowledge graph for smarter AI assistance.
+description: A temporal knowledge graph that captures your team's evolving context and makes it searchable.
+sidebar:
+  order: 5
 ---
 
-Content coming soon.
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+PING builds a **Temporal Knowledge Graph** from every conversation, decision, and integration event in your workspace. This graph understands not just what your team knows, but how that knowledge evolved over time -- capturing the context that traditional search misses.
+
+## What is a Temporal Knowledge Graph?
+
+Unlike a static wiki or document store, a temporal knowledge graph tracks relationships between entities (people, projects, PRs, tickets, decisions) along with when those relationships were established and how they changed. This means PING can answer questions like:
+
+- "What was the reasoning behind the database migration decision in October?"
+- "Who was responsible for the authentication module before the recent reorg?"
+- "When did we switch from Redis to Memcached, and what prompted the change?"
+
+Each piece of knowledge is linked to its source -- a message, a PR, a ticket -- so answers always include verifiable citations.
+
+## @KnowledgeBot
+
+The primary interface to the knowledge graph is **@KnowledgeBot**, an AI agent you can mention in any channel or DM:
+
+<CardGrid>
+  <Card title="Ask questions">
+    Type `@KnowledgeBot` followed by your question in any conversation. The bot queries the knowledge graph and responds with a concise answer, complete with citation pills linking to the original messages, PRs, and tickets.
+  </Card>
+  <Card title="Contextual answers">
+    KnowledgeBot reads the current conversation thread before answering. If you are discussing a deployment and ask about related infrastructure changes, the bot factors in the ongoing discussion to deliver more relevant results.
+  </Card>
+  <Card title="Threaded follow-ups">
+    Colleagues can reply to KnowledgeBot's response in a thread, asking follow-up questions. The bot maintains context across the thread, enabling natural multi-turn research conversations.
+  </Card>
+</CardGrid>
+
+<Aside type="tip">
+KnowledgeBot works in group chats, not just private DMs. When it answers a question in a shared channel, the entire team benefits from the retrieved context. This encourages open knowledge sharing and reduces repeated questions.
+</Aside>
+
+## Cross-team context syncing
+
+One of the most powerful features of the knowledge graph is automatic cross-team awareness. When two teams are working on related topics in separate channels, PING detects the overlap through shared entities in the graph (common PRs, shared dependencies, related tickets) and can:
+
+- Generate [cross-team sync alerts](/Platform/features/proactive-alerts/) to connect the conversations.
+- Provide KnowledgeBot with context from both teams when answering questions, so neither team operates in a silo.
+
+## Fact-checking
+
+As conversations flow through your workspace, the AI continuously compares claims against the knowledge graph. If someone states something that contradicts a documented decision or a known fact, PING can surface a fact-check alert with the original source.
+
+For example, if an engineer says "We decided to use PostgreSQL for the analytics pipeline" but the knowledge graph records a decision to use ClickHouse, a [fact-check proactive alert](/Platform/features/proactive-alerts/) will flag the discrepancy with a link to the original discussion.
+
+## "Memory Magic" onboarding
+
+When a new team member joins the workspace, the knowledge graph provides instant organizational context through the **Memory Magic** onboarding experience:
+
+- The new user is presented with a curated summary of the most important recent decisions, active projects, and key people.
+- They can ask KnowledgeBot questions about anything in the organization's history, even conversations that happened before they joined.
+- The onboarding flow highlights the channels and topics most relevant to the new user's role.
+
+<Aside>
+Under the hood, PING uses Graphiti for episode tracking. Each message and integration object can store a `graphitiEpisodeId` that links it to a node in the temporal knowledge graph. This connection powers citation lookups and temporal queries.
+</Aside>
+
+## Data sources
+
+The knowledge graph ingests data from multiple sources:
+
+- **Channel messages** -- Every message contributes entities and relationships to the graph.
+- **Direct messages** -- Private conversations are indexed per the user's privacy preferences.
+- **Integration objects** -- GitHub PRs and Linear tickets bring external context into the graph, including status changes, authors, and metadata.
+- **Historical imports** -- When you first connect an integration, PING can backfill historical data to build a richer graph from day one.

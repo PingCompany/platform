@@ -1,6 +1,62 @@
 ---
 title: Copilot Inbox
-description: AI-powered inbox that prioritizes and summarizes your messages.
+description: An AI-powered inbox that ranks and summarizes your messages so you never miss what matters.
+sidebar:
+  order: 1
 ---
 
-Content coming soon.
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+The **Copilot Inbox** replaces the traditional chronological chat feed with an intelligent, prioritized view of everything that needs your attention. Instead of scrolling through hundreds of messages to figure out what matters, PING's AI reads, ranks, and summarizes conversations for you.
+
+## How it works
+
+PING continuously processes messages across all your channels and direct conversations. The AI pipeline works in three stages:
+
+1. **Ingest** -- New messages arrive in channels and DMs you belong to.
+2. **Analyze** -- The AI evaluates each conversation thread for urgency, importance, and relevance to you specifically. It considers factors like whether you were mentioned, whether the topic relates to your active work, and whether action is expected from you.
+3. **Summarize** -- The AI generates a concise card for each conversation that needs attention, complete with bullet-point summaries and extracted action items.
+
+The result is a ranked list of cards in your inbox, ordered by priority using the [Eisenhower Matrix](/Platform/features/eisenhower-matrix/).
+
+## Card anatomy
+
+Each inbox card contains the information you need to decide what to do next without opening the full conversation:
+
+<CardGrid>
+  <Card title="Priority indicator">
+    A color-coded left border instantly communicates urgency. Red for urgent and important, amber for important, blue for urgent, and purple for informational.
+  </Card>
+  <Card title="Summary bullets">
+    AI-generated bullet points that capture the key points of the conversation. Each bullet links back to the original messages for full context.
+  </Card>
+  <Card title="Action items">
+    Extracted tasks assigned to you or your team. Each action item can include an assignee avatar and an optional link to a related integration object such as a GitHub PR or Linear ticket.
+  </Card>
+  <Card title="Source context">
+    The channel name or DM participants, the time period covered, and the number of messages summarized.
+  </Card>
+</CardGrid>
+
+## Actions
+
+From any inbox card, you can take immediate action without navigating away:
+
+- **Mark Read** -- Acknowledge the card and move it out of your active inbox.
+- **Archive** -- Dismiss the card entirely. Useful for conversations you have already handled outside of PING.
+- **Go to Channel** -- Jump directly to the source channel or DM to participate in the conversation.
+- **Complete action items** -- Check off individual action items as you finish them.
+
+<Aside type="tip">
+You can triage your entire inbox in minutes by working through the cards from top to bottom. The AI has already sorted them by priority, so the most critical items are always at the top.
+</Aside>
+
+## The "zero inbox" goal
+
+PING is designed around the principle that your inbox should regularly reach zero. Unlike traditional chat apps where unread counts climb relentlessly, the Copilot Inbox compresses noise into actionable summaries. When you have processed every card, you can be confident that nothing important was missed.
+
+The AI learns from your triage patterns over time. If you consistently archive cards from a particular channel, PING will start ranking those conversations lower. If you always act on cards about deployment incidents, those will surface at the top faster.
+
+<Aside>
+The inbox summary data model tracks read state, archive state, and the time period each summary covers. This means you will never see duplicate summaries for the same conversation window.
+</Aside>

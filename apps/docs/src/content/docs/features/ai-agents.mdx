@@ -1,6 +1,69 @@
 ---
 title: AI Agents
-description: Autonomous AI agents that assist with workspace tasks.
+description: Configurable AI agents that live inside your workspace conversations and automate workflows.
+sidebar:
+  order: 6
 ---
 
-Content coming soon.
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+PING embeds AI agents directly into your workspace conversations. These agents are not isolated chatbots -- they participate alongside human teammates in channels and DMs, providing context, automating workflows, and resolving blockers in real time.
+
+## Built-in agents
+
+<CardGrid>
+  <Card title="Workspace Agent">
+    The proactive assistant that powers the Copilot Inbox, Eisenhower classification, and proactive alerts. It runs in the background, continuously analyzing workspace activity and surfacing what matters. You rarely interact with it directly -- it works for you automatically.
+  </Card>
+  <Card title="Knowledge Agent (@KnowledgeBot)">
+    The conversational interface to the temporal knowledge graph. Mention `@KnowledgeBot` in any channel or DM to query organizational history, get fact-checked answers, and retrieve context from across teams. See the [Knowledge Graph](/Platform/features/knowledge-graph/) page for details.
+  </Card>
+</CardGrid>
+
+## Admin configuration
+
+Workspace admins manage agents through the **Agents** settings panel. Configuration includes:
+
+- **Name and avatar** -- Give the agent a recognizable identity so team members know who they are interacting with.
+- **System prompt** -- Define the agent's personality, tone, and operational boundaries. For example, instruct an agent to "always adopt a formal tone and route infrastructure questions to the DevOps team."
+- **Deploy and deactivate** -- Make an agent available to the workspace instantly, or disable it without deleting its configuration.
+
+<Aside type="tip">
+You can create multiple agents for different purposes. A `SupportRouterBot` that triages customer-reported bugs, a `ReleaseBot` that tracks deployment readiness, or a `ComplianceBot` that flags security-sensitive discussions -- each scoped to its own domain.
+</Aside>
+
+## Agent scoping and knowledge perimeters
+
+Not every agent should have access to every conversation. Admins define a **knowledge perimeter** for each agent:
+
+- **Channel restrictions** -- Specify which channels an agent can read and participate in. A support agent does not need access to the HR channel.
+- **Repository restrictions** -- When the agent queries integration data, limit which GitHub repositories or Linear projects it can access.
+- **Sensitive data exclusion** -- Explicitly mark specific channels or data sources as off-limits to ensure private conversations remain private.
+
+This scoping is enforced at the data access layer, not just the prompt level. An agent physically cannot query data outside its perimeter.
+
+<Aside>
+Agents participate in conversations using the `agent_1to1` and `agent_group` conversation types. Messages from agents are tagged with the `bot` message type so the UI can render them distinctly from human messages.
+</Aside>
+
+## Collaborative AI in shared conversations
+
+Unlike traditional bot DMs where you interact with AI in isolation, PING's agents live natively in group conversations:
+
+- **Shared context** -- When an agent answers a question in a group chat, everyone in the conversation sees the response. This eliminates the problem of one person getting an answer from a bot and then having to relay it to the team.
+- **Multi-turn threads** -- Agents respond to thread replies, maintaining context across a back-and-forth discussion. Multiple humans can ask follow-up questions in the same thread.
+- **Citation transparency** -- Agent responses include citation pills linking to the raw source data (messages, PRs, tickets). The team can verify any claim the agent makes.
+
+This collaborative model means AI assistants augment team discussions rather than replacing them. The agent contributes knowledge while humans make the decisions.
+
+## Future: custom agent marketplace
+
+PING is building toward a marketplace where teams can share and discover custom agents:
+
+- **Templates** -- Start from pre-built agent configurations for common use cases like incident response, onboarding, or sprint retrospectives.
+- **Community contributions** -- Share agent configurations that worked well for your team with the broader PING community.
+- **Bespoke model training** -- Since PING is open-source, engineering teams can train custom models on their proprietary data and deploy them as workspace agents with full data ownership.
+
+<Aside type="tip">
+Because PING is free and open-source, you retain complete control over your agent configurations and the data they access. There is no vendor lock-in on your AI workflows.
+</Aside>
