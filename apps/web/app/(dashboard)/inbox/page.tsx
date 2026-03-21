@@ -1,117 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 import { InboxCard, type InboxItem, type Priority } from "@/components/inbox/InboxCard";
 import { useToast } from "@/components/ui/toast-provider";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
-function useMockItems() {
-  const router = useRouter();
-  const { toast } = useToast();
-
-  const items: InboxItem[] = [
-    {
-      id: "1",
-      priority: "urgent",
-      channel: "engineering",
-      author: "Alex Chen",
-      authorInitials: "AC",
-      summary: "PR #234 is blocking your deploy pipeline",
-      context: "Your PR has 2 failing checks and Alex's release is gated on it. Review window closes in 40 minutes before the merge freeze.",
-      timestamp: new Date(Date.now() - 12 * 60 * 1000),
-      actions: [
-        { label: "Review PR #234", primary: true, onClick: () => { router.push("/channel/engineering"); toast("Opening PR #234..."); } },
-        { label: "Ping Alex", onClick: () => toast("Message sent to Alex", "success") },
-      ],
-    },
-    {
-      id: "2",
-      priority: "urgent",
-      channel: "engineering",
-      author: "Sarah Kim",
-      authorInitials: "SK",
-      summary: "Production incident: auth service returning 503s",
-      context: "3 customers affected, escalated 8 minutes ago. Runbook linked in #incidents. On-call rotation expects response within 15min SLA.",
-      timestamp: new Date(Date.now() - 8 * 60 * 1000),
-      actions: [
-        { label: "View Incident", primary: true, onClick: () => { router.push("/channel/engineering"); toast("Joining incident channel..."); } },
-        { label: "Join #incidents", onClick: () => router.push("/channel/general") },
-      ],
-    },
-    {
-      id: "3",
-      priority: "important",
-      channel: "product",
-      author: "KnowledgeBot",
-      authorInitials: "KB",
-      summary: "Sprint planning summary — 6 items need your decision",
-      context: "Q2 sprint has 3 unassigned tickets blocking roadmap sign-off. Decisions needed on auth v2 scope, mobile priority, and API versioning.",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      actions: [
-        { label: "Review Sprint", primary: true, onClick: () => toast("Opening sprint board...", "success") },
-        { label: "Postpone 1h", onClick: () => toast("Postponed for 1 hour") },
-        { label: "Delegate", onClick: () => toast("Delegated to team lead", "success") },
-      ],
-    },
-    {
-      id: "4",
-      priority: "important",
-      channel: "design",
-      author: "Maya Rodriguez",
-      authorInitials: "MR",
-      summary: "Figma handoff ready for mobile onboarding flow",
-      context: "All 14 screens exported with specs. Needs engineering estimate for sprint grooming tomorrow 10am. Figma link attached.",
-      timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000),
-      actions: [
-        { label: "Open Figma", primary: true, onClick: () => toast("Opening Figma...") },
-        { label: "Add to Sprint", onClick: () => toast("Added to sprint backlog", "success") },
-      ],
-    },
-    {
-      id: "5",
-      priority: "delegate",
-      channel: "general",
-      author: "Tom Walsh",
-      authorInitials: "TW",
-      summary: "New hire asks: which doc explains our deployment process?",
-      context: "Jamie (joined Monday) can't find the runbook for staging deploys. Similar question answered by @sarah last month — linking that thread would resolve.",
-      timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-      actions: [
-        { label: "Share Runbook", primary: true, onClick: () => toast("Runbook link shared with Jamie", "success") },
-        { label: "Assign to Sarah", onClick: () => toast("Assigned to Sarah", "success") },
-      ],
-    },
-    {
-      id: "6",
-      priority: "delegate",
-      channel: "product",
-      author: "KnowledgeBot",
-      authorInitials: "KB",
-      summary: "Weekly digest: 3 external API updates may affect integrations",
-      context: "GitHub Actions deprecates Node 16 runners Jan 31. Linear updated webhook schema (v2 field renames). Stripe API version pinned — upgrade recommended.",
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      actions: [
-        { label: "View Changes", primary: true, onClick: () => toast("Opening changelog...") },
-      ],
-    },
-    {
-      id: "7",
-      priority: "low",
-      channel: "general",
-      author: "Workspace Agent",
-      authorInitials: "WA",
-      summary: "Monthly AI usage report — costs within budget",
-      context: "February: 8,920 tokens, $2.14 spend, est. 34hrs saved. KnowledgeBot answered 47 queries (↑23%). Full breakdown in Analytics.",
-      timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000),
-      actions: [
-        { label: "View Analytics", onClick: () => router.push("/settings/analytics") },
-      ],
-      isRead: true,
-    },
-  ];
-
-  return items;
+function mapPriority(bullets: Array<{ priority: string }>): Priority {
+  const priorities = bullets.map((b) => b.priority);
+  if (priorities.includes("high")) return "urgent";
+  if (priorities.includes("medium")) return "important";
+  return "delegate";
 }
 
 const SECTIONS: Array<{ priority: Priority; label: string }> = [
@@ -122,22 +23,59 @@ const SECTIONS: Array<{ priority: Priority; label: string }> = [
 ];
 
 export default function InboxPage() {
-  const mockItems = useMockItems();
-  const [items, setItems] = useState(mockItems);
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const summaries = useQuery(api.inboxSummaries.list);
+  const markReadMutation = useMutation(api.inboxSummaries.markRead);
+  const archiveMutation = useMutation(api.inboxSummaries.archive);
+
+  const items: InboxItem[] = useMemo(() => {
+    if (!summaries) return [];
+    return summaries.map((s) => ({
+      id: s._id,
+      priority: mapPriority(s.bullets),
+      channel: s.channelName,
+      author: "PING",
+      authorInitials: "P",
+      summary: s.bullets[0]?.text ?? "New activity",
+      context: s.bullets
+        .slice(1)
+        .map((b) => b.text)
+        .join(". "),
+      timestamp: new Date(s.periodEnd),
+      actions: [
+        {
+          label: "View Channel",
+          primary: true,
+          onClick: () => router.push(`/channel/${s.channelId}`),
+        },
+        ...(s.actionItems ?? []).map((ai) => ({
+          label: ai.text,
+          onClick: () => toast(ai.text, "success"),
+        })),
+      ],
+      isRead: s.isRead,
+    }));
+  }, [summaries, router, toast]);
 
   const handleMarkRead = (id: string) => {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, isRead: true } : item))
-    );
+    markReadMutation({ summaryId: id as any });
   };
 
   const handleArchive = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    archiveMutation({ summaryId: id as any });
   };
 
-  const isEmpty = items.length === 0;
+  if (summaries === undefined) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+      </div>
+    );
+  }
 
-  if (isEmpty) {
+  if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in">
         <CheckCircle2 className="h-10 w-10 text-white/15" />
@@ -160,12 +98,6 @@ export default function InboxPage() {
           <span className="text-2xs text-white/20">·</span>
           <span className="text-2xs text-muted-foreground">Eisenhower Matrix</span>
         </div>
-        <button
-          onClick={() => setItems([])}
-          className="text-2xs text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Archive all
-        </button>
       </div>
 
       {/* Sections */}

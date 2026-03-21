@@ -1,18 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast-provider";
+import { Loader2 } from "lucide-react";
 
 export default function ProfilePage() {
   const { toast } = useToast();
-  const [displayName, setDisplayName] = useState("User");
+  const user = useQuery(api.users.getMe);
+  const updateProfile = useMutation(api.users.updateProfile);
+
+  const [displayName, setDisplayName] = useState("");
   const [inboxNotifications, setInboxNotifications] = useState(true);
   const [proactiveAlerts, setProactiveAlerts] = useState(true);
+  const [initialized, setInitialized] = useState(false);
 
-  const handleSave = () => {
-    toast("Settings saved", "success");
+  useEffect(() => {
+    if (user && !initialized) {
+      setDisplayName(user.name);
+      setInitialized(true);
+    }
+  }, [user, initialized]);
+
+  const handleSave = async () => {
+    try {
+      await updateProfile({ name: displayName });
+      toast("Settings saved", "success");
+    } catch {
+      toast("Failed to save", "error");
+    }
   };
+
+  if (user === undefined) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-white/20" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-lg animate-fade-in px-6 py-6">
@@ -42,7 +69,7 @@ export default function ProfilePage() {
             Email
           </label>
           <input
-            value="user@company.com"
+            value={user?.email ?? ""}
             disabled
             className="w-full rounded border border-subtle bg-surface-1 px-2.5 py-1.5 text-xs text-muted-foreground"
           />

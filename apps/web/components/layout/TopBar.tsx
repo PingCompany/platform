@@ -2,6 +2,8 @@
 
 import { Menu, Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import { TOPBAR_HEIGHT } from "@/lib/constants";
 import {
   DropdownMenu,
@@ -36,6 +38,11 @@ interface TopBarProps {
 export function TopBar({ onToggleSidebar, onOpenSearch, onOpenShortcuts }: TopBarProps) {
   const title = titleFromPath(usePathname());
   const router = useRouter();
+  const user = useQuery(api.users.getMe);
+
+  const userInitial = user?.name?.[0]?.toUpperCase() ?? "U";
+  const userName = user?.name ?? "User";
+  const userEmail = user?.email ?? "user@company.com";
 
   return (
     <header
@@ -68,15 +75,15 @@ export function TopBar({ onToggleSidebar, onOpenSearch, onOpenShortcuts }: TopBa
             <button className="rounded-full outline-none ring-offset-background focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1">
               <Avatar className="h-6 w-6">
                 <AvatarFallback className="bg-ping-purple text-2xs font-medium text-white">
-                  U
+                  {userInitial}
                 </AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-surface-2 border-subtle">
             <div className="px-2 py-1.5">
-              <p className="text-xs font-medium text-foreground">User</p>
-              <p className="text-2xs text-muted-foreground">user@company.com</p>
+              <p className="text-xs font-medium text-foreground">{userName}</p>
+              <p className="text-2xs text-muted-foreground">{userEmail}</p>
             </div>
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push("/settings/profile")}>

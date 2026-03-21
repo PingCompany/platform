@@ -93,6 +93,24 @@ export const get = query({
   },
 });
 
+export const markRead = mutation({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx);
+
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", args.channelId).eq("userId", user._id),
+      )
+      .unique();
+
+    if (membership) {
+      await ctx.db.patch(membership._id, { lastReadAt: Date.now() });
+    }
+  },
+});
+
 export const join = mutation({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {

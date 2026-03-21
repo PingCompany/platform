@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
 import {
   Inbox,
   Hash,
@@ -37,15 +39,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_WIDTH } from "@/lib/constants";
-
-const DEFAULT_CHANNELS = [
-  { id: "general", name: "general", unread: 0 },
-  { id: "engineering", name: "engineering", unread: 5 },
-  { id: "design", name: "design", unread: 0 },
-  { id: "product", name: "product", unread: 2 },
-];
-
-const MOCK_INBOX_COUNT = 3;
 
 interface NavItemProps {
   href: string;
@@ -108,20 +101,33 @@ interface SidebarProps {
 export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [channels, setChannels] = useState(DEFAULT_CHANNELS);
+
+  const channels = useQuery(api.channels.list);
+  const inboxUnread = useQuery(api.inboxSummaries.unreadCount);
+  const user = useQuery(api.users.getMe);
+  const createChannel = useMutation(api.channels.create);
+
   const [addChannelOpen, setAddChannelOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
 
-  const handleCreateChannel = () => {
+  const handleCreateChannel = async () => {
     const name = newChannelName.trim().toLowerCase().replace(/\s+/g, "-");
-    if (!name || channels.some((c) => c.id === name)) return;
-    setChannels((prev) => [...prev, { id: name, name, unread: 0 }]);
-    setNewChannelName("");
-    setNewChannelPrivate(false);
-    setAddChannelOpen(false);
-    router.push(`/channel/${name}`);
+    if (!name) return;
+    try {
+      const channelId = await createChannel({ name });
+      setNewChannelName("");
+      setNewChannelPrivate(false);
+      setAddChannelOpen(false);
+      router.push(`/channel/${channelId}`);
+    } catch (e: any) {
+      // Channel name taken — ignore
+    }
   };
+
+  const userInitial = user?.name?.[0]?.toUpperCase() ?? "U";
+  const userName = user?.name ?? "User";
+  const userEmail = user?.email ?? "user@company.com";
 
   return (
     <div
@@ -194,7 +200,7 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
           href="/inbox"
           icon={Inbox}
           label="Inbox"
-          badge={MOCK_INBOX_COUNT}
+          badge={inboxUnread ?? 0}
           kbd="G I"
           isActive={pathname === "/inbox"}
         />
@@ -212,30 +218,42 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
           }
         />
 
-        {channels.map((channel) => {
-          const isActive = pathname === `/channel/${channel.id}`;
-          return (
-            <Link
-              key={channel.id}
-              href={`/channel/${channel.id}`}
-              className={cn(
-                "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
-                "transition-colors duration-100",
-                isActive
-                  ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
-                  : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-              )}
-            >
-              <span className="text-2xs font-medium text-white/30">#</span>
-              <span className="flex-1 truncate">{channel.name}</span>
-              {channel.unread > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white/10 px-1 text-2xs font-medium text-white/70 tabular-nums">
-                  {channel.unread}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {channels === undefined ? (
+          // Loading skeleton
+          <>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex h-7 items-center gap-2 rounded px-2">
+                <div className="h-3 w-3 rounded bg-white/5" />
+                <div className="h-3 flex-1 rounded bg-white/5" />
+              </div>
+            ))}
+          </>
+        ) : (
+          channels.map((channel) => {
+            const isActive = pathname === `/channel/${channel._id}`;
+            return (
+              <Link
+                key={channel._id}
+                href={`/channel/${channel._id}`}
+                className={cn(
+                  "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+                  "transition-colors duration-100",
+                  isActive
+                    ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
+                    : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+                )}
+              >
+                <span className="text-2xs font-medium text-white/30">#</span>
+                <span className="flex-1 truncate">{channel.name}</span>
+                {channel.unreadCount > 0 && (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-white/10 px-1 text-2xs font-medium text-white/70 tabular-nums">
+                    {channel.unreadCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })
+        )}
 
         {/* Settings */}
         <SectionHeader label="Settings" />
@@ -257,18 +275,18 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
           <DropdownMenuTrigger asChild>
             <button className="group flex h-8 w-full items-center gap-2 rounded px-2 transition-colors hover:bg-surface-3">
               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ping-purple text-2xs font-medium text-white">
-                U
+                {userInitial}
               </div>
               <span className="flex-1 truncate text-left text-sm text-muted-foreground group-hover:text-foreground">
-                User
+                {userName}
               </span>
               <Kbd className="opacity-0 group-hover:opacity-100">⌘B</Kbd>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-48 bg-surface-2 border-subtle">
             <div className="px-2 py-1.5">
-              <p className="text-xs font-medium text-foreground">User</p>
-              <p className="text-2xs text-muted-foreground">user@company.com</p>
+              <p className="text-xs font-medium text-foreground">{userName}</p>
+              <p className="text-2xs text-muted-foreground">{userEmail}</p>
             </div>
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push("/settings/profile")}>
