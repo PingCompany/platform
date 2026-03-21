@@ -52,11 +52,19 @@ export default function DMPage({ params }: Props) {
       content: msg.body,
       timestamp: new Date(msg._creationTime),
       botName: msg.isAgent ? msg.author?.name ?? "Agent" : undefined,
+      attachments: msg.attachments,
     }));
   }, [results]);
 
-  const handleSend = (content: string) => {
-    sendMessage({ conversationId: typedId, body: content });
+  const handleSend = (
+    content: string,
+    attachments?: { storageId: string; filename: string; mimeType: string; size: number }[],
+  ) => {
+    sendMessage({
+      conversationId: typedId,
+      body: content,
+      ...(attachments ? { attachments } : {}),
+    });
   };
 
   // Build display name

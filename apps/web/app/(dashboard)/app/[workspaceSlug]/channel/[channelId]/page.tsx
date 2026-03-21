@@ -71,11 +71,19 @@ export default function ChannelPage({ params }: Props) {
         url: c.sourceUrl,
       })),
       botName: msg.type === "bot" ? "KnowledgeBot" : undefined,
+      attachments: msg.attachments,
     }));
   }, [results]);
 
-  const handleSend = (content: string) => {
-    sendMessage({ channelId: typedChannelId, body: content });
+  const handleSend = (
+    content: string,
+    attachments?: { storageId: string; filename: string; mimeType: string; size: number }[],
+  ) => {
+    sendMessage({
+      channelId: typedChannelId,
+      body: content,
+      ...(attachments ? { attachments } : {}),
+    });
   };
 
   const firstAlert = alerts?.[0];

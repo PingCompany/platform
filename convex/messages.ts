@@ -1,11 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { requireUser } from "./auth";
+import { attachmentValidator } from "./files";
 
 export const send = mutation({
   args: {
     channelId: v.id("channels"),
     body: v.string(),
+    attachments: v.optional(v.array(attachmentValidator)),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -16,6 +18,9 @@ export const send = mutation({
       body: args.body,
       type: "user",
       isEdited: false,
+      ...(args.attachments && args.attachments.length > 0
+        ? { attachments: args.attachments }
+        : {}),
     });
 
     // Update sender's lastReadAt

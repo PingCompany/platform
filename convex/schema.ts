@@ -111,6 +111,16 @@ export default defineSchema({
     mentions: v.optional(v.array(v.string())),
     graphitiEpisodeId: v.optional(v.string()),
     isEdited: v.boolean(),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.string(),
+          filename: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+        }),
+      ),
+    ),
   })
     .index("by_channel", ["channelId"])
     .index("by_author", ["authorId"])
@@ -269,6 +279,16 @@ export default defineSchema({
     body: v.string(),
     type: v.union(v.literal("user"), v.literal("bot"), v.literal("system")),
     isEdited: v.boolean(),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.string(),
+          filename: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+        }),
+      ),
+    ),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_author", ["authorId"]),

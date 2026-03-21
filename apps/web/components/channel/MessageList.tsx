@@ -1,10 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, Paperclip, AtSign, ChevronDown, Pin, Users } from "lucide-react";
+import { useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { Send, Bot, AtSign, ChevronDown, Pin, Users } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
+import {
+  AttachmentRenderer,
+  type Attachment,
+} from "@/components/channel/AttachmentRenderer";
+import {
+  FileUpload,
+  FileUploadButton,
+  uploadAttachments,
+  type PendingAttachment,
+} from "@/components/channel/FileUpload";
 import { cn } from "@/lib/utils";
 
 export interface Message {
@@ -16,6 +28,7 @@ export interface Message {
   timestamp: Date;
   citations?: Citation[];
   botName?: string;
+  attachments?: Attachment[];
 }
 
 interface MessageItemProps {
@@ -85,6 +98,10 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
         {message.citations && (
           <CitationRow citations={message.citations} />
         )}
+
+        {message.attachments && message.attachments.length > 0 && (
+          <AttachmentRenderer attachments={message.attachments} />
+        )}
       </div>
     </div>
   );
@@ -137,7 +154,10 @@ function TypingIndicator({ users }: { users: TypingUser[] }) {
 interface MessageListProps {
   channelName: string;
   messages: Message[];
-  onSend?: (content: string) => void;
+  onSend?: (
+    content: string,
+    attachments?: { storageId: string; filename: string; mimeType: string; size: number }[],
+  ) => void;
   isLoading?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
@@ -162,10 +182,14 @@ export function MessageList({
 }: MessageListProps) {
   const [input, setInput] = useState("");
   const [showNewMessages, setShowNewMessages] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputTriggerRef = useRef<(() => void) | null>(null);
   const prevMessageCountRef = useRef(messages.length);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   const isAtBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -205,13 +229,55 @@ export function MessageList({
     if (isAtBottom()) setShowNewMessages(false);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed) return;
-    onSend?.(trimmed);
-    setInput("");
-    // Scroll to bottom after send
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    const hasAttachments = pendingAttachments.some(
+      (a) => a.status !== "error",
+    );
+
+    if (!trimmed && !hasAttachments) return;
+    if (isSending) return;
+
+    setIsSending(true);
+
+    try {
+      let uploadedAttachments:
+        | { storageId: string; filename: string; mimeType: string; size: number }[]
+        | undefined;
+
+      if (hasAttachments) {
+        uploadedAttachments = await uploadAttachments(
+          pendingAttachments,
+          () => generateUploadUrl(),
+          setPendingAttachments,
+        );
+
+        // If no uploads succeeded, stop
+        if (uploadedAttachments.length === 0) {
+          setIsSending(false);
+          return;
+        }
+      }
+
+      onSend?.(
+        trimmed,
+        uploadedAttachments && uploadedAttachments.length > 0
+          ? uploadedAttachments
+          : undefined,
+      );
+      setInput("");
+      setPendingAttachments([]);
+
+      // Scroll to bottom after send
+      setTimeout(
+        () => bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+        50,
+      );
+    } catch {
+      // Error is handled in uploadAttachments via status updates
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -220,6 +286,11 @@ export function MessageList({
       handleSend();
     }
   };
+
+  const canSend =
+    !isSending &&
+    (input.trim() ||
+      pendingAttachments.some((a) => a.status !== "error"));
 
   return (
     <div className="flex h-full flex-col">
@@ -294,60 +365,62 @@ export function MessageList({
       {/* Typing indicator */}
       <TypingIndicator users={typingUsers} />
 
-      {/* Composer */}
+      {/* Composer with file upload */}
       <div className="border-t border-subtle p-3">
-        <div className="flex items-end gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 focus-within:border-white/15">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              onTyping?.();
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
-            rows={1}
-            className="max-h-32 flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-white/25 focus:outline-none"
-            style={{ height: "20px" }}
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = "20px";
-              el.style.height = `${el.scrollHeight}px`;
-            }}
-          />
-          <div className="flex shrink-0 items-center gap-1 pb-0.5">
-            {!isDM && (
-              <button
-                onClick={() => {
-                  setInput((prev) => prev + "@");
-                  textareaRef.current?.focus();
-                }}
-                className="rounded p-1 text-white/25 hover:bg-surface-3 hover:text-white/60"
-              >
-                <AtSign className="h-3.5 w-3.5" />
-              </button>
-            )}
-            <button
-              disabled
-              title="File attachments coming soon"
-              className="rounded p-1 text-white/25 opacity-50 cursor-not-allowed"
-            >
-              <Paperclip className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              className={cn(
-                "rounded p-1 transition-colors",
-                input.trim()
-                  ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
-                  : "text-white/20"
+        <FileUpload
+          attachments={pendingAttachments}
+          onAttachmentsChange={setPendingAttachments}
+          onFileInputReady={(trigger) => { fileInputTriggerRef.current = trigger; }}
+        >
+          <div className="flex items-end gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 focus-within:border-white/15">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                onTyping?.();
+              }}
+              onKeyDown={handleKeyDown}
+              placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
+              rows={1}
+              className="max-h-32 flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-white/25 focus:outline-none"
+              style={{ height: "20px" }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = "20px";
+                el.style.height = `${el.scrollHeight}px`;
+              }}
+            />
+            <div className="flex shrink-0 items-center gap-1 pb-0.5">
+              {!isDM && (
+                <button
+                  onClick={() => {
+                    setInput((prev) => prev + "@");
+                    textareaRef.current?.focus();
+                  }}
+                  className="rounded p-1 text-white/25 hover:bg-surface-3 hover:text-white/60"
+                >
+                  <AtSign className="h-3.5 w-3.5" />
+                </button>
               )}
-            >
-              <Send className="h-3.5 w-3.5" />
-            </button>
+              <FileUploadButton
+                onClick={() => fileInputTriggerRef.current?.()}
+              />
+              <button
+                onClick={handleSend}
+                disabled={!canSend}
+                className={cn(
+                  "rounded p-1 transition-colors",
+                  canSend
+                    ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
+                    : "text-white/20"
+                )}
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
-        </div>
+        </FileUpload>
         <p className="mt-1 text-2xs text-white/20">
           Enter to send · Shift+Enter for new line{!isDM && " · @mention to summon agents"}
         </p>
