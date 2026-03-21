@@ -176,13 +176,15 @@ export function DecisionContext({
             </div>
           )}
 
-          <button
-            onClick={() => setLevel(1)}
-            className={toggleButtonClass}
-          >
-            <ChevronUp className="h-3 w-3" />
-            Show less
-          </button>
+          {level < 3 && (
+            <button
+              onClick={() => setLevel(1)}
+              className={toggleButtonClass}
+            >
+              <ChevronUp className="h-3 w-3" />
+              Show less
+            </button>
+          )}
 
           {level < 3 && hasDeepDive && (
             <button
