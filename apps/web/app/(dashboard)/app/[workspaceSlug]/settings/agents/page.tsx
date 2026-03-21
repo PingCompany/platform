@@ -4,34 +4,35 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { AgentCard, AgentConfigDialog, type Agent } from "@/components/bot/AgentCard";
 import { useToast } from "@/components/ui/toast-provider";
+import { Id } from "@convex/_generated/dataModel";
 
 const MOCK_AGENTS: Agent[] = [
   {
-    id: "1",
+    _id: "1" as Id<"agents">,
+    _creationTime: Date.now(),
     name: "KnowledgeBot",
     description: "Answers questions about your team's codebase, past decisions, and historical context. Queries GitHub, Linear, and chat history with citations.",
     status: "active",
-    scopes: ["general", "engineering", "product"],
-    queryCount: 47,
     color: "#5E6AD2",
+    createdBy: "" as Id<"users">,
   },
   {
-    id: "2",
+    _id: "2" as Id<"agents">,
+    _creationTime: Date.now(),
     name: "SupportRouterBot",
     description: "Automatically triages incoming support messages, routes to the right team member, and drafts initial responses based on past resolution patterns.",
     status: "active",
-    scopes: ["general", "product"],
-    queryCount: 12,
     color: "#22C55E",
+    createdBy: "" as Id<"users">,
   },
   {
-    id: "3",
+    _id: "3" as Id<"agents">,
+    _creationTime: Date.now(),
     name: "SprintCoach",
     description: "Monitors sprint health, flags blocked tickets, pings assignees on overdue items, and generates weekly summaries for planning meetings.",
     status: "inactive",
-    scopes: ["engineering", "product"],
-    queryCount: 0,
     color: "#F59E0B",
+    createdBy: "" as Id<"users">,
   },
 ];
 
@@ -41,22 +42,35 @@ export default function AgentsPage() {
   const [creating, setCreating] = useState(false);
   const { toast } = useToast();
 
-  const handleToggle = (id: string, status: "active" | "inactive") => {
+  const handleToggle = (id: Id<"agents">, status: "active" | "inactive") => {
     setAgents((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
+      prev.map((a) => (a._id === id ? { ...a, status } : a))
     );
     toast(status === "active" ? "Agent enabled" : "Agent disabled", "success");
   };
 
-  const handleSave = (updated: Agent) => {
-    setAgents((prev) => {
-      const exists = prev.find((a) => a.id === updated.id);
-      if (exists) {
-        return prev.map((a) => (a.id === updated.id ? updated : a));
-      }
-      return [...prev, updated];
-    });
-    toast(configuring ? "Agent updated" : "Agent created", "success");
+  const handleSave = (data: { name: string; description: string; systemPrompt: string; color: string }) => {
+    if (configuring) {
+      setAgents((prev) =>
+        prev.map((a) =>
+          a._id === configuring._id ? { ...a, ...data } : a
+        )
+      );
+      toast("Agent updated", "success");
+    } else {
+      const newAgent: Agent = {
+        _id: crypto.randomUUID() as Id<"agents">,
+        _creationTime: Date.now(),
+        name: data.name,
+        description: data.description,
+        systemPrompt: data.systemPrompt,
+        color: data.color,
+        status: "active",
+        createdBy: "" as Id<"users">,
+      };
+      setAgents((prev) => [...prev, newAgent]);
+      toast("Agent created", "success");
+    }
   };
 
   return (
@@ -83,10 +97,10 @@ export default function AgentsPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {agents.map((agent) => (
           <AgentCard
-            key={agent.id}
+            key={agent._id}
             agent={agent}
             onToggle={handleToggle}
-            onConfigure={(id) => setConfiguring(agents.find((a) => a.id === id) ?? null)}
+            onConfigure={(id) => setConfiguring(agents.find((a) => a._id === id) ?? null)}
           />
         ))}
 

@@ -15,13 +15,13 @@ export type EisenhowerQuadrant =
 
 export interface EmailItem {
   _id: string;
-  threadId: string;
+  threadId?: string;
   subject: string;
-  from: { name?: string; email: string };
-  snippet: string;
+  from: string;
+  snippet?: string;
   receivedAt: number;
   isRead: boolean;
-  isStarred: boolean;
+  isStarred?: boolean;
   eisenhowerQuadrant?: EisenhowerQuadrant;
 }
 
@@ -70,7 +70,7 @@ export function EmailCard({
   const quadrant = email.eisenhowerQuadrant
     ? quadrantConfig[email.eisenhowerQuadrant]
     : null;
-  const senderName = email.from.name || email.from.email;
+  const senderName = email.from;
   const senderInitial = senderName[0]?.toUpperCase() ?? "?";
 
   return (

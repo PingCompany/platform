@@ -11,9 +11,14 @@ import { formatRelativeTime } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useToast } from "@/components/ui/toast-provider";
 
-const PROVIDER_CONFIG = {
+const PROVIDER_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
   gmail: {
     label: "Gmail",
+    icon: "G",
+    color: "bg-red-500/10 text-red-400 border-red-500/20",
+  },
+  google: {
+    label: "Google",
     icon: "G",
     color: "bg-red-500/10 text-red-400 border-red-500/20",
   },
@@ -22,7 +27,17 @@ const PROVIDER_CONFIG = {
     icon: "O",
     color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   },
-} as const;
+  microsoft: {
+    label: "Microsoft",
+    icon: "M",
+    color: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  },
+  imap: {
+    label: "IMAP",
+    icon: "@",
+    color: "bg-white/5 text-white/50 border-white/10",
+  },
+};
 
 export default function EmailSettingsPage() {
   useWorkspace(); // Ensure we're in a workspace context
@@ -39,7 +54,7 @@ export default function EmailSettingsPage() {
     // In production, this would redirect to the OAuth URL
     toast(
       `Email connection for ${provider} is not yet configured. OAuth integration coming soon.`,
-      "info",
+      "default",
     );
   };
 
@@ -137,12 +152,7 @@ export default function EmailSettingsPage() {
           <div className="overflow-hidden rounded border border-subtle">
             {accounts.map((account) => {
               const config = PROVIDER_CONFIG[account.provider];
-              const statusVariant =
-                account.status === "connected"
-                  ? "online"
-                  : account.status === "error"
-                    ? "pending"
-                    : "offline";
+              const statusVariant = account.isActive ? "online" : "offline";
 
               return (
                 <div
@@ -161,7 +171,7 @@ export default function EmailSettingsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">
-                        {account.email}
+                        {account.emailAddress}
                       </span>
                       <span
                         className={cn(
@@ -175,7 +185,7 @@ export default function EmailSettingsPage() {
                     <div className="mt-0.5 flex items-center gap-2">
                       <StatusDot variant={statusVariant} size="xs" />
                       <span className="text-2xs text-muted-foreground capitalize">
-                        {account.status}
+                        {account.isActive ? "Connected" : "Disconnected"}
                       </span>
                       {account.lastSyncedAt && (
                         <>
