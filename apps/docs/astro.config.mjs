@@ -68,6 +68,7 @@ export default defineConfig({
             { label: "Direct Messages", slug: "api/direct-messages" },
             { label: "Inbox", slug: "api/inbox" },
             { label: "Users", slug: "api/users" },
+            { label: "API Explorer", slug: "api/swagger" },
           ],
         },
         {

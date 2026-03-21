@@ -117,6 +117,20 @@ header.header {
   display: none !important;
 }
 
+/* Center the search in header by making middle section expand */
+header .header {
+  display: flex;
+}
+
+header .header > .title-wrapper {
+  flex: 1;
+}
+
+header .header > .right-group {
+  flex: 1;
+  justify-content: flex-end;
+}
+
 /* Content link styling */
 .sl-markdown-content a:not([class]) {
   color: var(--ping-accent);

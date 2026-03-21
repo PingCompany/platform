@@ -1,0 +1,146 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+
+<div class="swagger-wrap">
+  <div id="swagger-ui"></div>
+</div>
+
+<script is:inline define:vars={{ base }}>
+  // Load Swagger UI assets
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css';
+  document.head.appendChild(link);
+
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js';
+  script.onload = () => {
+    SwaggerUIBundle({
+      url: base + 'openapi.yaml',
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis],
+      layout: 'BaseLayout',
+      deepLinking: true,
+      defaultModelsExpandDepth: 1,
+      defaultModelExpandDepth: 1,
+      docExpansion: 'list',
+      filter: true,
+      tryItOutEnabled: false,
+    });
+  };
+  document.head.appendChild(script);
+</script>
+
+<style is:global>
+  /* Override Swagger UI styles to match PING docs theme */
+  .swagger-wrap {
+    margin: 1rem 0;
+  }
+
+  .swagger-ui {
+    font-family: var(--sl-font) !important;
+  }
+
+  .swagger-ui .topbar {
+    display: none !important;
+  }
+
+  .swagger-ui .info {
+    margin: 0 0 1.5rem !important;
+  }
+
+  .swagger-ui .info .title {
+    font-size: 1.5rem !important;
+    color: var(--ping-text) !important;
+    font-family: var(--sl-font) !important;
+  }
+
+  .swagger-ui .info .description p {
+    font-size: 0.875rem !important;
+    color: var(--ping-text-muted) !important;
+    font-family: var(--sl-font) !important;
+  }
+
+  .swagger-ui .scheme-container {
+    background: var(--ping-surface-raised) !important;
+    box-shadow: none !important;
+    border: 1px solid var(--ping-border) !important;
+    border-radius: 0.5rem !important;
+    padding: 0.75rem 1rem !important;
+  }
+
+  .swagger-ui .opblock-tag {
+    font-family: var(--sl-font) !important;
+    color: var(--ping-text) !important;
+    border-bottom: 1px solid var(--ping-border) !important;
+  }
+
+  .swagger-ui .opblock {
+    border-radius: 0.5rem !important;
+    border: 1px solid var(--ping-border) !important;
+    box-shadow: none !important;
+    margin: 0 0 0.5rem !important;
+  }
+
+  .swagger-ui .opblock .opblock-summary {
+    border-bottom: 1px solid var(--ping-border) !important;
+  }
+
+  .swagger-ui .opblock .opblock-summary-method {
+    border-radius: 0.25rem !important;
+    font-size: 0.6875rem !important;
+    font-weight: 700 !important;
+    min-width: 4rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
+
+  .swagger-ui .opblock .opblock-summary-path {
+    font-family: var(--sl-font-mono) !important;
+    font-size: 0.8125rem !important;
+  }
+
+  .swagger-ui .opblock .opblock-summary-description {
+    font-family: var(--sl-font) !important;
+    font-size: 0.8125rem !important;
+    color: var(--ping-text-muted) !important;
+  }
+
+  .swagger-ui .btn {
+    border-radius: 0.375rem !important;
+    font-family: var(--sl-font) !important;
+  }
+
+  .swagger-ui .model-title {
+    font-family: var(--sl-font) !important;
+  }
+
+  .swagger-ui table thead tr td,
+  .swagger-ui table thead tr th {
+    font-family: var(--sl-font) !important;
+    color: var(--ping-text) !important;
+    border-bottom: 1px solid var(--ping-border) !important;
+  }
+
+  .swagger-ui .parameter__name,
+  .swagger-ui .parameter__type {
+    font-family: var(--sl-font-mono) !important;
+    font-size: 0.8125rem !important;
+  }
+
+  .swagger-ui .filter .operation-filter-input {
+    border: 1px solid var(--ping-border) !important;
+    border-radius: 0.375rem !important;
+    font-family: var(--sl-font) !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* Dark mode overrides */
+  :root[data-theme="dark"] .swagger-ui {
+    filter: invert(0.88) hue-rotate(180deg);
+  }
+
+  :root[data-theme="dark"] .swagger-ui .opblock .opblock-summary-method {
+    filter: invert(1) hue-rotate(180deg);
+  }
+</style>
