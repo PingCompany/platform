@@ -44,14 +44,22 @@ export const listByChannel = query({
       .order("desc")
       .take(args.limit ?? 50);
 
-    return Promise.all(
-      messages.map(async (msg) => {
-        const author = await ctx.db.get(msg.authorId);
-        return {
-          ...msg,
-          author: author ? { name: author.name, avatarUrl: author.avatarUrl } : null,
-        };
-      }),
+    const uniqueAuthorIds = [...new Set(messages.map((msg) => msg.authorId))];
+    const authors = await Promise.all(
+      uniqueAuthorIds.map((id) => ctx.db.get(id)),
     );
+    const authorMap = new Map(
+      uniqueAuthorIds.map((id, i) => [id, authors[i]]),
+    );
+
+    return messages.map((msg) => {
+      const author = authorMap.get(msg.authorId);
+      return {
+        ...msg,
+        author: author
+          ? { name: author.name, avatarUrl: author.avatarUrl }
+          : null,
+      };
+    });
   },
 });
