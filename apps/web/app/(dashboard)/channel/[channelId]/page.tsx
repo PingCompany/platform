@@ -59,6 +59,7 @@ export default function ChannelPage({ params }: Props) {
         url: c.sourceUrl,
       })),
       botName: msg.type === "bot" ? "KnowledgeBot" : undefined,
+      integrationObject: msg.integrationObject ?? null,
     }));
   }, [results]);
 

@@ -1,19 +1,28 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Bot, Paperclip, AtSign, ChevronDown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
-import { MarkdownContent } from "@/components/channel/MarkdownContent";
+import {
+  GitHubPRCard,
+  type GitHubPRStatus,
+  type CIStatus,
+  LinearTicketCard,
+  type LinearStatus,
+  type LinearPriority,
+} from "@/components/integrations";
 import { cn } from "@/lib/utils";
-import { MentionPopover, type MentionUser } from "./MentionPopover";
+
+export interface IntegrationObjectData {
+  type: "github_pr" | "linear_ticket";
+  title: string;
+  status: string;
+  url: string;
+  author: string;
+  metadata: Record<string, unknown>;
+}
 
 export interface Message {
   id: string;
@@ -24,55 +33,7 @@ export interface Message {
   timestamp: Date;
   citations?: Citation[];
   botName?: string;
-}
-
-function formatRelativeTime(date: Date): string {
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDays = Math.floor(diffHr / 24);
-
-  if (diffSec < 60) return "just now";
-  if (diffMin < 60) return `${diffMin}m`;
-  if (diffHr < 24) return `${diffHr}h`;
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 7) return `${diffDays}d`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatFullDatetime(date: Date): string {
-  return date.toLocaleString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-}
-
-function RelativeTimestamp({ date }: { date: Date }) {
-  const relative = useMemo(() => formatRelativeTime(date), [date]);
-  const full = useMemo(() => formatFullDatetime(date), [date]);
-
-  return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="cursor-default text-2xs text-white/25">
-            {relative}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-2xs">
-          {full}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  integrationObject?: IntegrationObjectData | null;
 }
 
 interface MessageItemProps {
@@ -120,20 +81,60 @@ export function MessageItem({ message, showAvatar }: MessageItemProps) {
                 AI
               </span>
             )}
-            <RelativeTimestamp date={message.timestamp} />
+            <span className="text-2xs text-white/25">
+              {message.timestamp.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </span>
           </div>
         )}
 
-        <MarkdownContent
-          content={message.content}
+        <div
           className={cn(
             "text-sm leading-relaxed",
             isBot ? "text-foreground" : "text-foreground/90"
           )}
-        />
+        >
+          {message.content}
+        </div>
 
         {message.citations && (
           <CitationRow citations={message.citations} />
+        )}
+
+        {message.integrationObject?.type === "github_pr" && (
+          <GitHubPRCard
+            repo={(message.integrationObject.metadata.repo as string) ?? ""}
+            title={message.integrationObject.title}
+            number={(message.integrationObject.metadata.number as number) ?? 0}
+            status={message.integrationObject.status as GitHubPRStatus}
+            additions={message.integrationObject.metadata.additions as number | undefined}
+            deletions={message.integrationObject.metadata.deletions as number | undefined}
+            reviewers={
+              (message.integrationObject.metadata.reviewers as
+                | { name: string; avatarUrl?: string }[]
+                | undefined) ?? []
+            }
+            ciStatus={message.integrationObject.metadata.ciStatus as CIStatus | undefined}
+            url={message.integrationObject.url}
+          />
+        )}
+
+        {message.integrationObject?.type === "linear_ticket" && (
+          <LinearTicketCard
+            ticketId={(message.integrationObject.metadata.ticketId as string) ?? ""}
+            title={message.integrationObject.title}
+            status={(message.integrationObject.metadata.linearStatus as LinearStatus) ?? "todo"}
+            priority={(message.integrationObject.metadata.priority as LinearPriority) ?? "none"}
+            assignee={
+              message.integrationObject.metadata.assignee
+                ? (message.integrationObject.metadata.assignee as { name: string; avatarUrl?: string })
+                : undefined
+            }
+            url={message.integrationObject.url}
+          />
         )}
       </div>
     </div>
@@ -185,12 +186,6 @@ export function MessageList({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevMessageCountRef = useRef(messages.length);
 
-  // Mention popover state
-  const [mentionOpen, setMentionOpen] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
-  const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null);
-  const composerRef = useRef<HTMLDivElement>(null);
-
   const isAtBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return true;
@@ -229,88 +224,16 @@ export function MessageList({
     if (isAtBottom()) setShowNewMessages(false);
   };
 
-  // Detect @ trigger in the textarea input
-  const detectMention = useCallback(
-    (value: string, cursorPos: number) => {
-      // Look backwards from cursor for an @ that starts a mention
-      const textBefore = value.slice(0, cursorPos);
-      const atIndex = textBefore.lastIndexOf("@");
-
-      if (atIndex === -1) {
-        setMentionOpen(false);
-        return;
-      }
-
-      // The @ must be at start of input or preceded by a space/newline
-      const charBefore = atIndex > 0 ? textBefore[atIndex - 1] : " ";
-      if (charBefore !== " " && charBefore !== "\n" && atIndex !== 0) {
-        setMentionOpen(false);
-        return;
-      }
-
-      // Text between @ and cursor must not contain spaces (simple filter query)
-      const queryText = textBefore.slice(atIndex + 1);
-      if (queryText.includes(" ")) {
-        setMentionOpen(false);
-        return;
-      }
-
-      setMentionStartIndex(atIndex);
-      setMentionQuery(queryText);
-      setMentionOpen(true);
-    },
-    []
-  );
-
-  const handleMentionSelect = useCallback(
-    (user: MentionUser) => {
-      if (mentionStartIndex === null) return;
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-
-      const before = input.slice(0, mentionStartIndex);
-      const after = input.slice(textarea.selectionStart);
-      const mention = `@${user.name} `;
-      const newValue = before + mention + after;
-
-      setInput(newValue);
-      setMentionOpen(false);
-      setMentionStartIndex(null);
-      setMentionQuery("");
-
-      // Restore cursor position after the inserted mention
-      const newCursorPos = before.length + mention.length;
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      });
-    },
-    [input, mentionStartIndex]
-  );
-
-  const handleDismissMention = useCallback(() => {
-    setMentionOpen(false);
-    setMentionStartIndex(null);
-    setMentionQuery("");
-  }, []);
-
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
     onSend?.(trimmed);
     setInput("");
-    setMentionOpen(false);
     // Scroll to bottom after send
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // When mention popover is open, let it handle arrow/enter/escape
-    if (mentionOpen) {
-      if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(e.key)) {
-        return; // MentionPopover's global keydown handler will capture this
-      }
-    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -383,33 +306,12 @@ export function MessageList({
 
       {/* Composer */}
       <div className="border-t border-subtle p-3">
-        <div ref={composerRef} className="relative flex items-end gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 focus-within:border-white/15">
-          {/* Mention popover — positioned above the composer */}
-          <MentionPopover
-            query={mentionQuery}
-            isOpen={mentionOpen}
-            position={{ top: 8, left: 0 }}
-            onSelect={handleMentionSelect}
-            onDismiss={handleDismissMention}
-          />
-
+        <div className="flex items-end gap-2 rounded border border-subtle bg-surface-2 px-3 py-2 focus-within:border-white/15">
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => {
-              const newValue = e.target.value;
-              setInput(newValue);
-              detectMention(newValue, e.target.selectionStart);
-            }}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            onClick={(e) => {
-              // Re-check mention on click (cursor may have moved)
-              detectMention(input, e.currentTarget.selectionStart);
-            }}
-            onBlur={() => {
-              // Delay dismiss so click on popover item fires first
-              setTimeout(() => setMentionOpen(false), 150);
-            }}
             placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
             rows={1}
             className="max-h-32 flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-white/25 focus:outline-none"
@@ -424,22 +326,8 @@ export function MessageList({
             {!isDM && (
               <button
                 onClick={() => {
-                  const textarea = textareaRef.current;
-                  if (!textarea) return;
-                  const cursorPos = textarea.selectionStart;
-                  const before = input.slice(0, cursorPos);
-                  const after = input.slice(cursorPos);
-                  // Insert @ and trigger mention detection
-                  const needsSpace = before.length > 0 && !before.endsWith(" ") && !before.endsWith("\n");
-                  const prefix = needsSpace ? " @" : "@";
-                  const newValue = before + prefix + after;
-                  setInput(newValue);
-                  const newCursorPos = cursorPos + prefix.length;
-                  requestAnimationFrame(() => {
-                    textarea.focus();
-                    textarea.setSelectionRange(newCursorPos, newCursorPos);
-                    detectMention(newValue, newCursorPos);
-                  });
+                  setInput((prev) => prev + "@");
+                  textareaRef.current?.focus();
                 }}
                 className="rounded p-1 text-white/25 hover:bg-surface-3 hover:text-white/60"
               >

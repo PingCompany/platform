@@ -21,11 +21,15 @@ export const list = query({
     const messagesWithAuthors = await Promise.all(
       results.page.map(async (message) => {
         const author = await ctx.db.get(message.authorId);
+        const integrationObject = message.integrationObjectId
+          ? await ctx.db.get(message.integrationObjectId)
+          : null;
         return {
           ...message,
           author: author
             ? { name: author.name, avatarUrl: author.avatarUrl }
             : null,
+          integrationObject,
         };
       }),
     );
