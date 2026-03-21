@@ -173,7 +173,7 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem
               className="cursor-pointer text-xs text-destructive focus:text-destructive"
-              onClick={() => (window.location.href = "/login")}
+              onClick={() => (window.location.href = "/sign-out")}
             >
               <LogOut className="mr-2 h-3 w-3" />
               Sign out
@@ -363,7 +363,7 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
             <DropdownMenuSeparator className="bg-white/5" />
             <DropdownMenuItem
               className="cursor-pointer text-xs text-destructive focus:text-destructive"
-              onClick={() => (window.location.href = "/login")}
+              onClick={() => (window.location.href = "/sign-out")}
             >
               <LogOut className="mr-2 h-3 w-3" />
               Sign out
