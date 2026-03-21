@@ -154,6 +154,52 @@ export const search = query({
   },
 });
 
+export const edit = mutation({
+  args: {
+    messageId: v.id("messages"),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx);
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) throw new Error("Message not found");
+    if (message.authorId !== user._id) throw new Error("Can only edit your own messages");
+    if (message.type !== "user") throw new Error("Can only edit user messages");
+
+    const body = args.body.trim();
+    if (!body) throw new Error("Message body cannot be empty");
+
+    const mentionMatches = body.match(/@(\w+)/g);
+    const mentions = mentionMatches?.map((m) => m.slice(1));
+
+    await ctx.db.patch(args.messageId, {
+      body,
+      mentions: mentions && mentions.length > 0 ? mentions : undefined,
+      isEdited: true,
+    });
+  },
+});
+
+export const remove = mutation({
+  args: {
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx);
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) throw new Error("Message not found");
+
+    const isAuthor = message.authorId === user._id;
+    const isAdmin = user.role === "admin";
+    if (!isAuthor && !isAdmin) throw new Error("Can only delete your own messages");
+    if (message.type !== "user") throw new Error("Can only delete user messages");
+
+    await ctx.db.delete(args.messageId);
+  },
+});
+
 export const updateLastRead = mutation({
   args: {
     channelId: v.id("channels"),
