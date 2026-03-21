@@ -111,16 +111,6 @@ export default defineSchema({
     mentions: v.optional(v.array(v.string())),
     graphitiEpisodeId: v.optional(v.string()),
     isEdited: v.boolean(),
-    attachments: v.optional(
-      v.array(
-        v.object({
-          storageId: v.string(),
-          filename: v.string(),
-          mimeType: v.string(),
-          size: v.number(),
-        }),
-      ),
-    ),
   })
     .index("by_channel", ["channelId"])
     .index("by_author", ["authorId"])
@@ -279,16 +269,6 @@ export default defineSchema({
     body: v.string(),
     type: v.union(v.literal("user"), v.literal("bot"), v.literal("system")),
     isEdited: v.boolean(),
-    attachments: v.optional(
-      v.array(
-        v.object({
-          storageId: v.string(),
-          filename: v.string(),
-          mimeType: v.string(),
-          size: v.number(),
-        }),
-      ),
-    ),
   })
     .index("by_conversation", ["conversationId"])
     .index("by_author", ["authorId"]),
@@ -322,82 +302,58 @@ export default defineSchema({
     .index("by_message", ["messageId"])
     .index("by_message_user", ["messageId", "userId"]),
 
-  emailAccounts: defineTable({
+  decisions: defineTable({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
-    provider: v.union(v.literal("gmail"), v.literal("outlook")),
-    email: v.string(),
-    accessToken: v.string(),
-    refreshToken: v.string(),
-    tokenExpiresAt: v.number(),
-    syncCursor: v.optional(v.string()),
-    status: v.union(
-      v.literal("active"),
-      v.literal("paused"),
-      v.literal("error"),
+    type: v.union(
+      v.literal("pr_review"),
+      v.literal("ticket_triage"),
+      v.literal("question_answer"),
+      v.literal("blocked_unblock"),
+      v.literal("fact_verify"),
+      v.literal("cross_team_ack"),
+      v.literal("channel_summary"),
     ),
-    lastSyncedAt: v.optional(v.number()),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_email", ["userId", "email"]),
-
-  emails: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    emailAccountId: v.id("emailAccounts"),
-    externalId: v.string(),
-    threadId: v.string(),
-    subject: v.string(),
-    from: v.string(),
-    to: v.array(v.string()),
-    cc: v.optional(v.array(v.string())),
-    bcc: v.optional(v.array(v.string())),
-    bodyPlain: v.string(),
-    bodyHtml: v.optional(v.string()),
-    receivedAt: v.number(),
-    isRead: v.boolean(),
-    isArchived: v.boolean(),
-    eisenhowerQuadrant: v.optional(
+    title: v.string(),
+    summary: v.string(),
+    eisenhowerQuadrant: v.union(
+      v.literal("urgent-important"),
+      v.literal("important"),
+      v.literal("urgent"),
+      v.literal("fyi"),
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("decided"),
+      v.literal("delegated"),
+      v.literal("snoozed"),
+      v.literal("expired"),
+    ),
+    sourceAlertId: v.optional(v.id("proactiveAlerts")),
+    sourceSummaryId: v.optional(v.id("inboxSummaries")),
+    sourceChannelId: v.optional(v.id("channels")),
+    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
+    outcome: v.optional(
+      v.object({
+        action: v.string(),
+        decidedAt: v.number(),
+        comment: v.optional(v.string()),
+      }),
+    ),
+    delegatedTo: v.optional(v.id("users")),
+    snoozedUntil: v.optional(v.number()),
+    agentExecutionStatus: v.optional(
       v.union(
-        v.literal("urgent-important"),
-        v.literal("important"),
-        v.literal("urgent"),
-        v.literal("fyi"),
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("completed"),
+        v.literal("failed"),
       ),
     ),
-    agentSummary: v.optional(v.string()),
-    agentClassifiedAt: v.optional(v.number()),
-    suggestedAction: v.optional(v.string()),
-    reminderAt: v.optional(v.number()),
-    delegateTo: v.optional(v.string()),
-    graphitiEpisodeId: v.optional(v.string()),
+    agentExecutionResult: v.optional(v.string()),
   })
-    .index("by_user", ["userId"])
-    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
-    .index("by_user_unread", ["userId", "isRead"])
-    .index("by_thread", ["threadId"])
-    .index("by_external_id", ["externalId"])
-    .searchIndex("search_body", {
-      searchField: "bodyPlain",
-      filterFields: ["userId", "subject"],
-    }),
-
-  emailDrafts: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    emailAccountId: v.id("emailAccounts"),
-    to: v.array(v.string()),
-    cc: v.optional(v.array(v.string())),
-    bcc: v.optional(v.array(v.string())),
-    subject: v.string(),
-    body: v.string(),
-    inReplyToEmailId: v.optional(v.id("emails")),
-    status: v.union(
-      v.literal("draft"),
-      v.literal("sending"),
-      v.literal("sent"),
-      v.literal("failed"),
-    ),
-  })
-    .index("by_user", ["userId"]),
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_workspace", ["userId", "workspaceId"])
+    .index("by_source_alert", ["sourceAlertId"])
+    .index("by_source_summary", ["sourceSummaryId"]),
 });
