@@ -1,11 +1,12 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./auth";
+import { requireAuth, requireChannelMember } from "./auth";
 
 export const setTyping = mutation({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const existing = await ctx.db
       .query("typingIndicators")
@@ -30,6 +31,7 @@ export const clearTyping = mutation({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const existing = await ctx.db
       .query("typingIndicators")
@@ -48,6 +50,7 @@ export const getTypingUsers = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const indicators = await ctx.db
       .query("typingIndicators")

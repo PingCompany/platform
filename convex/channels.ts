@@ -1,7 +1,7 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Doc } from "./_generated/dataModel";
-import { requireAuth } from "./auth";
+import { requireAuth, requireChannelMember } from "./auth";
 
 function requireChannelOwnerOrAdmin(
   channel: Doc<"channels">,
@@ -12,6 +12,37 @@ function requireChannelOwnerOrAdmin(
     throw new Error(`Only the creator or an admin can ${action} this channel`);
   }
 }
+
+export const isMember = internalQuery({
+  args: {
+    channelId: v.id("channels"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", args.channelId).eq("userId", args.userId),
+      )
+      .unique();
+    return !!membership;
+  },
+});
+
+export const getByWorkspaceName = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("channels")
+      .withIndex("by_workspace_name", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("name", args.name),
+      )
+      .unique();
+  },
+});
 
 export const create = mutation({
   args: {
@@ -100,8 +131,13 @@ export const list = query({
 export const get = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
-    return await ctx.db.get(args.channelId);
+    const user = await requireAuth(ctx);
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) throw new Error("Channel not found");
+    if (channel.type === "dm" || channel.type === "group") {
+      await requireChannelMember(ctx, args.channelId, user._id);
+    }
+    return channel;
   },
 });
 
@@ -109,6 +145,12 @@ export const join = mutation({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx);
+
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) throw new Error("Channel not found");
+    if (channel.type === "dm" || channel.type === "group") {
+      throw new Error("Cannot self-join a private conversation");
+    }
 
     const existing = await ctx.db
       .query("channelMembers")
@@ -220,7 +262,13 @@ export const invite = mutation({
 export const listMembers = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
+
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) throw new Error("Channel not found");
+    if (channel.type === "dm" || channel.type === "group") {
+      await requireChannelMember(ctx, args.channelId, user._id);
+    }
 
     const memberships = await ctx.db
       .query("channelMembers")

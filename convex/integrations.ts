@@ -1,4 +1,4 @@
-import { query, internalMutation } from "./_generated/server";
+import { query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuth } from "./auth";
 
@@ -42,6 +42,38 @@ export const upsert = internalMutation({
       metadata: args.metadata,
       lastSyncedAt: Date.now(),
     });
+  },
+});
+
+export const listOpenPRs = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+  },
+  handler: async (ctx, args) => {
+    const prs = await ctx.db
+      .query("integrationObjects")
+      .withIndex("by_workspace_type", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("type", "github_pr"),
+      )
+      .collect();
+
+    return prs.filter((pr) => pr.status === "open" || pr.status === "draft");
+  },
+});
+
+export const listInProgressTickets = internalQuery({
+  args: {
+    workspaceId: v.id("workspaces"),
+  },
+  handler: async (ctx, args) => {
+    const tickets = await ctx.db
+      .query("integrationObjects")
+      .withIndex("by_workspace_type", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("type", "linear_ticket"),
+      )
+      .collect();
+
+    return tickets.filter((t) => t.status === "In Progress");
   },
 });
 

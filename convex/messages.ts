@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { requireAuth } from "./auth";
+import { requireAuth, requireChannelMember } from "./auth";
 import { internal } from "./_generated/api";
 
 export const send = mutation({
@@ -61,7 +61,8 @@ export const list = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const results = await ctx.db
       .query("messages")
@@ -97,10 +98,11 @@ export const getById = query({
     messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
 
     const message = await ctx.db.get(args.messageId);
     if (!message) return null;
+    await requireChannelMember(ctx, message.channelId, user._id);
 
     const [author, integrationObject] = await Promise.all([
       ctx.db.get(message.authorId),
@@ -125,7 +127,11 @@ export const search = query({
     channelId: v.optional(v.id("channels")),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
+
+    if (args.channelId) {
+      await requireChannelMember(ctx, args.channelId, user._id);
+    }
 
     const searchTerm = args.query.trim();
     if (!searchTerm) return [];
@@ -138,8 +144,23 @@ export const search = query({
       })
       .take(20);
 
+    // For global search, filter to only channels the user is a member of
+    let accessibleMessages = messages;
+    if (!args.channelId) {
+      const userMemberships = await ctx.db
+        .query("channelMembers")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+      const memberChannelIds = new Set(
+        userMemberships.map((m) => m.channelId),
+      );
+      accessibleMessages = messages.filter((m) =>
+        memberChannelIds.has(m.channelId),
+      );
+    }
+
     const enrichedMessages = await Promise.all(
-      messages.map(async (message) => {
+      accessibleMessages.map(async (message) => {
         const author = await ctx.db.get(message.authorId);
         return {
           ...message,
