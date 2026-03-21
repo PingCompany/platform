@@ -1,0 +1,168 @@
+---
+title: Monorepo Structure
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+PING is organized as a monorepo using [Turborepo](https://turbo.build) for task orchestration and [pnpm](https://pnpm.io) for package management.
+
+## Turborepo Overview
+
+Turborepo provides:
+
+- **Task orchestration** — Defines dependencies between tasks (e.g., `build` depends on upstream packages being built first).
+- **Caching** — Stores build outputs locally so unchanged packages skip rebuilding.
+- **Parallel execution** — Runs independent tasks concurrently for faster CI and local development.
+
+## Workspace Layout
+
+```
+Platform/
+├── apps/
+│   ├── web/             # Next.js 15 frontend (App Router, React 19, Tailwind CSS 4)
+│   └── docs/            # Documentation site (Astro Starlight)
+├── convex/              # Convex serverless backend (at root, not in apps/)
+├── packages/
+│   └── shared/          # Shared TypeScript types and utilities
+├── turbo.json           # Turborepo task configuration
+├── pnpm-workspace.yaml  # pnpm workspace definition
+├── package.json         # Root package with monorepo scripts
+└── vercel.json          # Vercel deployment configuration
+```
+
+### `apps/web/` — Next.js Frontend
+
+The main application is a Next.js 15 app using the App Router, React 19, and Tailwind CSS 4. Key dependencies include:
+
+- **Radix UI** — Headless, accessible component primitives (dialogs, dropdowns, tooltips, etc.)
+- **cmdk** — Command palette component
+- **WorkOS AuthKit** — Authentication with SSO/SAML support
+- **Convex** — Real-time backend client
+- **Lucide React** — Icon library
+
+### `apps/docs/` — Documentation Site
+
+This documentation site, built with Astro Starlight. Published to GitHub Pages.
+
+### `convex/` — Serverless Backend
+
+The Convex backend lives at the repository root (not inside `apps/`). This is the standard Convex project layout. It contains:
+
+- Database schema (`schema.ts`)
+- Serverless functions (queries, mutations, actions)
+- HTTP endpoints (`http.ts`)
+- Auth configuration (`auth.config.ts`, `auth.ts`)
+- OpenAPI specification (`openapi.yaml`)
+
+<Aside type="tip">
+Convex lives at the root because it is not a typical workspace package — it has its own deployment lifecycle managed by the Convex CLI.
+</Aside>
+
+### `packages/shared/` — Shared Library
+
+Shared TypeScript types and utility functions consumed by both the frontend and backend. Referenced in `next.config.ts` via `transpilePackages`.
+
+## Route Structure
+
+The Next.js app uses route groups to organize pages under `apps/web/src/app/`:
+
+```
+apps/web/src/app/
+├── (auth)/              # WorkOS OAuth callback
+│   └── callback/
+├── (dashboard)/         # Main authenticated app
+│   ├── channels/        # Channel messaging
+│   ├── dm/              # Direct messages
+│   ├── inbox/           # AI-powered inbox
+│   └── settings/        # User and workspace settings
+├── admin/               # Admin panel
+├── layout.tsx           # Root layout
+└── page.tsx             # Landing page
+```
+
+Route groups (directories wrapped in parentheses) apply shared layouts without affecting the URL structure. For example, pages inside `(dashboard)/` share a sidebar layout but are accessed at `/channels`, `/inbox`, etc.
+
+## Key Configuration Files
+
+### `turbo.json`
+
+Defines the task graph for Turborepo:
+
+```json
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"],
+      "env": [
+        "NEXT_PUBLIC_CONVEX_URL",
+        "WORKOS_CLIENT_ID",
+        "WORKOS_API_KEY",
+        "WORKOS_COOKIE_PASSWORD",
+        "NEXT_PUBLIC_WORKOS_REDIRECT_URI"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {},
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    }
+  }
+}
+```
+
+### `pnpm-workspace.yaml`
+
+Declares which directories contain workspace packages:
+
+```yaml
+packages:
+  - "apps/*"
+  - "packages/*"
+```
+
+### `vercel.json`
+
+Configures the Vercel deployment:
+
+```json
+{
+  "buildCommand": "npx convex codegen && pnpm run build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "installCommand": "pnpm install"
+}
+```
+
+## How the Turbo Task Graph Works
+
+Understanding task dependencies is key to working efficiently with the monorepo:
+
+- **`build`** depends on `^build` — each package's build waits for its dependencies to build first. This ensures `packages/shared` is compiled before `apps/web`.
+- **`typecheck`** depends on `^typecheck` — type checking follows the same dependency order.
+- **`lint`** has no dependencies — it runs independently and in parallel across all packages.
+- **`dev`** is marked `persistent: true` with caching disabled — it runs long-lived development servers that should not be cached.
+
+```
+                  ┌─────────────────┐
+                  │  packages/shared │
+                  │     build        │
+                  └────────┬────────┘
+                           │ ^build
+                  ┌────────▼────────┐
+                  │    apps/web      │
+                  │     build        │
+                  └─────────────────┘
+
+  lint (all packages) ──── run in parallel, no dependencies
+```
+
+<Aside type="tip">
+Run `pnpm build` from the root and Turbo handles the correct execution order automatically. You never need to manually build packages in dependency order.
+</Aside>

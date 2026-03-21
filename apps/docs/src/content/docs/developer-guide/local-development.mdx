@@ -1,0 +1,134 @@
+---
+title: Local Development
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This guide walks through setting up a local development environment for PING.
+
+## Prerequisites
+
+| Tool | Version | Notes |
+|------|---------|-------|
+| Node.js | 20+ | LTS recommended |
+| pnpm | 10+ | Package manager (`corepack enable` to activate) |
+| Git | 2.30+ | Version control |
+
+<Aside type="tip">
+If you have `corepack` available (bundled with Node.js 16+), run `corepack enable` to automatically use the correct pnpm version specified in `package.json`.
+</Aside>
+
+## Initial Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/PingCompany/Platform.git
+cd Platform
+
+# Install dependencies
+pnpm install
+```
+
+## Running the Development Servers
+
+### Start everything at once
+
+```bash
+pnpm dev
+```
+
+This uses Turborepo to start all packages in development mode concurrently, including the Next.js frontend and the Convex backend.
+
+### Run the frontend only
+
+```bash
+cd apps/web && pnpm dev
+```
+
+The Next.js development server starts on `http://localhost:3000` by default.
+
+### Run the Convex backend only
+
+```bash
+npx convex dev
+```
+
+This starts the Convex development server, which watches for changes to files in `convex/` and automatically redeploys functions.
+
+## Environment Variables
+
+Create a `.env.local` file in `apps/web/` with the following variables:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_CONVEX_URL` | Your Convex deployment URL (e.g., `https://your-project.convex.cloud`) |
+| `WORKOS_CLIENT_ID` | WorkOS application client ID for authentication |
+| `WORKOS_API_KEY` | WorkOS API key for server-side auth operations |
+| `WORKOS_COOKIE_PASSWORD` | A 32+ character secret for encrypting session cookies |
+| `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | OAuth callback URL (e.g., `http://localhost:3000/callback`) |
+
+<Aside type="caution">
+Never commit `.env.local` or any file containing secrets. These files are already in `.gitignore`.
+</Aside>
+
+## Hot Reload Behavior
+
+- **Next.js** uses Fast Refresh. Editing React components updates the browser instantly without losing component state.
+- **Convex** automatically redeploys functions when you save changes to files in `convex/`. Changes are reflected within seconds.
+
+## Linting
+
+```bash
+pnpm lint
+```
+
+Runs ESLint across all packages in the monorepo. The web app uses `eslint-config-next` for Next.js-specific rules.
+
+## Type Checking
+
+```bash
+pnpm typecheck
+```
+
+Runs the TypeScript compiler in `--noEmit` mode across all packages. The `typecheck` task depends on `^typecheck`, so shared packages are checked before apps that depend on them.
+
+## Building
+
+```bash
+pnpm build
+```
+
+Produces production builds for all packages. The build task depends on `^build` (dependency packages build first). Build outputs include:
+
+- `apps/web/.next/` — Next.js production bundle
+- `packages/shared/dist/` — Compiled shared library
+
+<Aside type="tip">
+Turborepo caches build outputs. If nothing has changed, subsequent builds complete almost instantly.
+</Aside>
+
+## Debugging Tips
+
+### Convex Dashboard
+
+Open the [Convex dashboard](https://dashboard.convex.dev) to inspect your development database, view function logs, and test queries/mutations interactively.
+
+### Next.js Dev Tools
+
+- **React DevTools** browser extension lets you inspect component trees and state.
+- **Next.js error overlay** shows compilation errors and runtime exceptions directly in the browser.
+
+### Browser Console
+
+Convex client logs subscription updates and errors to the browser console. Filter by `convex` to isolate backend-related messages.
+
+### Common Issues
+
+| Problem | Solution |
+|---------|----------|
+| `pnpm install` fails | Delete `node_modules` and `pnpm-lock.yaml`, then run `pnpm install` again |
+| Convex functions not updating | Ensure `npx convex dev` is running and watching for changes |
+| Type errors after schema change | Run `npx convex dev` to regenerate types, then restart your IDE |
+| Port 3000 already in use | Kill the existing process or set `PORT=3001` before running `pnpm dev` |

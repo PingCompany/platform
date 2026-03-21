@@ -1,0 +1,113 @@
+---
+title: Deployment
+sidebar:
+  order: 4
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+PING uses a multi-platform deployment architecture with three separate hosting targets.
+
+## Deployment Architecture
+
+| Component | Platform | Trigger |
+|-----------|----------|---------|
+| Frontend (`apps/web`) | Vercel | Push to `main` via GitHub Actions |
+| Backend (`convex/`) | Convex Cloud | Push to `main` via GitHub Actions |
+| Documentation (`apps/docs`) | GitHub Pages | Push to `main` when `apps/docs/**` changes |
+
+## Vercel Deployment (Frontend)
+
+The Next.js frontend is deployed to Vercel. Deployment is triggered by a GitHub Actions workflow that fires on pushes to `main`.
+
+### Build Configuration
+
+The `vercel.json` at the repository root configures the build:
+
+```json
+{
+  "buildCommand": "npx convex codegen && pnpm run build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "installCommand": "pnpm install"
+}
+```
+
+The build command first runs `npx convex codegen` to generate Convex client types, then runs the full monorepo build via Turborepo. The output directory points to the Next.js build output inside the web app.
+
+<Aside type="tip">
+Vercel's automatic Git deployments are disabled (see `git.deploymentEnabled` in `vercel.json`). Deploys are triggered explicitly via the `VERCEL_DEPLOY_HOOK_URL` webhook from GitHub Actions.
+</Aside>
+
+### Environment Variables in Vercel
+
+Configure these environment variables in the Vercel dashboard:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_CONVEX_URL` | Production Convex deployment URL |
+| `WORKOS_CLIENT_ID` | WorkOS application client ID |
+| `WORKOS_API_KEY` | WorkOS API key |
+| `WORKOS_COOKIE_PASSWORD` | 32+ character session cookie encryption secret |
+| `NEXT_PUBLIC_WORKOS_REDIRECT_URI` | Production OAuth callback URL |
+
+## Convex Deployment (Backend)
+
+The Convex backend is deployed to Convex Cloud using the Convex CLI. This runs as part of the same CI/CD workflow.
+
+### Deploy Command
+
+```bash
+npx convex deploy
+```
+
+This command pushes all functions from `convex/` to the production Convex deployment. It also runs any pending schema migrations automatically.
+
+### Schema Migrations
+
+When you modify `convex/schema.ts`, Convex handles migrations during deployment:
+
+- **Adding new tables or indexes** — Applied automatically, no downtime.
+- **Adding optional fields** — Applied automatically.
+- **Adding required fields** — Requires a migration strategy. Existing documents will not have the new field, so use `v.optional()` or write a migration function.
+
+<Aside type="caution">
+Always test schema changes locally with `npx convex dev` before deploying to production. Breaking schema changes can cause deployment failures.
+</Aside>
+
+## Documentation Deployment (GitHub Pages)
+
+The documentation site is deployed to GitHub Pages. A separate workflow triggers when changes are pushed to `apps/docs/**`.
+
+### Build and Deploy
+
+The docs site builds with Astro:
+
+```bash
+cd apps/docs && pnpm install && pnpm build
+```
+
+The built static files in `apps/docs/dist/` are published to GitHub Pages with the base path `/Platform/`.
+
+## GitHub Secrets
+
+The following secrets must be configured in the GitHub repository settings under **Settings > Secrets and variables > Actions**:
+
+| Secret | Purpose |
+|--------|---------|
+| `CONVEX_DEPLOY_KEY` | Authenticates `npx convex deploy` with Convex Cloud |
+| `VERCEL_DEPLOY_HOOK_URL` | Webhook URL to trigger a Vercel deployment |
+
+<Aside type="tip">
+You can find your Convex deploy key in the [Convex dashboard](https://dashboard.convex.dev) under your project's deployment settings. The Vercel deploy hook URL is created in the Vercel project settings under **Git > Deploy Hooks**.
+</Aside>
+
+## CI/CD Workflow Summary
+
+A typical deployment flow on push to `main`:
+
+1. GitHub Actions workflow triggers.
+2. **Convex deploy** — `npx convex deploy` pushes backend functions and schema changes.
+3. **Vercel deploy** — A webhook call to `VERCEL_DEPLOY_HOOK_URL` triggers the Vercel build.
+4. Vercel runs `npx convex codegen && pnpm run build` to produce the Next.js bundle.
+5. If `apps/docs/**` changed, a separate workflow builds and publishes the docs to GitHub Pages.

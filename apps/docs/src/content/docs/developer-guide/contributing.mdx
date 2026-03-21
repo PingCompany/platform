@@ -1,0 +1,128 @@
+---
+title: Contributing
+sidebar:
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Welcome to the PING contributor guide. This document covers everything you need to know to contribute code, documentation, and ideas to the project.
+
+## Code of Conduct
+
+All contributors are expected to be respectful and constructive. Harassment, discrimination, and disruptive behavior will not be tolerated. If you witness or experience unacceptable behavior, reach out to a project maintainer.
+
+## Pull Request Process
+
+1. **Branch from `main`** — Always create your feature or fix branch from the latest `main`.
+2. **Write descriptive commits** — Each commit message should explain *why* the change was made, not just what changed.
+3. **Create a pull request** — Push your branch and open a PR against `main`. Fill in the PR template with a summary, test plan, and any relevant context.
+4. **Code review** — At least one maintainer must approve before merging. Address review feedback with new commits rather than force-pushing.
+5. **Merge** — Once approved and CI passes, the PR can be merged.
+
+### Branch Naming Conventions
+
+Use the following prefixes for branch names:
+
+| Prefix | Purpose |
+|--------|---------|
+| `feat/` | New features |
+| `fix/` | Bug fixes |
+| `refactor/` | Code refactoring without behavior changes |
+| `docs/` | Documentation updates |
+| `chore/` | Build, CI, or dependency updates |
+
+Example: `feat/inbox-notifications` or `fix/channel-scroll-position`.
+
+## Coding Standards
+
+- **TypeScript strict mode** — All code must pass strict TypeScript checks (`pnpm typecheck`).
+- **Tailwind CSS for styling** — Do not use inline styles or CSS modules. Use Tailwind utility classes.
+- **Radix UI for components** — Use Radix UI primitives as the foundation for interactive UI components (dialogs, dropdowns, tooltips, etc.).
+- **ESLint** — All code must pass linting (`pnpm lint`).
+
+## How to Add a New Convex Function
+
+Convex functions live in the `convex/` directory at the repository root.
+
+1. Create or edit a file in `convex/` (e.g., `convex/myFeature.ts`).
+2. Define your function using `query`, `mutation`, or `action` from `convex/server`.
+3. If you need new tables or fields, update `convex/schema.ts`.
+4. Update `convex/openapi.yaml` to document any new public-facing endpoints.
+5. Run `pnpm typecheck` to verify everything compiles.
+
+<Aside type="tip">
+Always read `convex/_generated/ai/guidelines.md` before writing Convex functions. It contains important patterns and rules specific to this project.
+</Aside>
+
+```ts
+// convex/myFeature.ts
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+export const list = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("myTable")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+  },
+});
+```
+
+## How to Add a New UI Component
+
+UI components live in `apps/web/src/components/`.
+
+1. Create a new file in the appropriate subdirectory (e.g., `apps/web/src/components/ui/MyComponent.tsx`).
+2. Use Radix UI primitives where applicable for accessibility and keyboard navigation.
+3. Style with Tailwind CSS utility classes.
+4. Use `class-variance-authority` (CVA) for component variants if needed.
+5. Export the component and import it where needed.
+
+```tsx
+// apps/web/src/components/ui/MyComponent.tsx
+import * as Dialog from "@radix-ui/react-dialog";
+
+export function MyComponent() {
+  return (
+    <Dialog.Root>
+      <Dialog.Trigger className="rounded-md bg-indigo-600 px-4 py-2 text-white">
+        Open
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6">
+          <Dialog.Title>My Dialog</Dialog.Title>
+          <Dialog.Description>Dialog content here.</Dialog.Description>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+```
+
+## How to Add a New Page or Route
+
+PING uses the Next.js 15 App Router. Routes are defined by the file system under `apps/web/src/app/`.
+
+1. Create a new directory under the appropriate route group:
+   - `(dashboard)/` for authenticated app pages
+   - `(auth)/` for authentication flows
+   - `admin/` for admin pages
+2. Add a `page.tsx` file in the new directory.
+3. Optionally add `layout.tsx` for shared layout, `loading.tsx` for loading states, or `error.tsx` for error boundaries.
+
+```
+apps/web/src/app/
+  (dashboard)/
+    my-feature/
+      page.tsx        # Main page component
+      layout.tsx      # Optional layout wrapper
+      loading.tsx     # Optional loading skeleton
+```
+
+<Aside type="tip">
+Route groups like `(dashboard)` apply shared layouts without affecting the URL path. A page at `(dashboard)/my-feature/page.tsx` is accessible at `/my-feature`.
+</Aside>
