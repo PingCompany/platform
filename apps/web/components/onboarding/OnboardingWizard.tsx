@@ -68,6 +68,7 @@ export function OnboardingWizard() {
   };
 
   function renderStep() {
+    if (!state) return null;
     if (isAdmin) {
       switch (step) {
         case 0:
