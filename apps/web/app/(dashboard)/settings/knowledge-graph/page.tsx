@@ -93,7 +93,7 @@ export default function KnowledgeGraphPage() {
   );
 
   const isLoading = integrationObjects === undefined;
-  const objects = integrationObjects ?? [];
+  const objects = useMemo(() => integrationObjects ?? [], [integrationObjects]);
 
   const stats = useMemo(() => {
     let prCount = 0;
