@@ -1,353 +1,322 @@
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { internal } from "./_generated/api";
+import {
+  query,
+  mutation,
+  action,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { requireUser } from "./auth";
+import { internal } from "./_generated/api";
 
-const MAX_EMAILS_PER_INVOCATION = 50;
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+// ── Email Account Management ────────────────────────────────────────────────
 
-interface GmailMessage {
-  id: string;
-  threadId: string;
-  labelIds?: string[];
-  payload?: {
-    headers?: Array<{ name: string; value: string }>;
-    mimeType?: string;
-    body?: { data?: string };
-    parts?: Array<{
-      mimeType?: string;
-      body?: { data?: string };
-      parts?: Array<{
-        mimeType?: string;
-        body?: { data?: string };
-      }>;
-    }>;
-  };
-  snippet?: string;
-  internalDate?: string;
-}
-
-interface GmailListResponse {
-  messages?: Array<{ id: string; threadId: string }>;
-  nextPageToken?: string;
-}
-
-interface GmailHistoryResponse {
-  history?: Array<{
-    messagesAdded?: Array<{ message: { id: string; threadId: string } }>;
-  }>;
-  historyId?: string;
-  nextPageToken?: string;
-}
-
-function getHeader(message: GmailMessage, name: string): string {
-  const header = message.payload?.headers?.find(
-    (h) => h.name.toLowerCase() === name.toLowerCase(),
-  );
-  return header?.value ?? "";
-}
-
-function parseAddressList(headerValue: string): string[] {
-  if (!headerValue) return [];
-  return headerValue.split(",").map((addr) => addr.trim()).filter(Boolean);
-}
-
-function decodeBase64Url(data: string): string {
-  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
-  return atob(base64);
-}
-
-function extractPlainTextBody(message: GmailMessage): string {
-  if (message.payload?.parts) {
-    for (const part of message.payload.parts) {
-      if (part.mimeType === "text/plain" && part.body?.data) {
-        return decodeBase64Url(part.body.data);
-      }
-      // Check nested parts (e.g., multipart/alternative inside multipart/mixed)
-      if (part.parts) {
-        for (const subPart of part.parts) {
-          if (subPart.mimeType === "text/plain" && subPart.body?.data) {
-            return decodeBase64Url(subPart.body.data);
-          }
-        }
-      }
-    }
-  }
-
-  if (message.payload?.body?.data) {
-    return decodeBase64Url(message.payload.body.data);
-  }
-
-  return "";
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getValidAccessToken(
-  ctx: any,
-  account: { _id: Id<"emailAccounts">; accessToken: string; tokenExpiresAt: number },
-): Promise<string> {
-  if (account.tokenExpiresAt < Date.now() + 5 * 60 * 1000) {
-    return await ctx.runAction(internal.emailAuth.refreshToken, {
-      emailAccountId: account._id,
-    });
-  }
-  return account.accessToken;
-}
-
-export const syncEmailAccount = internalAction({
-  args: {
-    emailAccountId: v.id("emailAccounts"),
-  },
-  handler: async (ctx, args) => {
-    const account = await ctx.runQuery(internal.emailAuth.getEmailAccount, {
-      emailAccountId: args.emailAccountId,
-    });
-    if (!account || account.status !== "active") return;
-
-    if (!account.syncCursor) {
-      await ctx.scheduler.runAfter(0, internal.emailSync.initialSync, {
-        emailAccountId: args.emailAccountId,
-      });
-      return;
-    }
-
-    let accessToken: string;
-    try {
-      accessToken = await getValidAccessToken(ctx, account);
-    } catch {
-      return; // Token refresh already set error status
-    }
-
-    let pageToken: string | undefined;
-    let newHistoryId: string | undefined;
-
-    do {
-      const params = new URLSearchParams({
-        startHistoryId: account.syncCursor,
-        historyTypes: "messageAdded",
-        maxResults: "100",
-      });
-      if (pageToken) params.set("pageToken", pageToken);
-
-      const response = await fetch(
-        `https://www.googleapis.com/gmail/v1/users/me/history?${params.toString()}`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-
-      if (response.status === 404) {
-        // History expired, do full re-sync
-        await ctx.scheduler.runAfter(0, internal.emailSync.initialSync, {
-          emailAccountId: args.emailAccountId,
-        });
-        return;
-      }
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        await ctx.runMutation(internal.emailAuth.updateAccountStatus, {
-          emailAccountId: args.emailAccountId,
-          status: "error",
-          errorMessage: `History sync failed: ${errorBody}`,
-        });
-        return;
-      }
-
-      const data = (await response.json()) as GmailHistoryResponse;
-      newHistoryId = data.historyId;
-
-      if (data.history) {
-        for (const entry of data.history) {
-          if (entry.messagesAdded) {
-            for (const added of entry.messagesAdded) {
-              await fetchAndStoreMessage(
-                ctx,
-                accessToken,
-                added.message.id,
-                args.emailAccountId,
-                account.userId,
-                account.workspaceId,
-              );
-            }
-          }
-        }
-      }
-
-      pageToken = data.nextPageToken;
-    } while (pageToken);
-
-    if (newHistoryId) {
-      await ctx.runMutation(internal.emailSync.updateSyncCursor, {
-        emailAccountId: args.emailAccountId,
-        syncCursor: newHistoryId,
-      });
-    }
-  },
-});
-
-export const initialSync = internalAction({
-  args: {
-    emailAccountId: v.id("emailAccounts"),
-    pageToken: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const account = await ctx.runQuery(internal.emailAuth.getEmailAccount, {
-      emailAccountId: args.emailAccountId,
-    });
-    if (!account || account.status !== "active") return;
-
-    let accessToken: string;
-    try {
-      accessToken = await getValidAccessToken(ctx, account);
-    } catch {
-      return;
-    }
-
-    const after = Math.floor((Date.now() - THIRTY_DAYS_MS) / 1000);
-    const params = new URLSearchParams({
-      q: `after:${after}`,
-      maxResults: String(MAX_EMAILS_PER_INVOCATION),
-    });
-    if (args.pageToken) params.set("pageToken", args.pageToken);
-
-    const listResponse = await fetch(
-      `https://www.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-
-    if (!listResponse.ok) {
-      const errorBody = await listResponse.text();
-      await ctx.runMutation(internal.emailAuth.updateAccountStatus, {
-        emailAccountId: args.emailAccountId,
-        status: "error",
-        errorMessage: `Initial sync list failed: ${errorBody}`,
-      });
-      return;
-    }
-
-    const listData = (await listResponse.json()) as GmailListResponse;
-
-    if (listData.messages) {
-      for (const msg of listData.messages) {
-        await fetchAndStoreMessage(
-          ctx,
-          accessToken,
-          msg.id,
-          args.emailAccountId,
-          account.userId,
-          account.workspaceId,
-        );
-      }
-    }
-
-    if (listData.nextPageToken) {
-      await ctx.scheduler.runAfter(0, internal.emailSync.initialSync, {
-        emailAccountId: args.emailAccountId,
-        pageToken: listData.nextPageToken,
-      });
-    } else {
-      // Set historyId cursor only on the final page so incremental sync starts from here
-      const profileResponse = await fetch(
-        "https://www.googleapis.com/gmail/v1/users/me/profile",
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      if (profileResponse.ok) {
-        const profile = (await profileResponse.json()) as { historyId: string };
-        await ctx.runMutation(internal.emailSync.updateSyncCursor, {
-          emailAccountId: args.emailAccountId,
-          syncCursor: profile.historyId,
-        });
-      }
-    }
-  },
-});
-
-export const syncAllAccounts = internalAction({
+export const listAccounts = query({
   args: {},
   handler: async (ctx) => {
-    const accounts = await ctx.runQuery(
-      internal.emailSync.listActiveAccounts,
-    );
-
-    for (const account of accounts) {
-      await ctx.scheduler.runAfter(0, internal.emailSync.syncEmailAccount, {
-        emailAccountId: account._id,
-      });
-    }
-  },
-});
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchAndStoreMessage(
-  ctx: any,
-  accessToken: string,
-  messageId: string,
-  emailAccountId: Id<"emailAccounts">,
-  userId: Id<"users">,
-  workspaceId: Id<"workspaces">,
-): Promise<void> {
-  const exists = await ctx.runQuery(internal.emailSync.emailExistsByGmailId, {
-    gmailId: messageId,
-  });
-  if (exists) return;
-
-  const response = await fetch(
-    `https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  );
-
-  if (!response.ok) return;
-
-  const message = (await response.json()) as GmailMessage;
-
-  const subject = getHeader(message, "Subject");
-  const from = getHeader(message, "From");
-  const to = parseAddressList(getHeader(message, "To"));
-  const cc = parseAddressList(getHeader(message, "Cc"));
-  const bcc = parseAddressList(getHeader(message, "Bcc"));
-  const body = extractPlainTextBody(message);
-  const receivedAt = message.internalDate
-    ? parseInt(message.internalDate, 10)
-    : Date.now();
-  const isRead = !(message.labelIds ?? []).includes("UNREAD");
-  const labels = message.labelIds ?? [];
-
-  await ctx.runMutation(internal.emailSync.upsertEmail, {
-    emailAccountId,
-    userId,
-    workspaceId,
-    gmailId: message.id,
-    threadId: message.threadId,
-    subject,
-    from,
-    to,
-    cc: cc.length > 0 ? cc : undefined,
-    bcc: bcc.length > 0 ? bcc : undefined,
-    body,
-    snippet: message.snippet,
-    receivedAt,
-    isRead,
-    labels,
-  });
-}
-
-export const listActiveAccounts = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+    const user = await requireUser(ctx);
     return await ctx.db
       .query("emailAccounts")
-      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
   },
 });
 
-export const emailExistsByGmailId = internalQuery({
-  args: { gmailId: v.string() },
+export const connectAccount = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    emailAddress: v.string(),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    tokenExpiresAt: v.number(),
+  },
   handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    // Check for existing account with same email
     const existing = await ctx.db
+      .query("emailAccounts")
+      .withIndex("by_email", (q) => q.eq("emailAddress", args.emailAddress))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        accessToken: args.accessToken,
+        refreshToken: args.refreshToken,
+        tokenExpiresAt: args.tokenExpiresAt,
+        isActive: true,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("emailAccounts", {
+      userId: user._id,
+      workspaceId: args.workspaceId,
+      provider: args.provider,
+      emailAddress: args.emailAddress,
+      accessToken: args.accessToken,
+      refreshToken: args.refreshToken,
+      tokenExpiresAt: args.tokenExpiresAt,
+      isActive: true,
+    });
+  },
+});
+
+export const disconnectAccount = mutation({
+  args: { accountId: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const account = await ctx.db.get(args.accountId);
+    if (!account || account.userId !== user._id) {
+      throw new Error("Account not found");
+    }
+    await ctx.db.patch(args.accountId, { isActive: false });
+  },
+});
+
+// ── Email Listing ───────────────────────────────────────────────────────────
+
+export const listEmails = query({
+  args: {
+    accountId: v.optional(v.id("emailAccounts")),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    if (args.accountId) {
+      return await ctx.db
+        .query("emails")
+        .withIndex("by_account", (q) => q.eq("emailAccountId", args.accountId!))
+        .order("desc")
+        .take(args.limit ?? 50);
+    }
+
+    return await ctx.db
       .query("emails")
-      .withIndex("by_gmail_id", (q) => q.eq("gmailId", args.gmailId))
-      .first();
-    return existing !== null;
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .take(args.limit ?? 50);
+  },
+});
+
+export const getEmail = query({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) {
+      return null;
+    }
+    return email;
+  },
+});
+
+export const getEmailThread = query({
+  args: { threadId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .collect();
+
+    return emails.filter((e) => e.userId === user._id);
+  },
+});
+
+// ── Sync Actions ────────────────────────────────────────────────────────────
+
+export const syncGmailAccount = action({
+  args: { accountId: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    const account = await ctx.runQuery(
+      internal.emailSync.getAccountInternal,
+      { accountId: args.accountId },
+    );
+    if (!account || !account.isActive) {
+      throw new Error("Account not found or inactive");
+    }
+
+    const cursor = account.syncCursor;
+    let url = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20";
+    if (cursor) {
+      url += `&pageToken=${cursor}`;
+    }
+
+    const listResponse = await fetch(url, {
+      headers: { Authorization: `Bearer ${account.accessToken}` },
+    });
+
+    if (!listResponse.ok) {
+      throw new Error(`Gmail list error: ${listResponse.status}`);
+    }
+
+    const listData = await listResponse.json();
+    const messageIds: string[] = (listData.messages ?? []).map(
+      (m: { id: string }) => m.id,
+    );
+
+    for (const messageId of messageIds) {
+      const msgResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`,
+        { headers: { Authorization: `Bearer ${account.accessToken}` } },
+      );
+
+      if (!msgResponse.ok) continue;
+
+      const msgData = await msgResponse.json();
+      const headers = msgData.payload?.headers ?? [];
+      const getHeader = (name: string) =>
+        headers.find(
+          (h: { name: string; value: string }) =>
+            h.name.toLowerCase() === name.toLowerCase(),
+        )?.value ?? "";
+
+      const attachments = extractGmailAttachments(msgData);
+
+      await ctx.runMutation(internal.emailSync.upsertEmail, {
+        emailAccountId: args.accountId,
+        userId: account.userId,
+        workspaceId: account.workspaceId,
+        externalId: messageId,
+        threadId: msgData.threadId,
+        from: getHeader("From"),
+        to: parseEmailList(getHeader("To")),
+        cc: parseEmailList(getHeader("Cc")),
+        subject: getHeader("Subject"),
+        bodyPlain: extractBody(msgData, "text/plain"),
+        bodyHtml: extractBody(msgData, "text/html"),
+        snippet: msgData.snippet ?? "",
+        labels: msgData.labelIds ?? [],
+        isRead: !(msgData.labelIds ?? []).includes("UNREAD"),
+        isStarred: (msgData.labelIds ?? []).includes("STARRED"),
+        receivedAt: parseInt(msgData.internalDate, 10),
+        inReplyTo: getHeader("In-Reply-To") || undefined,
+        references: getHeader("References")
+          ? getHeader("References").split(/\s+/)
+          : undefined,
+        attachments,
+      });
+    }
+
+    // Update sync cursor
+    await ctx.runMutation(internal.emailSync.updateSyncCursor, {
+      accountId: args.accountId,
+      cursor: listData.nextPageToken ?? null,
+    });
+
+    return { synced: messageIds.length };
+  },
+});
+
+export const syncOutlookAccount = action({
+  args: { accountId: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    const account = await ctx.runQuery(
+      internal.emailSync.getAccountInternal,
+      { accountId: args.accountId },
+    );
+    if (!account || !account.isActive) {
+      throw new Error("Account not found or inactive");
+    }
+
+    let url =
+      "https://graph.microsoft.com/v1.0/me/messages?$top=20&$orderby=receivedDateTime desc";
+    if (account.syncCursor) {
+      url = account.syncCursor; // Microsoft Graph uses full nextLink URLs
+    }
+
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${account.accessToken}` },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Outlook sync error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const messages = data.value ?? [];
+
+    for (const msg of messages) {
+      const attachments = (msg.hasAttachments && msg.attachments)
+        ? msg.attachments.map((a: { name: string; contentType: string; size: number; id: string }) => ({
+            filename: a.name ?? "attachment",
+            mimeType: a.contentType ?? "application/octet-stream",
+            size: a.size ?? 0,
+            externalAttachmentId: a.id,
+          }))
+        : [];
+
+      await ctx.runMutation(internal.emailSync.upsertEmail, {
+        emailAccountId: args.accountId,
+        userId: account.userId,
+        workspaceId: account.workspaceId,
+        externalId: msg.id,
+        threadId: msg.conversationId,
+        from: msg.from?.emailAddress?.address ?? "",
+        to: (msg.toRecipients ?? []).map(
+          (r: { emailAddress: { address: string } }) =>
+            r.emailAddress?.address ?? "",
+        ),
+        cc: (msg.ccRecipients ?? []).map(
+          (r: { emailAddress: { address: string } }) =>
+            r.emailAddress?.address ?? "",
+        ),
+        subject: msg.subject ?? "",
+        bodyPlain:
+          msg.body?.contentType === "text" ? msg.body.content : undefined,
+        bodyHtml:
+          msg.body?.contentType === "html" ? msg.body.content : undefined,
+        snippet: (msg.bodyPreview ?? "").slice(0, 200),
+        labels: msg.categories ?? [],
+        isRead: msg.isRead ?? false,
+        isStarred: msg.flag?.flagStatus === "flagged",
+        receivedAt: new Date(msg.receivedDateTime).getTime(),
+        inReplyTo: undefined,
+        references: undefined,
+        attachments,
+      });
+    }
+
+    await ctx.runMutation(internal.emailSync.updateSyncCursor, {
+      accountId: args.accountId,
+      cursor: data["@odata.nextLink"] ?? null,
+    });
+
+    return { synced: messages.length };
+  },
+});
+
+// ── Internal helpers ────────────────────────────────────────────────────────
+
+export const getAccountInternal = internalQuery({
+  args: { accountId: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.accountId);
+  },
+});
+
+export const getAccountByEmail = internalQuery({
+  args: { emailAddress: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("emailAccounts")
+      .withIndex("by_email", (q) => q.eq("emailAddress", args.emailAddress))
+      .unique();
+  },
+});
+
+export const getAccountByPushChannel = internalQuery({
+  args: { channelId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("emailAccounts")
+      .withIndex("by_push_channel", (q) =>
+        q.eq("pushChannelId", args.channelId),
+      )
+      .unique();
   },
 });
 
@@ -356,29 +325,58 @@ export const upsertEmail = internalMutation({
     emailAccountId: v.id("emailAccounts"),
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
-    gmailId: v.string(),
-    threadId: v.string(),
-    subject: v.string(),
+    externalId: v.string(),
+    threadId: v.optional(v.string()),
     from: v.string(),
     to: v.array(v.string()),
     cc: v.optional(v.array(v.string())),
-    bcc: v.optional(v.array(v.string())),
-    body: v.string(),
+    subject: v.string(),
+    bodyPlain: v.optional(v.string()),
+    bodyHtml: v.optional(v.string()),
     snippet: v.optional(v.string()),
-    receivedAt: v.number(),
+    labels: v.optional(v.array(v.string())),
     isRead: v.boolean(),
-    labels: v.array(v.string()),
+    isStarred: v.boolean(),
+    receivedAt: v.number(),
+    inReplyTo: v.optional(v.string()),
+    references: v.optional(v.array(v.string())),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          filename: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+          externalAttachmentId: v.string(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("emails")
-      .withIndex("by_gmail_id", (q) => q.eq("gmailId", args.gmailId))
+      .withIndex("by_external_id", (q) => q.eq("externalId", args.externalId))
       .unique();
+
+    // Look up sender rule for categorization
+    const senderRule = await ctx.db
+      .query("emailSenderRules")
+      .withIndex("by_user_sender", (q) =>
+        q.eq("userId", args.userId).eq("senderAddress", args.from),
+      )
+      .unique();
+
+    const senderCategory = senderRule?.category ?? "normal";
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        isRead: args.isRead,
+        subject: args.subject,
+        bodyPlain: args.bodyPlain,
+        bodyHtml: args.bodyHtml,
+        snippet: args.snippet,
         labels: args.labels,
+        isRead: args.isRead,
+        isStarred: args.isStarred,
+        senderCategory,
       });
       return existing._id;
     }
@@ -387,31 +385,226 @@ export const upsertEmail = internalMutation({
       emailAccountId: args.emailAccountId,
       userId: args.userId,
       workspaceId: args.workspaceId,
-      gmailId: args.gmailId,
+      externalId: args.externalId,
       threadId: args.threadId,
-      subject: args.subject,
       from: args.from,
       to: args.to,
       cc: args.cc,
-      bcc: args.bcc,
-      body: args.body,
+      subject: args.subject,
+      bodyPlain: args.bodyPlain,
+      bodyHtml: args.bodyHtml,
       snippet: args.snippet,
-      receivedAt: args.receivedAt,
-      isRead: args.isRead,
       labels: args.labels,
+      isRead: args.isRead,
+      isStarred: args.isStarred,
+      receivedAt: args.receivedAt,
+      inReplyTo: args.inReplyTo,
+      references: args.references,
+      attachments: args.attachments,
+      senderCategory,
     });
   },
 });
 
 export const updateSyncCursor = internalMutation({
   args: {
-    emailAccountId: v.id("emailAccounts"),
-    syncCursor: v.string(),
+    accountId: v.id("emailAccounts"),
+    cursor: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.emailAccountId, {
-      syncCursor: args.syncCursor,
+    await ctx.db.patch(args.accountId, {
+      syncCursor: args.cursor ?? undefined,
       lastSyncedAt: Date.now(),
     });
   },
 });
+
+// ── Attachment download ─────────────────────────────────────────────────────
+
+export const downloadAttachment = action({
+  args: {
+    emailId: v.id("emails"),
+    externalAttachmentId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const email = await ctx.runQuery(internal.emailSync.getEmailInternal, {
+      emailId: args.emailId,
+    });
+    if (!email) throw new Error("Email not found");
+
+    const account = await ctx.runQuery(
+      internal.emailSync.getAccountInternal,
+      { accountId: email.emailAccountId },
+    );
+    if (!account) throw new Error("Account not found");
+
+    let data: ArrayBuffer;
+
+    if (account.provider === "gmail") {
+      const response = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${email.externalId}/attachments/${args.externalAttachmentId}`,
+        { headers: { Authorization: `Bearer ${account.accessToken}` } },
+      );
+      if (!response.ok) {
+        throw new Error(`Gmail attachment download failed: ${response.status}`);
+      }
+      const json = await response.json();
+      // Gmail returns base64url-encoded data
+      const base64 = json.data.replace(/-/g, "+").replace(/_/g, "/");
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      data = bytes.buffer;
+    } else {
+      // Outlook
+      const response = await fetch(
+        `https://graph.microsoft.com/v1.0/me/messages/${email.externalId}/attachments/${args.externalAttachmentId}/$value`,
+        { headers: { Authorization: `Bearer ${account.accessToken}` } },
+      );
+      if (!response.ok) {
+        throw new Error(
+          `Outlook attachment download failed: ${response.status}`,
+        );
+      }
+      data = await response.arrayBuffer();
+    }
+
+    // Store in Convex file storage
+    const blob = new Blob([data]);
+    const storageId = await ctx.storage.store(blob);
+
+    // Update the attachment record with storageId
+    await ctx.runMutation(internal.emailSync.setAttachmentStorageId, {
+      emailId: args.emailId,
+      externalAttachmentId: args.externalAttachmentId,
+      storageId,
+    });
+
+    return storageId;
+  },
+});
+
+export const getEmailInternal = internalQuery({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.emailId);
+  },
+});
+
+export const setAttachmentStorageId = internalMutation({
+  args: {
+    emailId: v.id("emails"),
+    externalAttachmentId: v.string(),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const email = await ctx.db.get(args.emailId);
+    if (!email) return;
+
+    const attachments = (email.attachments ?? []).map((a) => {
+      if (a.externalAttachmentId === args.externalAttachmentId) {
+        return { ...a, storageId: args.storageId };
+      }
+      return a;
+    });
+
+    await ctx.db.patch(args.emailId, { attachments });
+  },
+});
+
+// ── Utility functions ───────────────────────────────────────────────────────
+
+function parseEmailList(header: string): string[] {
+  if (!header) return [];
+  return header
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
+interface GmailPayloadPart {
+  mimeType: string;
+  filename?: string;
+  body?: { data?: string; attachmentId?: string; size?: number };
+  parts?: GmailPayloadPart[];
+}
+
+interface GmailMessage {
+  payload?: GmailPayloadPart;
+}
+
+function extractBody(
+  message: GmailMessage,
+  mimeType: string,
+): string | undefined {
+  const payload = message.payload;
+  if (!payload) return undefined;
+
+  if (payload.mimeType === mimeType && payload.body?.data) {
+    return decodeBase64Url(payload.body.data);
+  }
+
+  if (payload.parts) {
+    for (const part of payload.parts) {
+      if (part.mimeType === mimeType && part.body?.data) {
+        return decodeBase64Url(part.body.data);
+      }
+      if (part.parts) {
+        for (const subpart of part.parts) {
+          if (subpart.mimeType === mimeType && subpart.body?.data) {
+            return decodeBase64Url(subpart.body.data);
+          }
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function decodeBase64Url(data: string): string {
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  return decodeURIComponent(
+    atob(base64)
+      .split("")
+      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+      .join(""),
+  );
+}
+
+function extractGmailAttachments(
+  message: GmailMessage,
+): Array<{
+  filename: string;
+  mimeType: string;
+  size: number;
+  externalAttachmentId: string;
+}> {
+  const attachments: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+    externalAttachmentId: string;
+  }> = [];
+
+  function walk(parts: GmailPayloadPart[] | undefined) {
+    if (!parts) return;
+    for (const part of parts) {
+      const attachId = part.body?.attachmentId;
+      if (attachId) {
+        attachments.push({
+          filename: part.filename ?? "attachment",
+          mimeType: part.mimeType,
+          size: part.body?.size ?? 0,
+          externalAttachmentId: attachId,
+        });
+      }
+      walk(part.parts);
+    }
+  }
+
+  walk(message.payload?.parts);
+  return attachments;
+}

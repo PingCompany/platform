@@ -358,4 +358,126 @@ export default defineSchema({
     .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
     .index("by_source_alert", ["sourceAlertId"])
     .index("by_source_summary", ["sourceSummaryId"]),
+
+  emailAccounts: defineTable({
+    userId: v.id("users"),
+    workspaceId: v.id("workspaces"),
+    provider: v.union(v.literal("gmail"), v.literal("outlook")),
+    emailAddress: v.string(),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    tokenExpiresAt: v.number(),
+    // Gmail push notification channel info
+    pushChannelId: v.optional(v.string()),
+    pushResourceId: v.optional(v.string()),
+    pushExpiresAt: v.optional(v.number()),
+    // Sync state
+    lastSyncedAt: v.optional(v.number()),
+    syncCursor: v.optional(v.string()),
+    isActive: v.boolean(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_workspace", ["userId", "workspaceId"])
+    .index("by_email", ["emailAddress"])
+    .index("by_push_channel", ["pushChannelId"]),
+
+  emails: defineTable({
+    emailAccountId: v.id("emailAccounts"),
+    userId: v.id("users"),
+    workspaceId: v.id("workspaces"),
+    externalId: v.string(),
+    threadId: v.optional(v.string()),
+    from: v.string(),
+    to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
+    subject: v.string(),
+    bodyPlain: v.optional(v.string()),
+    bodyHtml: v.optional(v.string()),
+    snippet: v.optional(v.string()),
+    labels: v.optional(v.array(v.string())),
+    isRead: v.boolean(),
+    isStarred: v.boolean(),
+    receivedAt: v.number(),
+    inReplyTo: v.optional(v.string()),
+    references: v.optional(v.array(v.string())),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          filename: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+          externalAttachmentId: v.string(),
+          storageId: v.optional(v.id("_storage")),
+        }),
+      ),
+    ),
+    // Sender rules / VIP
+    senderCategory: v.optional(
+      v.union(v.literal("vip"), v.literal("normal"), v.literal("muted")),
+    ),
+  })
+    .index("by_account", ["emailAccountId"])
+    .index("by_user", ["userId"])
+    .index("by_user_workspace", ["userId", "workspaceId"])
+    .index("by_external_id", ["externalId"])
+    .index("by_thread", ["threadId"])
+    .searchIndex("search_body", {
+      searchField: "bodyPlain",
+      filterFields: ["userId"],
+    }),
+
+  emailDrafts: defineTable({
+    userId: v.id("users"),
+    workspaceId: v.id("workspaces"),
+    emailAccountId: v.id("emailAccounts"),
+    to: v.array(v.string()),
+    cc: v.optional(v.array(v.string())),
+    bcc: v.optional(v.array(v.string())),
+    subject: v.string(),
+    body: v.string(),
+    // Reply/forward metadata
+    mode: v.union(
+      v.literal("compose"),
+      v.literal("reply"),
+      v.literal("reply_all"),
+      v.literal("forward"),
+    ),
+    replyToEmailId: v.optional(v.id("emails")),
+    // Agent quick-reply
+    suggestedAction: v.optional(v.string()),
+    // Attachments
+    attachmentIds: v.optional(v.array(v.id("_storage"))),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("sending"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_account", ["emailAccountId"]),
+
+  emailSenderRules: defineTable({
+    userId: v.id("users"),
+    workspaceId: v.id("workspaces"),
+    senderAddress: v.string(),
+    category: v.union(
+      v.literal("vip"),
+      v.literal("normal"),
+      v.literal("muted"),
+    ),
+    autoArchive: v.optional(v.boolean()),
+    autoLabel: v.optional(v.string()),
+    suggestUnsubscribe: v.optional(v.boolean()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_sender", ["userId", "senderAddress"])
+    .index("by_user_category", ["userId", "category"]),
 });
