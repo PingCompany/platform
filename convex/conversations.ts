@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./auth";
+import { requireAuth, requireChannelMember } from "./auth";
 
 export const getOrCreateDM = mutation({
   args: {
@@ -330,7 +330,8 @@ export const getParticipants = query({
     channelId: v.id("channels"),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const members = await ctx.db
       .query("channelMembers")

@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAuth } from "./auth";
+import { Id } from "./_generated/dataModel";
+import { requireAuth, requireChannelMember } from "./auth";
 
 function groupReactionsByEmoji<T extends { emoji: string }>(reactions: T[]) {
   const grouped = new Map<string, T[]>();
@@ -61,7 +62,11 @@ export const getByMessage = query({
     messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message) return [];
+    await requireChannelMember(ctx, message.channelId, user._id);
 
     const reactions = await ctx.db
       .query("reactions")
@@ -95,7 +100,19 @@ export const getByMessages = query({
     messageIds: v.array(v.id("messages")),
   },
   handler: async (ctx, args) => {
-    await requireAuth(ctx);
+    const user = await requireAuth(ctx);
+
+    // Verify membership for all unique channels referenced by these messages
+    const messages = await Promise.all(
+      args.messageIds.map((id) => ctx.db.get(id)),
+    );
+    const channelIds = new Set<Id<"channels">>();
+    for (const msg of messages) {
+      if (msg) channelIds.add(msg.channelId);
+    }
+    for (const channelId of channelIds) {
+      await requireChannelMember(ctx, channelId, user._id);
+    }
 
     const result: Record<
       string,

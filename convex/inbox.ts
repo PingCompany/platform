@@ -18,6 +18,15 @@ export const getInbox = query({
 
     const enriched = await Promise.all(
       summaries.map(async (summary) => {
+        // Skip summaries for channels the user has left
+        const membership = await ctx.db
+          .query("channelMembers")
+          .withIndex("by_channel_user", (q) =>
+            q.eq("channelId", summary.channelId).eq("userId", user._id),
+          )
+          .unique();
+        if (!membership) return null;
+
         const channel = await ctx.db.get(summary.channelId);
         return {
           ...summary,
@@ -32,7 +41,9 @@ export const getInbox = query({
       }),
     );
 
-    return enriched;
+    return enriched.filter(
+      (e): e is NonNullable<typeof e> => e !== null,
+    );
   },
 });
 
