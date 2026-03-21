@@ -1,6 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const http = httpRouter();
 
@@ -22,12 +22,19 @@ http.route({
           profile_picture_url,
         } = body.data;
 
-        await ctx.runMutation(api.users.createOrUpdate, {
+        const result = await ctx.runMutation(api.users.createOrUpdate, {
           workosUserId: id,
           email: email ?? "",
           name: [first_name, last_name].filter(Boolean).join(" ") || "User",
           avatarUrl: profile_picture_url ?? undefined,
         });
+
+        if (result.isNew) {
+          await ctx.runAction(internal.workos.createOrganization, {
+            workspaceId: result.workspaceId,
+            name: result.workspaceName,
+          });
+        }
         break;
       }
     }

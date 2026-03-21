@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { requireAuth } from "./auth";
 
@@ -41,6 +41,16 @@ export const update = mutation({
     if (args.name !== undefined) {
       await ctx.db.patch(user.workspaceId, { name: args.name });
     }
+  },
+});
+
+export const setWorkosOrgId = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    workosOrgId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.workspaceId, { workosOrgId: args.workosOrgId });
   },
 });
 

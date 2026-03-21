@@ -1,4 +1,5 @@
 import { query, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { requireAuth } from "./auth";
@@ -63,6 +64,11 @@ export const send = mutation({
     if (membership) {
       await ctx.db.patch(membership._id, { lastReadAt: Date.now() });
     }
+
+    // Ingest into Graphiti knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+      messageId,
+    });
 
     return messageId;
   },

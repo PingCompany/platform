@@ -1,7 +1,42 @@
-import { query, mutation, MutationCtx } from "./_generated/server";
+import { query, mutation, internalQuery, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuth } from "./auth";
+
+export async function createOrUpdateUserHandler(
+  ctx: MutationCtx,
+  args: {
+    workosUserId: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  },
+) {
+  const existing = await ctx.db
+    .query("users")
+    .withIndex("by_workos_id", (q) =>
+      q.eq("workosUserId", args.workosUserId),
+    )
+    .unique();
+
+  if (existing) {
+    await ctx.db.patch(existing._id, {
+      email: args.email,
+      name: args.name,
+      avatarUrl: args.avatarUrl,
+      lastSeenAt: Date.now(),
+    });
+    return { userId: existing._id, isNew: false as const };
+  }
+
+  const result = await provisionNewUser(ctx, args);
+  return {
+    userId: result.userId,
+    isNew: true as const,
+    workspaceId: result.workspaceId,
+    workspaceName: result.workspaceName,
+  };
+}
 
 async function provisionNewUser(
   ctx: MutationCtx,
@@ -48,7 +83,7 @@ async function provisionNewUser(
     userId,
   });
 
-  return userId;
+  return { userId, workspaceId, workspaceName: `${args.name}'s Workspace` };
 }
 
 export const getMe = query({
@@ -166,6 +201,16 @@ export const deactivate = mutation({
   },
 });
 
+export const listByWorkspace = internalQuery({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
+      .collect();
+  },
+});
+
 export const createOrUpdate = mutation({
   args: {
     workosUserId: v.string(),
@@ -174,23 +219,6 @@ export const createOrUpdate = mutation({
     avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_workos_id", (q) =>
-        q.eq("workosUserId", args.workosUserId),
-      )
-      .unique();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        email: args.email,
-        name: args.name,
-        avatarUrl: args.avatarUrl,
-        lastSeenAt: Date.now(),
-      });
-      return existing._id;
-    }
-
-    return await provisionNewUser(ctx, args);
+    return await createOrUpdateUserHandler(ctx, args);
   },
 });
