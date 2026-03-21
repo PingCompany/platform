@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { Id } from "@convex/_generated/dataModel";
 import { UserPlus, MoreHorizontal, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -22,11 +25,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast-provider";
 import { cn } from "@/lib/utils";
 
-type Role = "admin" | "member" | "guest";
+type Role = "admin" | "member";
 type Status = "active" | "invited" | "deprovisioned";
 
 interface TeamMember {
-  id: string;
+  id: Id<"users">;
   name: string;
   email: string;
   initials: string;
@@ -34,20 +37,24 @@ interface TeamMember {
   status: Status;
 }
 
-const INITIAL_MEMBERS: TeamMember[] = [
-  { id: "1", name: "Rafal Wojcik",   email: "rafal@ping.ai",      initials: "RW", role: "admin",  status: "active" },
-  { id: "2", name: "Alex Chen",      email: "alex@company.com",   initials: "AC", role: "member", status: "active" },
-  { id: "3", name: "Sarah Kim",      email: "sarah@company.com",  initials: "SK", role: "member", status: "active" },
-  { id: "4", name: "Maya Rodriguez", email: "maya@company.com",   initials: "MR", role: "member", status: "active" },
-  { id: "5", name: "Tom Walsh",      email: "tom@company.com",    initials: "TW", role: "member", status: "active" },
-  { id: "6", name: "Jamie Lee",      email: "jamie@company.com",  initials: "JL", role: "guest",  status: "invited" },
-  { id: "7", name: "Former User",    email: "former@company.com", initials: "FU", role: "member", status: "deprovisioned" },
-];
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
+function mapStatus(status: "active" | "invited" | "deactivated"): Status {
+  if (status === "deactivated") return "deprovisioned";
+  return status;
+}
 
 const roleConfig: Record<Role, { label: string; className: string }> = {
   admin:  { label: "Admin",  className: "border-ping-purple/40 bg-ping-purple/10 text-ping-purple" },
   member: { label: "Member", className: "border-white/15 bg-white/5 text-white/60" },
-  guest:  { label: "Guest",  className: "border-status-warning/40 bg-status-warning/10 text-status-warning" },
 };
 
 const statusConfig: Record<Status, { dot: "online" | "pending" | "offline"; label: string }> = {
@@ -57,12 +64,11 @@ const statusConfig: Record<Status, { dot: "online" | "pending" | "offline"; labe
 };
 
 export default function TeamPage() {
-  const [members, setMembers] = useState(INITIAL_MEMBERS);
+  const rawUsers = useQuery(api.users.listAll);
+  const updateRoleMutation = useMutation(api.users.updateRole);
+  const deactivateMutation = useMutation(api.users.deactivate);
+
   const [tab, setTab] = useState("all");
-  const [syncing, setSyncing] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<Role>("member");
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<TeamMember | null>(null);
   const [deprovisionOpen, setDeprovisionOpen] = useState(false);
@@ -71,6 +77,18 @@ export default function TeamPage() {
 
   const [sortCol, setSortCol] = useState<"name" | "email" | "role" | "status">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const members: TeamMember[] = useMemo(() => {
+    if (!rawUsers) return [];
+    return rawUsers.map((u) => ({
+      id: u._id,
+      name: u.name,
+      email: u.email,
+      initials: getInitials(u.name),
+      role: u.role,
+      status: mapStatus(u.status),
+    }));
+  }, [rawUsers]);
 
   const toggleSort = (col: "name" | "email" | "role" | "status") => {
     if (sortCol === col) {
@@ -81,61 +99,57 @@ export default function TeamPage() {
     }
   };
 
-  const filtered = (tab === "all"
-    ? members
-    : members.filter((m) => m.status === tab || (tab === "invited" && m.status === "invited"))
-  ).slice().sort((a, b) => {
-    const aVal = a[sortCol].toLowerCase();
-    const bVal = b[sortCol].toLowerCase();
-    if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
-    if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
-    return 0;
-  });
+  const filtered = useMemo(() => {
+    const base = tab === "all" ? members : members.filter((m) => m.status === tab);
+    return base.slice().sort((a, b) => {
+      const aVal = a[sortCol].toLowerCase();
+      const bVal = b[sortCol].toLowerCase();
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [members, tab, sortCol, sortDir]);
+
+  const activeCount = useMemo(
+    () => members.filter((m) => m.status === "active").length,
+    [members],
+  );
 
   const handleSync = () => {
-    setSyncing(true);
-    setTimeout(() => {
-      setSyncing(false);
-      toast("Directory synced", "success");
-    }, 1000);
+    toast("Directory is automatically synced — Convex queries update in real time", "success");
   };
 
-  const handleInvite = () => {
-    if (!inviteEmail.trim()) return;
-    const initials = inviteEmail.slice(0, 2).toUpperCase();
-    setMembers((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        name: inviteEmail.split("@")[0],
-        email: inviteEmail.trim(),
-        initials,
-        role: inviteRole,
-        status: "invited",
-      },
-    ]);
-    toast(`Invite sent to ${inviteEmail}`, "success");
-    setInviteEmail("");
-    setInviteRole("member");
-    setInviteOpen(false);
-  };
-
-  const handleChangeRole = (id: string, newRole: Role) => {
-    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, role: newRole } : m)));
-    toast(`Role updated to ${newRole}`, "success");
+  const handleChangeRole = async (id: Id<"users">, newRole: Role) => {
+    try {
+      await updateRoleMutation({ userId: id, role: newRole });
+      toast(`Role updated to ${newRole}`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to update role", "error");
+    }
     setRoleDialogOpen(false);
     setRoleTarget(null);
   };
 
-  const handleDeprovision = () => {
+  const handleDeprovision = async () => {
     if (!deprovisionTarget) return;
-    setMembers((prev) =>
-      prev.map((m) => (m.id === deprovisionTarget.id ? { ...m, status: "deprovisioned" as Status } : m))
-    );
-    toast(`${deprovisionTarget.name} has been deprovisioned`, "success");
+    try {
+      await deactivateMutation({ userId: deprovisionTarget.id });
+      toast(`${deprovisionTarget.name} has been deprovisioned`, "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Failed to deprovision user", "error");
+    }
     setDeprovisionOpen(false);
     setDeprovisionTarget(null);
   };
+
+  if (rawUsers === undefined) {
+    return (
+      <div className="mx-auto max-w-4xl animate-fade-in px-6 py-6">
+        <h1 className="text-md font-semibold text-foreground">Team</h1>
+        <p className="mt-2 text-xs text-muted-foreground">Loading team members...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl animate-fade-in px-6 py-6">
@@ -144,7 +158,7 @@ export default function TeamPage() {
         <div>
           <h1 className="text-md font-semibold text-foreground">Team</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {members.filter((m) => m.status === "active").length} active members · Synced via WorkOS SCIM
+            {activeCount} active members · Synced via WorkOS SCIM
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -152,16 +166,18 @@ export default function TeamPage() {
             onClick={handleSync}
             className="flex items-center gap-1.5 rounded border border-subtle px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/10 hover:text-foreground"
           >
-            <RefreshCw className={cn("h-3 w-3", syncing && "animate-spin")} />
-            {syncing ? "Syncing..." : "Sync"}
+            <RefreshCw className="h-3 w-3" />
+            Sync
           </button>
           <Button
             size="sm"
-            className="h-7 gap-1.5 bg-ping-purple text-xs text-white hover:bg-ping-purple-hover"
-            onClick={() => setInviteOpen(true)}
+            disabled
+            className="h-7 gap-1.5 bg-ping-purple text-xs text-white hover:bg-ping-purple-hover disabled:opacity-40"
+            title="Coming soon — requires WorkOS integration"
           >
             <UserPlus className="h-3 w-3" />
             Invite
+            <span className="ml-1 text-2xs opacity-60">Coming soon</span>
           </Button>
         </div>
       </div>
@@ -207,6 +223,12 @@ export default function TeamPage() {
           })}
           <span />
         </div>
+
+        {filtered.length === 0 && (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No team members found.
+          </div>
+        )}
 
         {filtered.map((member) => {
           const sc = statusConfig[member.status];
@@ -255,10 +277,10 @@ export default function TeamPage() {
                   </DropdownMenuItem>
                   {member.status === "invited" && (
                     <DropdownMenuItem
-                      className="text-xs cursor-pointer"
-                      onClick={() => toast(`Invite resent to ${member.email}`, "success")}
+                      className="text-xs cursor-pointer opacity-50"
+                      disabled
                     >
-                      Resend invite
+                      Resend invite (coming soon)
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator className="bg-white/5" />
@@ -276,66 +298,8 @@ export default function TeamPage() {
       </div>
 
       <p className="mt-3 text-2xs text-white/20">
-        {members.length} total members · Last synced just now
+        {members.length} total members · Real-time sync via Convex
       </p>
-
-      {/* Invite Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="border-subtle bg-surface-2 sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-semibold">Invite team member</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-1">
-            <div>
-              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
-                Email address
-              </label>
-              <input
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-                placeholder="colleague@company.com"
-                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-white/25 focus:border-white/20 focus:outline-none"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-2xs font-medium uppercase tracking-widest text-white/40">
-                Role
-              </label>
-              <div className="flex gap-1.5">
-                {(["admin", "member", "guest"] as Role[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setInviteRole(r)}
-                    className={cn(
-                      "flex-1 rounded border py-1.5 text-xs font-medium capitalize transition-colors",
-                      inviteRole === r
-                        ? "border-ping-purple/40 bg-ping-purple/10 text-ping-purple"
-                        : "border-subtle bg-surface-3 text-muted-foreground hover:border-white/10"
-                    )}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setInviteOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={!inviteEmail.trim()}
-                className="h-7 bg-ping-purple text-xs text-white hover:bg-ping-purple-hover disabled:opacity-40"
-                onClick={handleInvite}
-              >
-                Send invite
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Change Role Dialog */}
       <Dialog open={roleDialogOpen} onOpenChange={(open) => { setRoleDialogOpen(open); if (!open) setRoleTarget(null); }}>
@@ -344,7 +308,7 @@ export default function TeamPage() {
             <DialogTitle className="text-sm font-semibold">Change role for {roleTarget?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 pt-1">
-            {(["admin", "member", "guest"] as Role[]).map((r) => (
+            {(["admin", "member"] as Role[]).map((r) => (
               <button
                 key={r}
                 onClick={() => roleTarget && handleChangeRole(roleTarget.id, r)}

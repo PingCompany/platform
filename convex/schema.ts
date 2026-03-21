@@ -15,6 +15,12 @@ export default defineSchema({
       v.literal("deactivated"),
     ),
     lastSeenAt: v.optional(v.number()),
+    notificationPrefs: v.optional(
+      v.object({
+        inboxNotifications: v.boolean(),
+        proactiveAlerts: v.boolean(),
+      }),
+    ),
   })
     .index("by_workos_id", ["workosUserId"])
     .index("by_email", ["email"])
@@ -100,13 +106,20 @@ export default defineSchema({
   inboxSummaries: defineTable({
     userId: v.id("users"),
     channelId: v.id("channels"),
+    eisenhowerQuadrant: v.union(
+      v.literal("urgent-important"),
+      v.literal("important"),
+      v.literal("urgent"),
+      v.literal("fyi"),
+    ),
     bullets: v.array(
       v.object({
         text: v.string(),
         priority: v.union(
-          v.literal("high"),
-          v.literal("medium"),
-          v.literal("low"),
+          v.literal("urgent-important"),
+          v.literal("important"),
+          v.literal("urgent"),
+          v.literal("fyi"),
         ),
         relatedMessageIds: v.array(v.id("messages")),
       }),
@@ -158,8 +171,11 @@ export default defineSchema({
       v.literal("pr_review_nudge"),
       v.literal("incident_route"),
       v.literal("blocked_task"),
+      v.literal("fact_check"),
+      v.literal("cross_team_sync"),
     ),
     channelId: v.id("channels"),
+    sourceChannelId: v.optional(v.id("channels")),
     title: v.string(),
     body: v.string(),
     sourceMessageId: v.optional(v.id("messages")),

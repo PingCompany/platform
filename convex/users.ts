@@ -1,5 +1,6 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import { requireAuth } from "./auth";
 
 export const getMe = query({
@@ -25,14 +26,13 @@ export const listAll = query({
       .query("users")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", user.workspaceId))
       .take(200);
-    return users
-      .filter((u) => u.status === "active")
-      .map((u) => ({
+    return users.map((u) => ({
         _id: u._id,
         name: u.name,
         email: u.email,
         avatarUrl: u.avatarUrl,
         role: u.role,
+        status: u.status,
       }));
   },
 });
@@ -52,6 +52,12 @@ export const getByWorkosId = query({
 export const updateProfile = mutation({
   args: {
     name: v.optional(v.string()),
+    notificationPrefs: v.optional(
+      v.object({
+        inboxNotifications: v.boolean(),
+        proactiveAlerts: v.boolean(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -68,9 +74,47 @@ export const updateProfile = mutation({
 
     const updates: Record<string, unknown> = { lastSeenAt: Date.now() };
     if (args.name !== undefined) updates.name = args.name;
+    if (args.notificationPrefs !== undefined) updates.notificationPrefs = args.notificationPrefs;
 
     await ctx.db.patch(user._id, updates);
     return user._id;
+  },
+});
+
+async function requireAdminAndTarget(ctx: MutationCtx, targetUserId: Id<"users">) {
+  const currentUser = await requireAuth(ctx);
+  if (currentUser.role !== "admin") {
+    throw new Error("Only admins can perform this action");
+  }
+  const target = await ctx.db.get(targetUserId);
+  if (!target) throw new Error("User not found");
+  if (target.workspaceId !== currentUser.workspaceId) {
+    throw new Error("User not in your workspace");
+  }
+  return { currentUser, target };
+}
+
+export const updateRole = mutation({
+  args: {
+    userId: v.id("users"),
+    role: v.union(v.literal("admin"), v.literal("member")),
+  },
+  handler: async (ctx, args) => {
+    await requireAdminAndTarget(ctx, args.userId);
+    await ctx.db.patch(args.userId, { role: args.role });
+  },
+});
+
+export const deactivate = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const { currentUser } = await requireAdminAndTarget(ctx, args.userId);
+    if (args.userId === currentUser._id) {
+      throw new Error("Cannot deactivate yourself");
+    }
+    await ctx.db.patch(args.userId, { status: "deactivated" });
   },
 });
 

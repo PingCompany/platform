@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, Paperclip, AtSign } from "lucide-react";
-import { useToast } from "@/components/ui/toast-provider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { CitationRow, type Citation } from "@/components/bot/CitationPill";
 import { cn } from "@/lib/utils";
@@ -94,14 +93,13 @@ interface MessageListProps {
   channelName: string;
   messages: Message[];
   onSend?: (content: string) => void;
+  memberCount?: number;
 }
 
-export function MessageList({ channelName, messages, onSend }: MessageListProps) {
+export function MessageList({ channelName, messages, onSend, memberCount }: MessageListProps) {
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,9 +124,11 @@ export function MessageList({ channelName, messages, onSend }: MessageListProps)
       {/* Channel header */}
       <div className="flex items-center gap-2 border-b border-subtle px-4 py-2">
         <span className="text-sm font-medium text-foreground">#{channelName}</span>
-        <span className="rounded bg-surface-3 px-1.5 py-px text-2xs text-muted-foreground">
-          4 members
-        </span>
+        {memberCount !== undefined && (
+          <span className="rounded bg-surface-3 px-1.5 py-px text-2xs text-muted-foreground">
+            {memberCount} member{memberCount !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
       {/* Messages */}
@@ -165,16 +165,6 @@ export function MessageList({ channelName, messages, onSend }: MessageListProps)
               el.style.height = `${el.scrollHeight}px`;
             }}
           />
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) toast(`Attached: ${file.name}`, "success");
-              e.target.value = "";
-            }}
-          />
           <div className="flex shrink-0 items-center gap-1 pb-0.5">
             <button
               onClick={() => {
@@ -186,8 +176,9 @@ export function MessageList({ channelName, messages, onSend }: MessageListProps)
               <AtSign className="h-3.5 w-3.5" />
             </button>
             <button
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded p-1 text-white/25 hover:bg-surface-3 hover:text-white/60"
+              disabled
+              title="File attachments coming soon"
+              className="rounded p-1 text-white/25 opacity-50 cursor-not-allowed"
             >
               <Paperclip className="h-3.5 w-3.5" />
             </button>

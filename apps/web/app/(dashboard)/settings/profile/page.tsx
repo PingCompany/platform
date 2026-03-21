@@ -21,13 +21,18 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user && !initialized) {
       setDisplayName(user.name);
+      setInboxNotifications(user.notificationPrefs?.inboxNotifications ?? true);
+      setProactiveAlerts(user.notificationPrefs?.proactiveAlerts ?? true);
       setInitialized(true);
     }
   }, [user, initialized]);
 
   const handleSave = async () => {
     try {
-      await updateProfile({ name: displayName });
+      await updateProfile({
+        name: displayName,
+        notificationPrefs: { inboxNotifications, proactiveAlerts },
+      });
       toast("Settings saved", "success");
     } catch {
       toast("Failed to save", "error");
