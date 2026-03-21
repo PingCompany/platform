@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import { Loader2 } from "lucide-react";
 import { OnboardingLayout } from "./OnboardingLayout";
 import { OnboardingProgress } from "./OnboardingProgress";
 import { PersonalContextStep } from "./steps/PersonalContextStep";
@@ -15,7 +16,7 @@ import { InviteTeamStep } from "./steps/InviteTeamStep";
 import { ChannelSelectionStep } from "./steps/ChannelSelectionStep";
 import { CommunicationPrefsStep } from "./steps/CommunicationPrefsStep";
 
-const ADMIN_STEPS = [
+const ADMIN_LABELS = [
   "Personal context",
   "Company context",
   "Workspace setup",
@@ -24,7 +25,7 @@ const ADMIN_STEPS = [
   "Invite team",
 ];
 
-const MEMBER_STEPS = [
+const MEMBER_LABELS = [
   "Personal context",
   "Join channels",
   "AI preferences",
@@ -32,48 +33,47 @@ const MEMBER_STEPS = [
 ];
 
 export function OnboardingWizard() {
-  const [step, setStep] = useState(0);
   const router = useRouter();
+  const [step, setStep] = useState(0);
 
   const state = useQuery(api.onboarding.getOnboardingState);
   const completeOnboarding = useMutation(api.onboarding.completeOnboarding);
 
-  if (!state) {
+  if (state === undefined) {
     return (
       <OnboardingLayout>
-        <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-ping-purple border-t-transparent" />
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-5 w-5 animate-spin text-ping-purple" />
         </div>
       </OnboardingLayout>
     );
   }
 
-  // Already completed — redirect
   if (state.onboardingStatus === "completed" || !state.onboardingStatus) {
     router.replace("/inbox");
     return null;
   }
 
   const isAdmin = state.role === "admin";
-  const steps = isAdmin ? ADMIN_STEPS : MEMBER_STEPS;
-  const totalSteps = steps.length;
+  const labels = isAdmin ? ADMIN_LABELS : MEMBER_LABELS;
+  const totalSteps = labels.length;
 
   const handleNext = async () => {
     if (step < totalSteps - 1) {
-      setStep(step + 1);
+      setStep((s) => s + 1);
     } else {
-      await completeOnboarding({});
+      await completeOnboarding();
       router.replace("/inbox");
     }
   };
 
-  const renderStep = () => {
+  function renderStep() {
     if (isAdmin) {
       switch (step) {
         case 0:
           return (
             <PersonalContextStep
-              userName={state.userName}
+              userName={state.userName ?? ""}
               role="admin"
               onNext={handleNext}
             />
@@ -81,7 +81,7 @@ export function OnboardingWizard() {
         case 1:
           return (
             <CompanyContextStep
-              workspaceName={state.workspaceName}
+              workspaceName={state.workspaceName ?? ""}
               onNext={handleNext}
             />
           );
@@ -98,12 +98,11 @@ export function OnboardingWizard() {
       }
     }
 
-    // Member flow
     switch (step) {
       case 0:
         return (
           <PersonalContextStep
-            userName={state.userName}
+            userName={state.userName ?? ""}
             role="member"
             onNext={handleNext}
           />
@@ -117,18 +116,12 @@ export function OnboardingWizard() {
       default:
         return null;
     }
-  };
+  }
 
   return (
     <OnboardingLayout>
-      <OnboardingProgress
-        currentStep={step}
-        totalSteps={totalSteps}
-        labels={steps}
-      />
-      <div className="rounded-xl border border-subtle bg-surface-1 p-6">
-        {renderStep()}
-      </div>
+      <OnboardingProgress currentStep={step} labels={labels} />
+      {renderStep()}
     </OnboardingLayout>
   );
 }

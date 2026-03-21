@@ -75,9 +75,23 @@ header.header {
   border-bottom: 1px solid var(--ping-border);
 }
 
-/* Hide hero title from Starlight's default rendering on splash page */
-.page .hero {
+/* Hide Starlight's default hero on splash page */
+.hero {
   display: none;
+}
+
+/* Splash page: let custom hero + content span full width */
+[data-has-hero] .content-panel {
+  padding: 0;
+}
+
+[data-has-hero] .sl-container {
+  max-width: none;
+}
+
+/* Reset the auto margin-top Starlight adds between children */
+[data-has-hero] .sl-container > * + * {
+  margin-top: 0;
 }
 
 /* Content link styling */
