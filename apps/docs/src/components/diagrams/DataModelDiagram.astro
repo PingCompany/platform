@@ -1,233 +1,30 @@
 ---
-const model = {
-  root: { name: "workspaces", icon: "W" },
-  children: [
-    {
-      name: "users",
-      icon: "U",
-      fk: "workspaceId",
-      color: "#3b82f6",
-      children: ["channelMembers", "directConversationMembers", "inboxSummaries", "proactiveAlerts", "drafts", "sessions", "reactions", "typingIndicators"],
-      childFk: "userId",
-    },
-    {
-      name: "channels",
-      icon: "C",
-      fk: "workspaceId",
-      color: "#8b5cf6",
-      children: ["messages", "channelMembers", "typingIndicators"],
-      childFk: "channelId",
-    },
-    {
-      name: "directConversations",
-      icon: "D",
-      fk: "workspaceId",
-      color: "#10b981",
-      children: ["directMessages", "directConversationMembers"],
-      childFk: "conversationId",
-    },
-    {
-      name: "integrationObjects",
-      icon: "I",
-      fk: "workspaceId",
-      color: "#f59e0b",
-      children: [],
-      childFk: "",
-    },
-    {
-      name: "proactiveAlerts",
-      icon: "A",
-      fk: "workspaceId",
-      color: "#ef4444",
-      children: [],
-      childFk: "",
-    },
-  ],
-};
+import KrokiDiagram from './KrokiDiagram.astro';
+
+const source = `
+erDiagram
+  workspaces ||--o{ users : "workspaceId"
+  workspaces ||--o{ channels : "workspaceId"
+  workspaces ||--o{ directConversations : "workspaceId"
+  workspaces ||--o{ integrationObjects : "workspaceId"
+  workspaces ||--o{ invitations : "workspaceId"
+
+  users ||--o{ channelMembers : "userId"
+  users ||--o{ directConversationMembers : "userId"
+  users ||--o{ inboxSummaries : "userId"
+  users ||--o{ proactiveAlerts : "userId"
+  users ||--o{ drafts : "userId"
+  users ||--o{ sessions : "userId"
+  users ||--o{ reactions : "userId"
+  users ||--o{ typingIndicators : "userId"
+
+  channels ||--o{ messages : "channelId"
+  channels ||--o{ channelMembers : "channelId"
+  channels ||--o{ typingIndicators : "channelId"
+
+  directConversations ||--o{ directMessages : "conversationId"
+  directConversations ||--o{ directConversationMembers : "conversationId"
+`;
 ---
 
-<div class="dm">
-  <div class="dm-root">
-    <span class="dm-root-badge">{model.root.icon}</span>
-    <span class="dm-root-name">{model.root.name}</span>
-  </div>
-
-  <div class="dm-tree">
-    {model.children.map((table) => (
-      <div class="dm-group" style={`--g-accent: ${table.color}`}>
-        <div class="dm-table-row">
-          <div class="dm-branch-line"></div>
-          <div class="dm-table">
-            <span class="dm-table-badge" style={`background: ${table.color}`}>{table.icon}</span>
-            <span class="dm-table-name">{table.name}</span>
-            <span class="dm-fk">{table.fk}</span>
-          </div>
-        </div>
-        {table.children.length > 0 && (
-          <div class="dm-leaves">
-            {table.children.map((child) => (
-              <div class="dm-leaf-row">
-                <div class="dm-leaf-line"></div>
-                <div class="dm-leaf">
-                  <span class="dm-leaf-name">{child}</span>
-                  <span class="dm-fk">{table.childFk}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    ))}
-  </div>
-</div>
-
-<style>
-  .dm {
-    margin: 1.5rem 0;
-    background: var(--ping-surface-raised);
-    border: 1px solid var(--ping-border);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    overflow-x: auto;
-  }
-
-  .dm-root {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: var(--ping-accent);
-    border-radius: 0.5rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .dm-root-badge {
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 0.25rem;
-    background: rgba(255,255,255,0.2);
-    color: #fff;
-    font-size: 0.625rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .dm-root-name {
-    color: #fff;
-    font-size: 0.875rem;
-    font-weight: 600;
-  }
-
-  .dm-tree {
-    padding-left: 1rem;
-    border-left: 2px solid var(--ping-border);
-    margin-left: 0.875rem;
-  }
-
-  .dm-group {
-    padding: 0.375rem 0;
-  }
-
-  .dm-table-row {
-    display: flex;
-    align-items: center;
-    gap: 0;
-  }
-
-  .dm-branch-line {
-    width: 1.25rem;
-    height: 1px;
-    background: var(--ping-border);
-    flex-shrink: 0;
-  }
-
-  .dm-table {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.375rem 0.75rem;
-    background: var(--ping-surface);
-    border: 1px solid var(--ping-border);
-    border-radius: 0.375rem;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-
-  .dm-table:hover {
-    border-color: var(--g-accent);
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--g-accent) 15%, transparent);
-  }
-
-  .dm-table-badge {
-    width: 1.125rem;
-    height: 1.125rem;
-    border-radius: 0.25rem;
-    color: #fff;
-    font-size: 0.5625rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .dm-table-name {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--ping-text);
-  }
-
-  .dm-fk {
-    font-size: 0.5625rem;
-    color: var(--ping-text-muted);
-    background: var(--ping-surface-raised);
-    border: 1px solid var(--ping-border);
-    padding: 0 0.375rem;
-    border-radius: 999px;
-    white-space: nowrap;
-    font-family: var(--sl-font-mono);
-  }
-
-  .dm-leaves {
-    margin-left: 2.5rem;
-    padding-left: 1rem;
-    border-left: 1px dashed color-mix(in srgb, var(--g-accent) 30%, var(--ping-border));
-  }
-
-  .dm-leaf-row {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    padding: 0.125rem 0;
-  }
-
-  .dm-leaf-line {
-    width: 0.875rem;
-    height: 1px;
-    background: color-mix(in srgb, var(--g-accent) 30%, var(--ping-border));
-    flex-shrink: 0;
-  }
-
-  .dm-leaf {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.1875rem 0.5rem;
-    border-radius: 0.25rem;
-    transition: background 0.15s;
-  }
-
-  .dm-leaf:hover {
-    background: var(--ping-surface);
-  }
-
-  .dm-leaf-name {
-    font-size: 0.75rem;
-    color: var(--ping-text-muted);
-  }
-
-  .dm-leaf:hover .dm-leaf-name {
-    color: var(--ping-text);
-  }
-</style>
+<KrokiDiagram source={source} alt="PING data model: 16 tables with workspaces, users, channels, conversations, messages, and supporting entities" />

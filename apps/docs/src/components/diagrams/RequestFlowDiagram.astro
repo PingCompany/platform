@@ -1,179 +1,23 @@
 ---
-const steps = [
-  {
-    n: "1",
-    title: "User sends message",
-    from: { label: "Frontend", text: "Call mutation via convex/react" },
-    to: { label: "Backend", text: "Store in DB (optimistic update)" },
-    dir: "right",
-  },
-  {
-    n: "2",
-    title: "Real-time broadcast",
-    from: { label: "Backend", text: "Push update via WebSocket" },
-    to: { label: "Frontend", text: "Subscribed clients re-render" },
-    dir: "left",
-  },
-  {
-    n: "3",
-    title: "AI processing",
-    from: { label: "Backend", text: "Trigger background action" },
-    to: { label: "AI", text: "Inbox summaries, alerts, knowledge graph" },
-    dir: "right",
-  },
-  {
-    n: "4",
-    title: "Results appear",
-    from: { label: "Backend", text: "Write AI results to DB" },
-    to: { label: "Frontend", text: "Inbox & alerts update reactively" },
-    dir: "left",
-  },
-];
+import KrokiDiagram from './KrokiDiagram.astro';
+
+const source = `
+sequenceDiagram
+  participant U as User / Frontend
+  participant C as Convex Backend
+  participant AI as AI Services
+
+  U->>C: 1. Send message (mutation)
+  Note over C: Store in DB<br/>(optimistic update)
+  C-->>U: 2. Real-time broadcast (WebSocket)
+  Note over U: Subscribed clients re-render
+
+  C->>AI: 3. Trigger background action
+  Note over AI: Inbox summaries<br/>Proactive alerts<br/>Knowledge graph
+
+  AI-->>C: 4. Write AI results to DB
+  C-->>U: Inbox & alerts update reactively
+`;
 ---
 
-<div class="rf">
-  {steps.map((s) => (
-    <div class="rf-step" data-dir={s.dir}>
-      <div class="rf-num">{s.n}</div>
-      <div class="rf-body">
-        <div class="rf-title">{s.title}</div>
-        <div class="rf-flow">
-          <div class="rf-node">
-            <div class="rf-node-label">{s.from.label}</div>
-            <div class="rf-node-text">{s.from.text}</div>
-          </div>
-          <div class="rf-arrow">
-            <svg width="24" height="12" viewBox="0 0 24 12">
-              {s.dir === "right" ? (
-                <path d="M0 6h20M16 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              ) : (
-                <path d="M4 6h20M8 2l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              )}
-            </svg>
-          </div>
-          <div class="rf-node">
-            <div class="rf-node-label">{s.to.label}</div>
-            <div class="rf-node-text">{s.to.text}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  ))}
-</div>
-
-<style>
-  .rf {
-    margin: 1.5rem 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    position: relative;
-  }
-
-  /* Vertical timeline line */
-  .rf::before {
-    content: "";
-    position: absolute;
-    left: 0.875rem;
-    top: 1.5rem;
-    bottom: 1.5rem;
-    width: 1px;
-    background: var(--ping-border);
-    z-index: 0;
-  }
-
-  .rf-step {
-    display: flex;
-    gap: 0.875rem;
-    padding: 0.875rem 1rem;
-    background: var(--ping-surface-raised);
-    border: 1px solid var(--ping-border);
-    border-radius: 0.5rem;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    position: relative;
-  }
-
-  .rf-step:hover {
-    border-color: var(--ping-accent);
-    box-shadow: 0 2px 12px rgba(94, 106, 210, 0.1);
-  }
-
-  .rf-num {
-    flex-shrink: 0;
-    width: 1.75rem;
-    height: 1.75rem;
-    border-radius: 50%;
-    background: var(--sl-color-accent-low);
-    color: var(--ping-accent);
-    font-size: 0.75rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1;
-    border: 2px solid var(--ping-surface-raised);
-  }
-
-  .rf-step:hover .rf-num {
-    background: var(--ping-accent);
-    color: #fff;
-  }
-
-  .rf-body { flex: 1; min-width: 0; }
-
-  .rf-title {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--ping-text);
-    margin-bottom: 0.5rem;
-  }
-
-  .rf-flow {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-  }
-
-  .rf-node {
-    flex: 1;
-    background: var(--ping-surface);
-    border: 1px solid var(--ping-border);
-    border-radius: 0.375rem;
-    padding: 0.5rem 0.75rem;
-  }
-
-  .rf-step:hover .rf-node {
-    border-color: color-mix(in srgb, var(--ping-accent) 40%, transparent);
-  }
-
-  .rf-node-label {
-    font-size: 0.5625rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--ping-accent);
-    margin-bottom: 0.125rem;
-  }
-
-  .rf-node-text {
-    font-size: 0.75rem;
-    color: var(--ping-text-muted);
-    line-height: 1.4;
-  }
-
-  .rf-arrow {
-    flex-shrink: 0;
-    color: var(--ping-border);
-    transition: color 0.15s;
-  }
-
-  .rf-step:hover .rf-arrow {
-    color: var(--ping-accent);
-  }
-
-  @media (max-width: 480px) {
-    .rf::before { display: none; }
-    .rf-flow { flex-direction: column; }
-    .rf-arrow { transform: rotate(90deg); }
-  }
-</style>
+<KrokiDiagram source={source} alt="Request flow: user sends message, Convex stores and broadcasts, AI processes in background, results pushed to UI" />

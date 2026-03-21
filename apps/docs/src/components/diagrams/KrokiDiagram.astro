@@ -1,0 +1,61 @@
+---
+interface Props {
+  type?: string;
+  source: string;
+  alt?: string;
+}
+
+const { type = 'mermaid', source, alt = 'Diagram' } = Astro.props;
+
+let svg = '';
+let error = '';
+
+try {
+  const res = await fetch(`https://kroki.io/${type}/svg`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: source.trim(),
+  });
+  if (res.ok) {
+    svg = await res.text();
+    // Strip XML declaration if present
+    svg = svg.replace(/<\?xml[^?]*\?>\s*/, '');
+  } else {
+    error = `Kroki returned ${res.status}`;
+  }
+} catch (e) {
+  error = `Failed to fetch diagram: ${e}`;
+}
+---
+
+<div class="kroki-diagram" role="img" aria-label={alt}>
+  {svg ? <Fragment set:html={svg} /> : <pre class="kroki-error">{error}</pre>}
+</div>
+
+<style is:global>
+  .kroki-diagram {
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    background: var(--ping-surface-raised);
+    border: 1px solid var(--ping-border);
+    border-radius: 0.75rem;
+    overflow-x: auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .kroki-diagram svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .kroki-error {
+    color: var(--ping-text-muted);
+    font-size: 0.8125rem;
+  }
+
+  /* Dark mode: invert diagram colors, then re-invert saturated elements */
+  :root[data-theme="dark"] .kroki-diagram svg {
+    filter: invert(0.88) hue-rotate(180deg);
+  }
+</style>
