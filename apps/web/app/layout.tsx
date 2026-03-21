@@ -18,6 +18,8 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "PING",
   description: "Your team's second brain",
+  manifest: "/manifest.json",
+  themeColor: "#5E6AD2",
 };
 
 export default function RootLayout({
