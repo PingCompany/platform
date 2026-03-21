@@ -6,7 +6,7 @@
  */
 
 import type { Config } from "./config.js";
-import type { GraphitiEpisode, GraphitiSearchResult } from "./types.js";
+import type { Fact, GraphitiEpisode, GraphitiSearchResult } from "./types.js";
 
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 500;
@@ -181,4 +181,81 @@ export class GraphitiError extends Error {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ---------------------------------------------------------------------------
+// Standalone helper functions (used by bulk-ingest, performance, etc.)
+// ---------------------------------------------------------------------------
+
+/** Default Graphiti URL for standalone functions. */
+const DEFAULT_GRAPHITI_URL =
+  process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
+
+/**
+ * Ingest a message batch into Graphiti. Returns a success/error result.
+ */
+export async function ingestMessage(params: {
+  group_id: string;
+  messages: Array<{
+    content: string;
+    role_type: string;
+    role: string;
+    timestamp: string;
+    source_description: string;
+    uuid?: string;
+    name?: string;
+  }>;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${DEFAULT_GRAPHITI_URL}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { success: false, error: `HTTP ${res.status}: ${text}` };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
+/**
+ * Search Graphiti for facts. Returns the matching facts.
+ */
+export async function searchFacts(params: {
+  query: string;
+  group_ids?: string[];
+  max_facts?: number;
+}): Promise<{ facts: Fact[] }> {
+  try {
+    const res = await fetch(`${DEFAULT_GRAPHITI_URL}/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        query: params.query,
+        group_ids: params.group_ids,
+        max_facts: params.max_facts ?? 10,
+      }),
+    });
+
+    if (!res.ok) {
+      return { facts: [] };
+    }
+
+    const data = (await res.json()) as { facts?: Fact[] };
+    return { facts: data.facts ?? [] };
+  } catch {
+    return { facts: [] };
+  }
 }
