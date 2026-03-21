@@ -1,199 +1,219 @@
 ---
 ---
 
-<div class="arch-diagram">
-  <div class="arch-header">PING Platform</div>
-  <div class="arch-columns">
-    <div class="arch-box" data-layer="frontend">
-      <div class="arch-box-title">Next.js 15</div>
-      <div class="arch-box-subtitle">App Router</div>
-      <ul class="arch-box-list">
-        <li>React 19 UI</li>
-        <li>Tailwind CSS</li>
-        <li>Radix UI</li>
-        <li>cmdk palette</li>
-      </ul>
+<div class="arch">
+  <div class="arch-label">PING Platform</div>
+  <div class="arch-grid">
+    <div class="arch-card" style="--card-accent: #3b82f6; --card-accent-bg: rgba(59,130,246,0.08);">
+      <div class="arch-card-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        <div>
+          <div class="arch-card-name">Next.js 15</div>
+          <div class="arch-card-sub">App Router</div>
+        </div>
+      </div>
+      <div class="arch-card-items">
+        <span class="arch-tag">React 19</span>
+        <span class="arch-tag">Tailwind CSS</span>
+        <span class="arch-tag">Radix UI</span>
+        <span class="arch-tag">cmdk</span>
+      </div>
     </div>
-    <div class="arch-connector">
-      <div class="arch-connector-line"></div>
-      <span class="arch-connector-label">WebSockets</span>
+
+    <div class="arch-wire">
+      <div class="arch-wire-line">
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="none" stroke="var(--ping-border)" stroke-width="1.5"/></svg>
+        <div class="arch-wire-dash"></div>
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="none" stroke="var(--ping-border)" stroke-width="1.5"/></svg>
+      </div>
+      <span class="arch-wire-text">WebSockets</span>
     </div>
-    <div class="arch-box" data-layer="backend">
-      <div class="arch-box-title">Convex Backend</div>
-      <div class="arch-box-subtitle">Serverless</div>
-      <ul class="arch-box-list">
-        <li>Real-time DB</li>
-        <li>Mutations</li>
-        <li>Queries</li>
-        <li>Actions</li>
-        <li>CRON jobs</li>
-      </ul>
+
+    <div class="arch-card" style="--card-accent: #8b5cf6; --card-accent-bg: rgba(139,92,246,0.08);">
+      <div class="arch-card-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        <div>
+          <div class="arch-card-name">Convex Backend</div>
+          <div class="arch-card-sub">Serverless</div>
+        </div>
+      </div>
+      <div class="arch-card-items">
+        <span class="arch-tag">Real-time DB</span>
+        <span class="arch-tag">Mutations</span>
+        <span class="arch-tag">Queries</span>
+        <span class="arch-tag">Actions</span>
+        <span class="arch-tag">CRON jobs</span>
+      </div>
     </div>
-    <div class="arch-connector">
-      <div class="arch-connector-line"></div>
-      <span class="arch-connector-label">Webhooks / API</span>
+
+    <div class="arch-wire">
+      <div class="arch-wire-line">
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="none" stroke="var(--ping-border)" stroke-width="1.5"/></svg>
+        <div class="arch-wire-dash"></div>
+        <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="none" stroke="var(--ping-border)" stroke-width="1.5"/></svg>
+      </div>
+      <span class="arch-wire-text">Webhooks / API</span>
     </div>
-    <div class="arch-box" data-layer="external">
-      <div class="arch-box-title">External Services</div>
-      <div class="arch-box-subtitle">Integrations</div>
-      <ul class="arch-box-list">
-        <li>WorkOS</li>
-        <li>OpenAI</li>
-        <li>GitHub</li>
-        <li>Linear</li>
-        <li>Graphiti</li>
-      </ul>
+
+    <div class="arch-card" style="--card-accent: #f59e0b; --card-accent-bg: rgba(245,158,11,0.08);">
+      <div class="arch-card-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        <div>
+          <div class="arch-card-name">External Services</div>
+          <div class="arch-card-sub">Integrations</div>
+        </div>
+      </div>
+      <div class="arch-card-items">
+        <span class="arch-tag">WorkOS</span>
+        <span class="arch-tag">OpenAI</span>
+        <span class="arch-tag">GitHub</span>
+        <span class="arch-tag">Linear</span>
+        <span class="arch-tag">Graphiti</span>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
-  .arch-diagram {
+  .arch {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
     background: var(--ping-surface-raised);
     border: 1px solid var(--ping-border);
     border-radius: 0.75rem;
-    padding: 1.5rem;
-    margin: 1.5rem 0;
     overflow-x: auto;
   }
 
-  .arch-header {
+  .arch-label {
     text-align: center;
-    font-size: 0.6875rem;
-    font-weight: 600;
+    font-size: 0.625rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.15em;
     color: var(--ping-text-muted);
     margin-bottom: 1.25rem;
   }
 
-  .arch-columns {
+  .arch-grid {
     display: flex;
     align-items: stretch;
-    gap: 0;
     justify-content: center;
+    gap: 0;
+    min-width: 600px;
   }
 
-  .arch-box {
+  .arch-card {
     flex: 1;
-    max-width: 12rem;
+    max-width: 14rem;
     background: var(--ping-surface);
     border: 1px solid var(--ping-border);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    transition: all 0.2s ease;
-    cursor: default;
+    border-radius: 0.625rem;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   }
 
-  .arch-box:hover {
-    border-color: var(--ping-accent);
-    box-shadow: 0 0 0 1px var(--ping-accent), 0 4px 12px rgba(94, 106, 210, 0.15);
+  .arch-card:hover {
+    border-color: var(--card-accent);
+    box-shadow: 0 0 0 1px var(--card-accent), 0 8px 24px -4px color-mix(in srgb, var(--card-accent) 20%, transparent);
     transform: translateY(-2px);
   }
 
-  .arch-box[data-layer="frontend"]:hover { border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6, 0 4px 12px rgba(59, 130, 246, 0.15); }
-  .arch-box[data-layer="backend"]:hover { border-color: #8b5cf6; box-shadow: 0 0 0 1px #8b5cf6, 0 4px 12px rgba(139, 92, 246, 0.15); }
-  .arch-box[data-layer="external"]:hover { border-color: #f59e0b; box-shadow: 0 0 0 1px #f59e0b, 0 4px 12px rgba(245, 158, 11, 0.15); }
+  .arch-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--ping-border);
+    background: var(--card-accent-bg);
+  }
 
-  .arch-box-title {
-    font-size: 0.9375rem;
+  .arch-card-name {
+    font-size: 0.875rem;
     font-weight: 600;
     color: var(--ping-text);
-    margin-bottom: 0.125rem;
+    line-height: 1.2;
   }
 
-  .arch-box-subtitle {
+  .arch-card-sub {
     font-size: 0.6875rem;
     color: var(--ping-text-muted);
-    margin-bottom: 0.75rem;
   }
 
-  .arch-box-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    font-size: 0.8125rem;
+  .arch-card-items {
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .arch-tag {
+    font-size: 0.6875rem;
     color: var(--ping-text-muted);
+    background: var(--ping-surface-raised);
+    border: 1px solid var(--ping-border);
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
   }
 
-  .arch-box-list li {
-    padding: 0.1875rem 0;
-    padding-left: 0.75rem;
-    position: relative;
+  .arch-card:hover .arch-tag {
+    border-color: color-mix(in srgb, var(--card-accent) 30%, transparent);
   }
 
-  .arch-box-list li::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--ping-border);
-    transform: translateY(-50%);
-  }
-
-  .arch-box:hover .arch-box-list li::before {
-    background: var(--ping-accent);
-  }
-
-  .arch-connector {
+  .arch-wire {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 4rem;
+    width: 5rem;
     flex-shrink: 0;
+    gap: 0.375rem;
   }
 
-  .arch-connector-line {
+  .arch-wire-line {
+    display: flex;
+    align-items: center;
+    gap: 0;
     width: 100%;
-    height: 2px;
-    background: var(--ping-border);
-    position: relative;
   }
 
-  .arch-connector-line::before,
-  .arch-connector-line::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    width: 6px;
-    height: 6px;
-    border: 2px solid var(--ping-border);
-    border-radius: 50%;
-    background: var(--ping-surface-raised);
-    transform: translateY(-50%);
+  .arch-wire-dash {
+    flex: 1;
+    height: 1px;
+    background: repeating-linear-gradient(90deg, var(--ping-border) 0, var(--ping-border) 4px, transparent 4px, transparent 8px);
   }
 
-  .arch-connector-line::before { left: -3px; }
-  .arch-connector-line::after { right: -3px; }
-
-  .arch-connector-label {
-    font-size: 0.625rem;
+  .arch-wire-text {
+    font-size: 0.5625rem;
     color: var(--ping-text-muted);
-    margin-top: 0.375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     white-space: nowrap;
   }
 
-  @media (max-width: 640px) {
-    .arch-columns {
+  @media (max-width: 700px) {
+    .arch-grid {
       flex-direction: column;
-      gap: 0.5rem;
+      align-items: center;
+      min-width: 0;
+      gap: 0;
     }
-    .arch-box { max-width: none; }
-    .arch-connector {
-      width: auto;
-      height: 2rem;
+    .arch-card { max-width: 100%; width: 100%; }
+    .arch-wire {
+      width: 100%;
+      height: 2.5rem;
       flex-direction: row;
       gap: 0.5rem;
     }
-    .arch-connector-line {
-      width: 2px;
+    .arch-wire-line {
+      width: auto;
+      flex-direction: column;
       height: 100%;
     }
-    .arch-connector-line::before { left: 50%; top: -3px; transform: translateX(-50%); }
-    .arch-connector-line::after { right: auto; left: 50%; top: auto; bottom: -3px; transform: translateX(-50%); }
+    .arch-wire-dash {
+      width: 1px;
+      height: 100%;
+      background: repeating-linear-gradient(180deg, var(--ping-border) 0, var(--ping-border) 4px, transparent 4px, transparent 8px);
+    }
   }
 </style>

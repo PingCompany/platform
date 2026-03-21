@@ -1,107 +1,107 @@
 ---
+const steps = [
+  {
+    n: "1",
+    title: "User sends message",
+    from: { label: "Frontend", text: "Call mutation via convex/react" },
+    to: { label: "Backend", text: "Store in DB (optimistic update)" },
+    dir: "right",
+  },
+  {
+    n: "2",
+    title: "Real-time broadcast",
+    from: { label: "Backend", text: "Push update via WebSocket" },
+    to: { label: "Frontend", text: "Subscribed clients re-render" },
+    dir: "left",
+  },
+  {
+    n: "3",
+    title: "AI processing",
+    from: { label: "Backend", text: "Trigger background action" },
+    to: { label: "AI", text: "Inbox summaries, alerts, knowledge graph" },
+    dir: "right",
+  },
+  {
+    n: "4",
+    title: "Results appear",
+    from: { label: "Backend", text: "Write AI results to DB" },
+    to: { label: "Frontend", text: "Inbox & alerts update reactively" },
+    dir: "left",
+  },
+];
 ---
 
-<div class="flow-diagram">
-  <div class="flow-step" data-step="1">
-    <div class="flow-step-number">1</div>
-    <div class="flow-step-content">
-      <div class="flow-step-title">User sends message</div>
-      <div class="flow-step-cols">
-        <div class="flow-step-col">
-          <span class="flow-label">Frontend</span>
-          <span class="flow-desc">Call mutation via convex/react binding</span>
-        </div>
-        <div class="flow-arrow">&#8594;</div>
-        <div class="flow-step-col">
-          <span class="flow-label">Backend</span>
-          <span class="flow-desc">Store in DB (optimistic update)</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="flow-step" data-step="2">
-    <div class="flow-step-number">2</div>
-    <div class="flow-step-content">
-      <div class="flow-step-title">Real-time broadcast</div>
-      <div class="flow-step-cols">
-        <div class="flow-step-col">
-          <span class="flow-label">Frontend</span>
-          <span class="flow-desc">All subscribed clients re-render automatically</span>
-        </div>
-        <div class="flow-arrow">&#8592;</div>
-        <div class="flow-step-col">
-          <span class="flow-label">Backend</span>
-          <span class="flow-desc">Push via WebSocket</span>
+<div class="rf">
+  {steps.map((s) => (
+    <div class="rf-step" data-dir={s.dir}>
+      <div class="rf-num">{s.n}</div>
+      <div class="rf-body">
+        <div class="rf-title">{s.title}</div>
+        <div class="rf-flow">
+          <div class="rf-node">
+            <div class="rf-node-label">{s.from.label}</div>
+            <div class="rf-node-text">{s.from.text}</div>
+          </div>
+          <div class="rf-arrow">
+            <svg width="24" height="12" viewBox="0 0 24 12">
+              {s.dir === "right" ? (
+                <path d="M0 6h20M16 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              ) : (
+                <path d="M4 6h20M8 2l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              )}
+            </svg>
+          </div>
+          <div class="rf-node">
+            <div class="rf-node-label">{s.to.label}</div>
+            <div class="rf-node-text">{s.to.text}</div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="flow-step" data-step="3">
-    <div class="flow-step-number">3</div>
-    <div class="flow-step-content">
-      <div class="flow-step-title">AI processing</div>
-      <div class="flow-step-cols">
-        <div class="flow-step-col">
-          <span class="flow-label tag-bg">Background</span>
-        </div>
-        <div class="flow-arrow">&#8592;</div>
-        <div class="flow-step-col">
-          <span class="flow-label">Backend</span>
-          <span class="flow-desc">Trigger actions: inbox summaries, proactive alerts, knowledge graph</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="flow-step" data-step="4">
-    <div class="flow-step-number">4</div>
-    <div class="flow-step-content">
-      <div class="flow-step-title">AI results appear</div>
-      <div class="flow-step-cols">
-        <div class="flow-step-col">
-          <span class="flow-label">Frontend</span>
-          <span class="flow-desc">Inbox and alerts update reactively</span>
-        </div>
-        <div class="flow-arrow">&#8592;</div>
-        <div class="flow-step-col">
-          <span class="flow-label">Backend</span>
-          <span class="flow-desc">Write results to DB</span>
-        </div>
-      </div>
-    </div>
-  </div>
+  ))}
 </div>
 
 <style>
-  .flow-diagram {
+  .rf {
+    margin: 1.5rem 0;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    margin: 1.5rem 0;
+    gap: 0.375rem;
+    position: relative;
   }
 
-  .flow-step {
+  /* Vertical timeline line */
+  .rf::before {
+    content: "";
+    position: absolute;
+    left: 0.875rem;
+    top: 1.5rem;
+    bottom: 1.5rem;
+    width: 1px;
+    background: var(--ping-border);
+    z-index: 0;
+  }
+
+  .rf-step {
     display: flex;
-    gap: 0.75rem;
+    gap: 0.875rem;
+    padding: 0.875rem 1rem;
     background: var(--ping-surface-raised);
     border: 1px solid var(--ping-border);
     border-radius: 0.5rem;
-    padding: 1rem;
-    transition: all 0.2s ease;
-    cursor: default;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    position: relative;
   }
 
-  .flow-step:hover {
+  .rf-step:hover {
     border-color: var(--ping-accent);
-    box-shadow: 0 2px 8px rgba(94, 106, 210, 0.1);
+    box-shadow: 0 2px 12px rgba(94, 106, 210, 0.1);
   }
 
-  .flow-step-number {
+  .rf-num {
     flex-shrink: 0;
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.75rem;
+    height: 1.75rem;
     border-radius: 50%;
     background: var(--sl-color-accent-low);
     color: var(--ping-accent);
@@ -110,70 +110,70 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 1;
+    border: 2px solid var(--ping-surface-raised);
   }
 
-  .flow-step:hover .flow-step-number {
+  .rf-step:hover .rf-num {
     background: var(--ping-accent);
     color: #fff;
   }
 
-  .flow-step-content {
-    flex: 1;
-    min-width: 0;
-  }
+  .rf-body { flex: 1; min-width: 0; }
 
-  .flow-step-title {
-    font-size: 0.875rem;
+  .rf-title {
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--ping-text);
     margin-bottom: 0.5rem;
   }
 
-  .flow-step-cols {
+  .rf-flow {
     display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
+    align-items: center;
+    gap: 0.625rem;
   }
 
-  .flow-step-col {
+  .rf-node {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
+    background: var(--ping-surface);
+    border: 1px solid var(--ping-border);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
   }
 
-  .flow-label {
-    font-size: 0.625rem;
-    font-weight: 600;
+  .rf-step:hover .rf-node {
+    border-color: color-mix(in srgb, var(--ping-accent) 40%, transparent);
+  }
+
+  .rf-node-label {
+    font-size: 0.5625rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ping-text-muted);
-  }
-
-  .flow-label.tag-bg {
+    letter-spacing: 0.1em;
     color: var(--ping-accent);
+    margin-bottom: 0.125rem;
   }
 
-  .flow-desc {
-    font-size: 0.8125rem;
+  .rf-node-text {
+    font-size: 0.75rem;
     color: var(--ping-text-muted);
     line-height: 1.4;
   }
 
-  .flow-arrow {
+  .rf-arrow {
     flex-shrink: 0;
-    color: var(--ping-accent);
-    font-size: 1rem;
-    padding-top: 0.5rem;
-    opacity: 0.5;
+    color: var(--ping-border);
+    transition: color 0.15s;
   }
 
-  .flow-step:hover .flow-arrow {
-    opacity: 1;
+  .rf-step:hover .rf-arrow {
+    color: var(--ping-accent);
   }
 
   @media (max-width: 480px) {
-    .flow-step-cols { flex-direction: column; gap: 0.25rem; }
-    .flow-arrow { display: none; }
+    .rf::before { display: none; }
+    .rf-flow { flex-direction: column; }
+    .rf-arrow { transform: rotate(90deg); }
   }
 </style>

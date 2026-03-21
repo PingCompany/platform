@@ -113,8 +113,8 @@ header.header {
 }
 
 /* Hide oversized heading anchor icons on splash page */
-[data-has-hero] .sl-markdown-content h2 a[aria-label] {
-  display: none;
+[data-has-hero] .sl-markdown-content .sl-anchor-link {
+  display: none !important;
 }
 
 /* Content link styling */

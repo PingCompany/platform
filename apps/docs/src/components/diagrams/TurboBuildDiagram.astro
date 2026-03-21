@@ -1,48 +1,55 @@
 ---
 ---
 
-<div class="turbo-diagram">
-  <div class="turbo-node turbo-node-top">
-    <span class="turbo-node-icon">&#128230;</span>
-    <div>
-      <div class="turbo-node-name">packages/shared</div>
-      <div class="turbo-node-task">build</div>
+<div class="tb">
+  <div class="tb-column">
+    <div class="tb-node">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ping-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v6H8v-6M12 2v10M8 8l4 4 4-4"/></svg>
+      <div class="tb-node-info">
+        <div class="tb-node-name">packages/shared</div>
+        <code class="tb-node-cmd">build</code>
+      </div>
+    </div>
+
+    <div class="tb-edge">
+      <div class="tb-edge-line"></div>
+      <code class="tb-edge-label">^build</code>
+      <div class="tb-edge-line"></div>
+    </div>
+
+    <div class="tb-node">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ping-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <div class="tb-node-info">
+        <div class="tb-node-name">apps/web</div>
+        <code class="tb-node-cmd">build</code>
+      </div>
     </div>
   </div>
 
-  <div class="turbo-edge">
-    <div class="turbo-edge-line"></div>
-    <span class="turbo-edge-label">^build</span>
-  </div>
+  <div class="tb-sep"></div>
 
-  <div class="turbo-node turbo-node-bottom">
-    <span class="turbo-node-icon">&#127760;</span>
-    <div>
-      <div class="turbo-node-name">apps/web</div>
-      <div class="turbo-node-task">build</div>
-    </div>
-  </div>
-
-  <div class="turbo-parallel">
-    <div class="turbo-parallel-label">lint</div>
-    <span class="turbo-parallel-desc">all packages &mdash; run in parallel, no dependencies</span>
+  <div class="tb-parallel">
+    <code class="tb-parallel-cmd">lint</code>
+    <span class="tb-parallel-desc">all packages &mdash; runs in parallel, no dependencies</span>
   </div>
 </div>
 
 <style>
-  .turbo-diagram {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
+  .tb {
     margin: 1.5rem 0;
-    padding: 1.5rem;
     background: var(--ping-surface-raised);
     border: 1px solid var(--ping-border);
     border-radius: 0.75rem;
+    padding: 1.5rem;
   }
 
-  .turbo-node {
+  .tb-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .tb-node {
     display: flex;
     align-items: center;
     gap: 0.625rem;
@@ -50,32 +57,29 @@
     border: 1px solid var(--ping-border);
     border-radius: 0.5rem;
     padding: 0.75rem 1.25rem;
-    transition: all 0.2s ease;
-    cursor: default;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
 
-  .turbo-node:hover {
+  .tb-node:hover {
     border-color: var(--ping-accent);
     box-shadow: 0 2px 8px rgba(94, 106, 210, 0.12);
   }
 
-  .turbo-node-icon {
-    font-size: 1.25rem;
-  }
-
-  .turbo-node-name {
+  .tb-node-name {
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--ping-text);
   }
 
-  .turbo-node-task {
+  .tb-node-cmd {
     font-size: 0.6875rem;
     color: var(--ping-text-muted);
-    font-family: var(--sl-font-mono);
+    background: none;
+    border: none;
+    padding: 0;
   }
 
-  .turbo-edge {
+  .tb-edge {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -83,44 +87,46 @@
     padding: 0.25rem 0;
   }
 
-  .turbo-edge-line {
+  .tb-edge-line {
     width: 1px;
-    height: 1.5rem;
+    height: 0.75rem;
     background: var(--ping-border);
   }
 
-  .turbo-edge-label {
+  .tb-edge-label {
     font-size: 0.625rem;
-    font-family: var(--sl-font-mono);
     color: var(--ping-accent);
     background: var(--sl-color-accent-low);
-    padding: 0.0625rem 0.375rem;
+    border: none;
+    padding: 0.0625rem 0.5rem;
     border-radius: 999px;
   }
 
-  .turbo-parallel {
+  .tb-sep {
+    height: 1px;
+    background: var(--ping-border);
+    margin: 1.25rem 0;
+    background: repeating-linear-gradient(90deg, var(--ping-border) 0, var(--ping-border) 4px, transparent 4px, transparent 8px);
+  }
+
+  .tb-parallel {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px dashed var(--ping-border);
-    width: 100%;
+    gap: 0.625rem;
     justify-content: center;
   }
 
-  .turbo-parallel-label {
+  .tb-parallel-cmd {
     font-size: 0.8125rem;
     font-weight: 600;
-    font-family: var(--sl-font-mono);
     color: var(--ping-text);
     background: var(--ping-surface);
     border: 1px solid var(--ping-border);
-    padding: 0.25rem 0.625rem;
-    border-radius: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
   }
 
-  .turbo-parallel-desc {
+  .tb-parallel-desc {
     font-size: 0.75rem;
     color: var(--ping-text-muted);
   }

@@ -1,77 +1,88 @@
 ---
+const model = {
+  root: { name: "workspaces", icon: "W" },
+  children: [
+    {
+      name: "users",
+      icon: "U",
+      fk: "workspaceId",
+      color: "#3b82f6",
+      children: ["channelMembers", "directConversationMembers", "inboxSummaries", "proactiveAlerts", "drafts", "sessions", "reactions", "typingIndicators"],
+      childFk: "userId",
+    },
+    {
+      name: "channels",
+      icon: "C",
+      fk: "workspaceId",
+      color: "#8b5cf6",
+      children: ["messages", "channelMembers", "typingIndicators"],
+      childFk: "channelId",
+    },
+    {
+      name: "directConversations",
+      icon: "D",
+      fk: "workspaceId",
+      color: "#10b981",
+      children: ["directMessages", "directConversationMembers"],
+      childFk: "conversationId",
+    },
+    {
+      name: "integrationObjects",
+      icon: "I",
+      fk: "workspaceId",
+      color: "#f59e0b",
+      children: [],
+      childFk: "",
+    },
+    {
+      name: "proactiveAlerts",
+      icon: "A",
+      fk: "workspaceId",
+      color: "#ef4444",
+      children: [],
+      childFk: "",
+    },
+  ],
+};
 ---
 
-<div class="er-diagram">
-  <div class="er-root">
-    <div class="er-node er-root-node">
-      <span class="er-node-icon">&#127968;</span>
-      <span class="er-node-name">workspaces</span>
-    </div>
-    <div class="er-children">
-      <div class="er-branch">
-        <div class="er-node er-parent-node" tabindex="0">
-          <span class="er-node-icon">&#128100;</span>
-          <span class="er-node-name">users</span>
-          <span class="er-fk">workspaceId</span>
-        </div>
-        <div class="er-sub-children">
-          <div class="er-leaf"><span class="er-dot"></span>channelMembers <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>directConversationMembers <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>inboxSummaries <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>proactiveAlerts <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>drafts <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>sessions <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>reactions <span class="er-fk">userId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>typingIndicators <span class="er-fk">userId</span></div>
-        </div>
-      </div>
+<div class="dm">
+  <div class="dm-root">
+    <span class="dm-root-badge">{model.root.icon}</span>
+    <span class="dm-root-name">{model.root.name}</span>
+  </div>
 
-      <div class="er-branch">
-        <div class="er-node er-parent-node" tabindex="0">
-          <span class="er-node-icon">&#128172;</span>
-          <span class="er-node-name">channels</span>
-          <span class="er-fk">workspaceId</span>
+  <div class="dm-tree">
+    {model.children.map((table) => (
+      <div class="dm-group" style={`--g-accent: ${table.color}`}>
+        <div class="dm-table-row">
+          <div class="dm-branch-line"></div>
+          <div class="dm-table">
+            <span class="dm-table-badge" style={`background: ${table.color}`}>{table.icon}</span>
+            <span class="dm-table-name">{table.name}</span>
+            <span class="dm-fk">{table.fk}</span>
+          </div>
         </div>
-        <div class="er-sub-children">
-          <div class="er-leaf"><span class="er-dot"></span>messages <span class="er-fk">channelId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>channelMembers <span class="er-fk">channelId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>typingIndicators <span class="er-fk">channelId</span></div>
-        </div>
+        {table.children.length > 0 && (
+          <div class="dm-leaves">
+            {table.children.map((child) => (
+              <div class="dm-leaf-row">
+                <div class="dm-leaf-line"></div>
+                <div class="dm-leaf">
+                  <span class="dm-leaf-name">{child}</span>
+                  <span class="dm-fk">{table.childFk}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      <div class="er-branch">
-        <div class="er-node er-parent-node" tabindex="0">
-          <span class="er-node-icon">&#128233;</span>
-          <span class="er-node-name">directConversations</span>
-          <span class="er-fk">workspaceId</span>
-        </div>
-        <div class="er-sub-children">
-          <div class="er-leaf"><span class="er-dot"></span>directMessages <span class="er-fk">conversationId</span></div>
-          <div class="er-leaf"><span class="er-dot"></span>directConversationMembers <span class="er-fk">conversationId</span></div>
-        </div>
-      </div>
-
-      <div class="er-branch">
-        <div class="er-node er-parent-node single" tabindex="0">
-          <span class="er-node-icon">&#128279;</span>
-          <span class="er-node-name">integrationObjects</span>
-          <span class="er-fk">workspaceId</span>
-        </div>
-      </div>
-
-      <div class="er-branch">
-        <div class="er-node er-parent-node single" tabindex="0">
-          <span class="er-node-icon">&#9889;</span>
-          <span class="er-node-name">proactiveAlerts</span>
-          <span class="er-fk">workspaceId</span>
-        </div>
-      </div>
-    </div>
+    ))}
   </div>
 </div>
 
 <style>
-  .er-diagram {
+  .dm {
     margin: 1.5rem 0;
     background: var(--ping-surface-raised);
     border: 1px solid var(--ping-border);
@@ -80,102 +91,143 @@
     overflow-x: auto;
   }
 
-  .er-root-node {
+  .dm-root {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    background: var(--ping-accent);
-    color: #fff;
     padding: 0.5rem 1rem;
+    background: var(--ping-accent);
     border-radius: 0.5rem;
-    font-weight: 600;
-    font-size: 0.875rem;
-    margin-bottom: 1rem;
-  }
-
-  .er-root-node .er-node-icon {
-    font-size: 1rem;
-  }
-
-  .er-children {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding-left: 1.5rem;
-    border-left: 2px solid var(--ping-border);
-  }
-
-  .er-branch {
-    position: relative;
-  }
-
-  .er-parent-node {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    background: var(--ping-surface);
-    border: 1px solid var(--ping-border);
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.375rem;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--ping-text);
-    cursor: default;
-    transition: all 0.15s ease;
-  }
-
-  .er-parent-node:hover {
-    border-color: var(--ping-accent);
-    box-shadow: 0 2px 8px rgba(94, 106, 210, 0.1);
-  }
-
-  .er-parent-node .er-node-icon {
-    font-size: 0.875rem;
-  }
-
-  .er-fk {
-    font-size: 0.625rem;
-    font-weight: 400;
-    color: var(--ping-text-muted);
-    background: var(--ping-surface-raised);
-    padding: 0.0625rem 0.375rem;
-    border-radius: 999px;
-    border: 1px solid var(--ping-border);
-  }
-
-  .er-sub-children {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    padding-left: 1.5rem;
-    margin-top: 0.25rem;
     margin-bottom: 0.25rem;
-    border-left: 1px dashed var(--ping-border);
   }
 
-  .er-leaf {
+  .dm-root-badge {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 0.25rem;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 0.375rem;
-    font-size: 0.8125rem;
-    color: var(--ping-text-muted);
-    padding: 0.125rem 0;
-    transition: color 0.15s;
+    justify-content: center;
   }
 
-  .er-leaf:hover {
-    color: var(--ping-text);
+  .dm-root-name {
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 600;
   }
 
-  .er-dot {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
+  .dm-tree {
+    padding-left: 1rem;
+    border-left: 2px solid var(--ping-border);
+    margin-left: 0.875rem;
+  }
+
+  .dm-group {
+    padding: 0.375rem 0;
+  }
+
+  .dm-table-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .dm-branch-line {
+    width: 1.25rem;
+    height: 1px;
     background: var(--ping-border);
     flex-shrink: 0;
   }
 
-  .er-leaf:hover .er-dot {
-    background: var(--ping-accent);
+  .dm-table {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--ping-surface);
+    border: 1px solid var(--ping-border);
+    border-radius: 0.375rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .dm-table:hover {
+    border-color: var(--g-accent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--g-accent) 15%, transparent);
+  }
+
+  .dm-table-badge {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 0.25rem;
+    color: #fff;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .dm-table-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ping-text);
+  }
+
+  .dm-fk {
+    font-size: 0.5625rem;
+    color: var(--ping-text-muted);
+    background: var(--ping-surface-raised);
+    border: 1px solid var(--ping-border);
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-family: var(--sl-font-mono);
+  }
+
+  .dm-leaves {
+    margin-left: 2.5rem;
+    padding-left: 1rem;
+    border-left: 1px dashed color-mix(in srgb, var(--g-accent) 30%, var(--ping-border));
+  }
+
+  .dm-leaf-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0.125rem 0;
+  }
+
+  .dm-leaf-line {
+    width: 0.875rem;
+    height: 1px;
+    background: color-mix(in srgb, var(--g-accent) 30%, var(--ping-border));
+    flex-shrink: 0;
+  }
+
+  .dm-leaf {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.1875rem 0.5rem;
+    border-radius: 0.25rem;
+    transition: background 0.15s;
+  }
+
+  .dm-leaf:hover {
+    background: var(--ping-surface);
+  }
+
+  .dm-leaf-name {
+    font-size: 0.75rem;
+    color: var(--ping-text-muted);
+  }
+
+  .dm-leaf:hover .dm-leaf-name {
+    color: var(--ping-text);
   }
 </style>

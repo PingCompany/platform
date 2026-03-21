@@ -1,87 +1,95 @@
 ---
 ---
 
-<div class="pipeline-diagram">
-  <div class="pipeline-trigger">
-    <div class="pipeline-trigger-dot"></div>
+<div class="pip">
+  <div class="pip-trigger">
+    <div class="pip-pulse"></div>
     <span>Message Written</span>
   </div>
 
-  <div class="pipeline-branches">
-    <div class="pipeline-branch" data-branch="inbox">
-      <div class="pipeline-branch-header">
-        <span class="pipeline-icon">&#9993;</span>
+  <div class="pip-connector">
+    <div class="pip-vline"></div>
+    <div class="pip-fork">
+      <div class="pip-hline"></div>
+      <div class="pip-hline"></div>
+    </div>
+  </div>
+
+  <div class="pip-branches">
+    <div class="pip-branch" style="--b-accent: #3b82f6;">
+      <div class="pip-branch-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <span>Inbox Summary</span>
       </div>
-      <div class="pipeline-branch-body">
-        <div class="pipeline-detail">
-          <strong>Eisenhower Matrix Ranking</strong>
-          <ul>
-            <li><span class="dot urgent-important"></span>Urgent + Important</li>
-            <li><span class="dot important"></span>Important</li>
-            <li><span class="dot urgent"></span>Urgent</li>
-            <li><span class="dot fyi"></span>FYI</li>
-          </ul>
+      <div class="pip-branch-detail">
+        <div class="pip-detail-label">Eisenhower Matrix Ranking</div>
+        <div class="pip-quadrants">
+          <div class="pip-q"><span class="pip-dot" style="background:#ef4444"></span>Urgent + Important</div>
+          <div class="pip-q"><span class="pip-dot" style="background:#f59e0b"></span>Important</div>
+          <div class="pip-q"><span class="pip-dot" style="background:#3b82f6"></span>Urgent</div>
+          <div class="pip-q"><span class="pip-dot" style="background:#6b7280"></span>FYI</div>
         </div>
       </div>
     </div>
 
-    <div class="pipeline-branch" data-branch="alerts">
-      <div class="pipeline-branch-header">
-        <span class="pipeline-icon">&#9889;</span>
+    <div class="pip-branch" style="--b-accent: #f59e0b;">
+      <div class="pip-branch-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         <span>Proactive Alerts</span>
       </div>
-      <div class="pipeline-branch-body">
-        <div class="pipeline-detail">
-          <strong>Alert Types</strong>
-          <ul>
-            <li>Unanswered question</li>
-            <li>PR review nudge</li>
-            <li>Incident routing</li>
-            <li>Blocked task</li>
-            <li>Fact check</li>
-            <li>Cross-team sync</li>
-          </ul>
+      <div class="pip-branch-detail">
+        <div class="pip-detail-label">Alert Types</div>
+        <div class="pip-alert-list">
+          <span class="pip-alert-tag">Unanswered question</span>
+          <span class="pip-alert-tag">PR review nudge</span>
+          <span class="pip-alert-tag">Incident routing</span>
+          <span class="pip-alert-tag">Blocked task</span>
+          <span class="pip-alert-tag">Fact check</span>
+          <span class="pip-alert-tag">Cross-team sync</span>
         </div>
       </div>
     </div>
 
-    <div class="pipeline-branch" data-branch="graph">
-      <div class="pipeline-branch-header">
-        <span class="pipeline-icon">&#128300;</span>
+    <div class="pip-branch" style="--b-accent: #10b981;">
+      <div class="pip-branch-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20M2 12h20"/></svg>
         <span>Knowledge Graph</span>
       </div>
-      <div class="pipeline-branch-body">
-        <div class="pipeline-detail">
-          <strong>Graphiti Temporal Graph</strong>
-          <ul>
-            <li>Fact checking</li>
-            <li>Context sync</li>
-            <li>@KnowledgeBot</li>
-          </ul>
+      <div class="pip-branch-detail">
+        <div class="pip-detail-label">Graphiti Temporal Graph</div>
+        <div class="pip-alert-list">
+          <span class="pip-alert-tag">Fact checking</span>
+          <span class="pip-alert-tag">Context sync</span>
+          <span class="pip-alert-tag">@KnowledgeBot</span>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="pipeline-result">
-    <div class="pipeline-result-dot"></div>
+  <div class="pip-connector">
+    <div class="pip-fork pip-fork-up">
+      <div class="pip-hline"></div>
+      <div class="pip-hline"></div>
+    </div>
+    <div class="pip-vline"></div>
+  </div>
+
+  <div class="pip-result">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ping-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
     <span>Results written to DB &mdash; real-time push to UI</span>
   </div>
 </div>
 
 <style>
-  .pipeline-diagram {
+  .pip {
     margin: 1.5rem 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
   }
 
-  .pipeline-trigger,
-  .pipeline-result {
-    display: flex;
+  .pip-trigger, .pip-result {
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     background: var(--ping-surface-raised);
@@ -93,121 +101,136 @@
     color: var(--ping-text);
   }
 
-  .pipeline-trigger-dot,
-  .pipeline-result-dot {
-    width: 6px;
-    height: 6px;
+  .pip-pulse {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: var(--ping-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ping-accent) 20%, transparent);
   }
 
-  .pipeline-branches {
+  .pip-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .pip-vline {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--ping-border);
+  }
+
+  .pip-fork {
+    display: flex;
+    width: 66%;
+    border-top: 1px solid var(--ping-border);
+    justify-content: space-between;
+  }
+
+  .pip-fork-up {
+    border-top: none;
+    border-bottom: 1px solid var(--ping-border);
+  }
+
+  .pip-hline {
+    width: 1px;
+    height: 1rem;
+    background: var(--ping-border);
+  }
+
+  .pip-fork .pip-hline:first-child { margin-left: calc(50% / 3 * 1 - 0.5px); }
+  .pip-fork .pip-hline:last-child { margin-right: calc(50% / 3 * 1 - 0.5px); }
+
+  .pip-branches {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
+    gap: 0.625rem;
     width: 100%;
-    padding: 1.5rem 0;
-    position: relative;
   }
 
-  .pipeline-branches::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 50%;
-    width: 1px;
-    height: 1.5rem;
-    background: var(--ping-border);
-  }
-
-  .pipeline-branches::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: 1px;
-    height: 1.5rem;
-    background: var(--ping-border);
-  }
-
-  .pipeline-branch {
+  .pip-branch {
     background: var(--ping-surface-raised);
     border: 1px solid var(--ping-border);
-    border-radius: 0.5rem;
+    border-radius: 0.625rem;
     overflow: hidden;
-    transition: all 0.2s ease;
-    cursor: default;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
   }
 
-  .pipeline-branch:hover {
-    border-color: var(--ping-accent);
-    box-shadow: 0 4px 12px rgba(94, 106, 210, 0.12);
+  .pip-branch:hover {
+    border-color: var(--b-accent);
+    box-shadow: 0 4px 16px -4px color-mix(in srgb, var(--b-accent) 25%, transparent);
     transform: translateY(-2px);
   }
 
-  .pipeline-branch[data-branch="inbox"]:hover { border-color: #3b82f6; }
-  .pipeline-branch[data-branch="alerts"]:hover { border-color: #f59e0b; }
-  .pipeline-branch[data-branch="graph"]:hover { border-color: #10b981; }
-
-  .pipeline-branch-header {
+  .pip-branch-head {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.75rem;
+    padding: 0.75rem 0.875rem;
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--ping-text);
-    border-bottom: 1px solid var(--ping-border);
     background: var(--ping-surface);
+    border-bottom: 1px solid var(--ping-border);
   }
 
-  .pipeline-icon {
-    font-size: 1rem;
+  .pip-branch-detail {
+    padding: 0.75rem 0.875rem;
   }
 
-  .pipeline-branch-body {
-    padding: 0.75rem;
-  }
-
-  .pipeline-detail strong {
-    display: block;
-    font-size: 0.6875rem;
+  .pip-detail-label {
+    font-size: 0.5625rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.1em;
     color: var(--ping-text-muted);
-    margin-bottom: 0.375rem;
+    margin-bottom: 0.5rem;
   }
 
-  .pipeline-detail ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    font-size: 0.8125rem;
-    color: var(--ping-text-muted);
+  .pip-quadrants {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
-  .pipeline-detail ul li {
+  .pip-q {
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.125rem 0;
+    font-size: 0.75rem;
+    color: var(--ping-text-muted);
   }
 
-  .dot {
+  .pip-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
   }
 
-  .dot.urgent-important { background: #ef4444; }
-  .dot.important { background: #f59e0b; }
-  .dot.urgent { background: #3b82f6; }
-  .dot.fyi { background: #6b7280; }
+  .pip-alert-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .pip-alert-tag {
+    font-size: 0.6875rem;
+    color: var(--ping-text-muted);
+    background: var(--ping-surface);
+    border: 1px solid var(--ping-border);
+    padding: 0.0625rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .pip-branch:hover .pip-alert-tag {
+    border-color: color-mix(in srgb, var(--b-accent) 30%, transparent);
+  }
 
   @media (max-width: 640px) {
-    .pipeline-branches {
-      grid-template-columns: 1fr;
-    }
+    .pip-branches { grid-template-columns: 1fr; }
+    .pip-fork, .pip-fork-up { display: none; }
   }
 </style>
