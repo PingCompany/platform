@@ -2,25 +2,29 @@
   font-family: "Geist";
   src: url("/Platform/fonts/GeistVF.woff") format("woff");
   font-weight: 100 900;
-  font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "GeistMono";
+  font-family: "Geist Mono";
   src: url("/Platform/fonts/GeistMonoVF.woff") format("woff");
   font-weight: 100 900;
-  font-style: normal;
   font-display: swap;
 }
 
 :root {
+  --sl-color-accent-low: #1a1c3a;
   --sl-color-accent: #5e6ad2;
-  --sl-color-accent-low: #2e3366;
-  --sl-color-accent-high: #b4b9f0;
+  --sl-color-accent-high: #b4b8f0;
+  --sl-font: "Geist", sans-serif;
+  --sl-font-mono: "Geist Mono", monospace;
+}
+
+:root[data-theme="dark"] {
   --sl-color-bg: hsl(240 6% 7%);
-  --sl-color-bg-sidebar: hsl(240 5% 9%);
-  --sl-color-bg-nav: hsl(240 5% 9%);
-  --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --sl-font-mono: "GeistMono", ui-monospace, monospace;
+  --sl-color-bg-sidebar: hsl(240 6% 9%);
+  --sl-color-bg-nav: hsl(240 6% 9%);
+  --ping-surface: hsl(240 6% 9%);
+  --ping-border: hsl(240 6% 15%);
+  --ping-text-muted: rgba(255, 255, 255, 0.65);
 }

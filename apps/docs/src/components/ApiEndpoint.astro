@@ -1,0 +1,69 @@
+---
+interface Props {
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+  path: string;
+  description: string;
+}
+
+const { method, path, description } = Astro.props;
+
+const methodColors: Record<string, string> = {
+  GET: "#22c55e",
+  POST: "#3b82f6",
+  PUT: "#f59e0b",
+  DELETE: "#ef4444",
+  PATCH: "#a855f7",
+};
+
+const color = methodColors[method] || "#6b7280";
+---
+
+<div class="api-endpoint">
+  <div class="api-header">
+    <span class="api-method" style={`background: ${color}; color: #fff;`}>
+      {method}
+    </span>
+    <code class="api-path">{path}</code>
+  </div>
+  <p class="api-description">{description}</p>
+</div>
+
+<style>
+  .api-endpoint {
+    padding: 1rem;
+    border: 1px solid var(--ping-border, hsl(240 6% 15%));
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+    background: var(--ping-surface, hsl(240 6% 9%));
+  }
+
+  .api-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .api-method {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.025em;
+    line-height: 1.4;
+  }
+
+  .api-path {
+    font-family: var(--sl-font-mono, monospace);
+    font-size: 0.9rem;
+    color: #fff;
+  }
+
+  .api-description {
+    font-size: 0.875rem;
+    color: var(--ping-text-muted, rgba(255, 255, 255, 0.65));
+    margin: 0;
+    line-height: 1.5;
+  }
+</style>

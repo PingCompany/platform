@@ -1,14 +1,53 @@
 ---
 title: PING Docs
-description: Documentation for PING — the AI-native workspace communication platform.
+description: Documentation for PING, the AI-native workspace communication platform.
 template: splash
 hero:
-  title: PING Docs
-  tagline: The AI-native workspace communication platform.
-  actions:
-    - text: Get Started
-      link: /Platform/getting-started/introduction/
-      icon: right-arrow
+  tagline: ""
+  actions: []
 ---
 
-Welcome to the PING documentation.
+import Hero from "../../components/Hero.astro";
+import CardGrid from "../../components/CardGrid.astro";
+import FeatureCard from "../../components/FeatureCard.astro";
+
+<Hero />
+
+<CardGrid>
+  <FeatureCard
+    title="Getting Started"
+    description="Set up PING and send your first message"
+    href="/Platform/getting-started/introduction/"
+    icon="🚀"
+  />
+  <FeatureCard
+    title="Product Features"
+    description="Copilot Inbox, Eisenhower Matrix, and more"
+    href="/Platform/features/copilot-inbox/"
+    icon="✨"
+  />
+  <FeatureCard
+    title="Architecture"
+    description="System design and technical decisions"
+    href="/Platform/architecture/overview/"
+    icon="🏗️"
+  />
+  <FeatureCard
+    title="API Reference"
+    description="Endpoints, authentication, and schemas"
+    href="/Platform/api/overview/"
+    icon="📡"
+  />
+  <FeatureCard
+    title="Integrations"
+    description="GitHub, Linear, and webhook setup"
+    href="/Platform/integrations/overview/"
+    icon="🔗"
+  />
+  <FeatureCard
+    title="Developer Guide"
+    description="Contributing and local development"
+    href="/Platform/developer-guide/contributing/"
+    icon="💻"
+  />
+</CardGrid>
