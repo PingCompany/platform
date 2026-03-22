@@ -14,6 +14,7 @@ export interface OpenThread {
   channelId?: string;
   conversationId?: string;
   contextName: string;
+  workspaceId?: string;
 }
 
 interface ThreadPanelState {

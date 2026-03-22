@@ -68,7 +68,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
     <div
       className={cn(
         "group relative flex gap-3 px-4 py-1.5 transition-colors hover:bg-surface-2/60",
-        showAvatar ? "mt-3" : "mt-0"
+        showAvatar ? "mt-1" : "mt-0"
       )}
       onDoubleClick={() => onOpenThread?.(message.threadId ?? message.id)}
     >

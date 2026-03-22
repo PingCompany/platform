@@ -51,11 +51,11 @@ export function TopBar({
 
   return (
     <header
-      className="flex items-center border-b border-subtle bg-background/80 px-3 backdrop-blur-sm"
+      className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-subtle bg-background/80 px-3 backdrop-blur-sm"
       style={{ height: TOPBAR_HEIGHT, minHeight: TOPBAR_HEIGHT }}
     >
       {/* Left: mobile menu + logo + workspace */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
         <button
           onClick={onToggleSidebar}
           className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground md:hidden"
@@ -71,20 +71,15 @@ export function TopBar({
             </>
           )}
         </Link>
-        <div className="mx-2 h-4 w-px bg-foreground/10 hidden sm:block" aria-hidden="true" style={{ display: "none" }} />
       </div>
 
-      {/* Center: breadcrumbs (hidden for now) */}
-      <div className="flex-1 min-w-0 hidden">
-        <Breadcrumbs channelName={channelName} conversationName={conversationName} />
-      </div>
       {/* Center: search bar */}
-      <div className="flex-1 flex justify-center px-4">
+      <div className="flex justify-center px-4 w-[480px]">
         <SearchField onOpenSearch={onOpenSearch} />
       </div>
 
       {/* Right: trailing actions */}
-      <div className="flex items-center gap-2 shrink-0 ml-2">
+      <div className="flex items-center gap-2 justify-end min-w-0">
         {trailing}
       </div>
     </header>

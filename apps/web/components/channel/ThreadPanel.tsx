@@ -348,7 +348,6 @@ function ThreadPanelShell({
           placeholder="Reply..."
           onSend={onSend}
           onTyping={onTyping}
-          showToolbar={false}
         />
         <p className="mt-1 h-4 text-2xs leading-4 text-foreground/20">
           <label className="inline-flex items-center gap-1.5 cursor-pointer">

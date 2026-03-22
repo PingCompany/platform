@@ -48,7 +48,16 @@ function CopyButton({ text }: { text: string }) {
 
 export default function WorkspacePage() {
   const { toast } = useToast();
-  const { workspaceId } = useWorkspace();
+  const ws = useWorkspace();
+  const { workspaceId } = ws;
+
+  if (ws.role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to view workspace settings.
+      </div>
+    );
+  }
   const workspace = useQuery(api.workspaces.get, { workspaceId });
   const updateWorkspace = useMutation(api.workspaces.update);
   const connectIntegration = useMutation(api.workspaces.connectIntegration);

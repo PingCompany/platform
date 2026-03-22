@@ -19,6 +19,7 @@ import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { ThreadPanelProvider, useThreadPanel } from "@/hooks/useThreadPanel";
 import { SidebarContext } from "@/hooks/useSidebar";
 import { ThreadPanel } from "@/components/channel/ThreadPanel";
+import { WorkspaceContext } from "@/components/workspace/WorkspaceProvider";
 
 function isEditableTarget(e: KeyboardEvent): boolean {
   const tag = (e.target as HTMLElement)?.tagName;
@@ -378,6 +379,17 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
 function ThreadPanelSlot() {
   const { openThread, closeThreadPanel } = useThreadPanel();
+  const workspaceCtxValue = useMemo(() => {
+    if (!openThread?.workspaceId) return null;
+    return {
+      workspaceId: openThread.workspaceId as Id<"workspaces">,
+      workspaceSlug: "",
+      workspaceName: "",
+      role: "member" as const,
+      isSubdomain: false,
+      buildPath: (path: string) => path,
+    };
+  }, [openThread?.workspaceId]);
 
   // Escape — close thread panel (when no modal is open)
   useEffect(() => {
@@ -397,61 +409,69 @@ function ThreadPanelSlot() {
     return () => window.removeEventListener("keydown", handleEsc);
   }, [openThread, closeThreadPanel]);
 
+  const threadContent = openThread ? (
+    <>
+      {/* Mobile overlay */}
+      <motion.div
+        key="thread-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+        onClick={closeThreadPanel}
+      />
+
+      {/* Mobile: full-screen slide from right */}
+      <motion.aside
+        key="thread-mobile"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed inset-0 z-50 bg-background md:hidden"
+      >
+        <ThreadPanel
+          parentMessageId={openThread.parentMessageId}
+          messageTable={openThread.messageTable}
+          channelId={openThread.channelId}
+          conversationId={openThread.conversationId}
+          contextName={openThread.contextName}
+          onClose={closeThreadPanel}
+        />
+      </motion.aside>
+
+      {/* Desktop: width animation so conversation resizes smoothly */}
+      <motion.div
+        key="thread-desktop"
+        initial={{ width: 0 }}
+        animate={{ width: THREAD_PANEL_WIDTH }}
+        exit={{ width: 0 }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="hidden h-full overflow-hidden border-l border-subtle md:block"
+      >
+        <div className="h-full" style={{ width: THREAD_PANEL_WIDTH }}>
+          <ThreadPanel
+            parentMessageId={openThread.parentMessageId}
+            messageTable={openThread.messageTable}
+            channelId={openThread.channelId}
+            conversationId={openThread.conversationId}
+            contextName={openThread.contextName}
+            onClose={closeThreadPanel}
+          />
+        </div>
+      </motion.div>
+    </>
+  ) : null;
+
   return (
     <AnimatePresence>
-      {openThread && (
-        <>
-          {/* Mobile overlay */}
-          <motion.div
-            key="thread-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-            onClick={closeThreadPanel}
-          />
-
-          {/* Mobile: full-screen slide from right */}
-          <motion.aside
-            key="thread-mobile"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed inset-0 z-50 bg-background md:hidden"
-          >
-            <ThreadPanel
-              parentMessageId={openThread.parentMessageId}
-              messageTable={openThread.messageTable}
-              channelId={openThread.channelId}
-              conversationId={openThread.conversationId}
-              contextName={openThread.contextName}
-              onClose={closeThreadPanel}
-            />
-          </motion.aside>
-
-          {/* Desktop: width animation so conversation resizes smoothly */}
-          <motion.div
-            key="thread-desktop"
-            initial={{ width: 0 }}
-            animate={{ width: THREAD_PANEL_WIDTH }}
-            exit={{ width: 0 }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="hidden h-full overflow-hidden border-l border-subtle md:block"
-          >
-            <div className="h-full" style={{ width: THREAD_PANEL_WIDTH }}>
-              <ThreadPanel
-                parentMessageId={openThread.parentMessageId}
-                messageTable={openThread.messageTable}
-                channelId={openThread.channelId}
-                conversationId={openThread.conversationId}
-                contextName={openThread.contextName}
-                onClose={closeThreadPanel}
-              />
-            </div>
-          </motion.div>
-        </>
+      {threadContent && (
+        workspaceCtxValue ? (
+          <WorkspaceContext.Provider value={workspaceCtxValue}>
+            {threadContent}
+          </WorkspaceContext.Provider>
+        ) : threadContent
       )}
     </AnimatePresence>
   );

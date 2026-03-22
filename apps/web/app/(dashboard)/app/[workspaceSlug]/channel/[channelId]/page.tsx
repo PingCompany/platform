@@ -58,7 +58,7 @@ export default function ChannelPage({ params }: Props) {
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
   const { toast } = useToast();
   const router = useRouter();
-  const { buildPath } = useWorkspace();
+  const { buildPath, workspaceId } = useWorkspace();
 
   useEffect(() => {
     if (!isAuthenticated || !isMember) return;
@@ -139,9 +139,10 @@ export default function ChannelPage({ params }: Props) {
         messageTable: "messages",
         channelId,
         contextName: channel?.name ?? channelId,
+        workspaceId,
       });
     },
-    [openThreadPanel, channelId, channel?.name],
+    [openThreadPanel, channelId, channel?.name, workspaceId],
   );
 
   const handleJoinChannel = useCallback(() => {

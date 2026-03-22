@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useContext } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
@@ -25,7 +25,6 @@ import {
   Sparkles,
   Bot,
   Star,
-  AtSign,
 } from "lucide-react";
 import { Kbd } from "@/components/ui/kbd";
 import { StatusDot } from "@/components/ui/status-dot";
@@ -44,6 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { WorkspaceContext } from "@/components/workspace/WorkspaceProvider";
 // Sidebar width is now controlled by parent via style
 
 interface NavItemProps {
@@ -118,6 +118,8 @@ interface SidebarProps {
 export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const wsCtx = useContext(WorkspaceContext);
+  const isAdmin = wsCtx?.role === "admin";
 
   const workspaceSlug = pathname.match(/^\/app\/([^/]+)/)?.[1];
   const workspacePrefix = workspaceSlug ? `/app/${workspaceSlug}` : "";
@@ -218,14 +220,18 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
               <User className="mr-2 h-3 w-3" />
               Profile
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/team"))}>
-              <Users className="mr-2 h-3 w-3" />
-              Team
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/workspace"))}>
-              <Settings className="mr-2 h-3 w-3" />
-              Settings
-            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/team"))}>
+                <Users className="mr-2 h-3 w-3" />
+                Team
+              </DropdownMenuItem>
+            )}
+            {isAdmin && (
+              <DropdownMenuItem className="cursor-pointer text-xs" onClick={() => router.push(buildPath("/settings/workspace"))}>
+                <Settings className="mr-2 h-3 w-3" />
+                Settings
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator className="bg-foreground/5" />
 
             {/* Workspaces */}
@@ -593,7 +599,7 @@ function MainNav({
                   <span className="text-2xs font-medium text-foreground/30">#</span>
                 )}
               </span>
-              <span className="flex-1 truncate">{channel.name}</span>
+              <span className={cn("flex-1 truncate", channel.unreadCount > 0 && "font-semibold text-foreground")}>{channel.name}</span>
               {channel.isMember && (
                 <Star
                   className={cn(
@@ -605,17 +611,10 @@ function MainNav({
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleStar(channel._id); }}
                 />
               )}
-              {/* @ mention indicator */}
+              {/* Mention count badge — only when user is mentioned */}
               {channel.unreadMentionCount > 0 && (
                 <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-ping-purple px-1 text-2xs font-medium text-white tabular-nums">
-                  <AtSign className="h-2.5 w-2.5 mr-0.5" />
-                  {channel.unreadMentionCount}
-                </span>
-              )}
-              {/* Unread count (show separately from mentions) */}
-              {channel.unreadCount > 0 && channel.unreadMentionCount === 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-2xs font-medium text-foreground/70 tabular-nums">
-                  {channel.unreadCount}
+                  {channel.unreadMentionCount > 99 ? "99+" : channel.unreadMentionCount}
                 </span>
               )}
             </Link>
@@ -637,6 +636,8 @@ interface SettingsNavProps {
 
 function SettingsNav({ pathname, buildPath, user }: SettingsNavProps) {
   const router = useRouter();
+  const wsCtx = useContext(WorkspaceContext);
+  const isAdmin = wsCtx?.role === "admin";
 
   return (
     <>
@@ -650,16 +651,20 @@ function SettingsNav({ pathname, buildPath, user }: SettingsNavProps) {
 
       <div className="h-px bg-foreground/5 mx-0 my-2" />
 
-      <NavItem href={buildPath("/settings/workspace")} icon={Building2} label="Workspace" isActive={pathname.endsWith("/settings/workspace")} />
-      <NavItem href={buildPath("/settings/team")} icon={Users} label="Team" isActive={pathname.endsWith("/settings/team")} />
-      <NavItem href={buildPath("/settings/agents")} icon={Bot} label="Agents" isActive={pathname.endsWith("/settings/agents")} />
+      <NavItem href={buildPath("/settings/profile")} icon={User} label="Profile" isActive={pathname.endsWith("/settings/profile")} />
+      {isAdmin && <NavItem href={buildPath("/settings/workspace")} icon={Building2} label="Workspace" isActive={pathname.endsWith("/settings/workspace")} />}
+      {isAdmin && <NavItem href={buildPath("/settings/team")} icon={Users} label="Team" isActive={pathname.endsWith("/settings/team")} />}
+      {isAdmin && <NavItem href={buildPath("/settings/agents")} icon={Bot} label="Agents" isActive={pathname.endsWith("/settings/agents")} />}
       <NavItem href={buildPath("/settings/knowledge-graph")} icon={GitBranch} label="Knowledge Graph" isActive={pathname.endsWith("/settings/knowledge-graph")} />
       <NavItem href={buildPath("/settings/email")} icon={Mail} label="Email" isActive={pathname.endsWith("/settings/email")} />
-      <NavItem href={buildPath("/settings/analytics")} icon={BarChart2} label="Analytics" isActive={pathname.endsWith("/settings/analytics")} />
+      {isAdmin && <NavItem href={buildPath("/settings/analytics")} icon={BarChart2} label="Analytics" isActive={pathname.endsWith("/settings/analytics")} />}
 
-      <div className="h-px bg-foreground/5 mx-0 my-2" />
-
-      <NavItem href="/admin" icon={Settings} label="Backoffice" isActive={pathname.startsWith("/admin")} />
+      {isAdmin && (
+        <>
+          <div className="h-px bg-foreground/5 mx-0 my-2" />
+          <NavItem href="/admin" icon={Settings} label="Backoffice" isActive={pathname.startsWith("/admin")} />
+        </>
+      )}
     </>
   );
 }

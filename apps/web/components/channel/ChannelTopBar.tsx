@@ -26,7 +26,6 @@ import { cn } from "@/lib/utils";
 interface Member {
   _id: string;
   name: string;
-  avatarUrl?: string | null;
   role: string;
   presenceStatus?: string;
 }
@@ -67,39 +66,8 @@ export function ChannelTopBar({
 }: ChannelTopBarProps) {
   const [showMembers, setShowMembers] = useState(false);
 
-  const visible = members.slice(0, 4);
-  const overflow = members.length - 4;
-
   return (
     <div className="flex items-center gap-3 border-b border-subtle bg-surface-1 px-4 py-2 shrink-0">
-      {/* Stacked avatars */}
-      <div className="relative flex items-center">
-        {visible.map((m, i) => (
-          <div
-            key={m._id}
-            title={m.name}
-            className={cn(
-              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-background text-2xs font-medium",
-              m.role === "agent"
-                ? "bg-ping-purple/20 text-ping-purple"
-                : "bg-surface-3 text-foreground",
-              i > 0 && "-ml-2",
-            )}
-          >
-            {m.role === "agent" ? (
-              <Bot className="h-3 w-3" />
-            ) : (
-              getInitials(m.name)
-            )}
-          </div>
-        ))}
-        {overflow > 0 && (
-          <div className="-ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-background bg-surface-3 text-2xs font-medium text-muted-foreground">
-            +{overflow}
-          </div>
-        )}
-      </div>
-
       {/* Channel name + member count */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {isPrivate ? (
@@ -108,9 +76,6 @@ export function ChannelTopBar({
           <Hash className="h-3.5 w-3.5 shrink-0 text-foreground/30" />
         )}
         <span className="text-sm font-medium text-foreground truncate">{name}</span>
-        <span className="shrink-0 rounded bg-surface-3 px-1.5 py-px text-2xs text-muted-foreground tabular-nums">
-          {memberCount}
-        </span>
         {description && (
           <>
             <span className="text-foreground/15">|</span>
@@ -123,21 +88,21 @@ export function ChannelTopBar({
       <div className="flex items-center gap-0.5">
         <button
           onClick={onToggleStar}
-          className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+          className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           title={isStarred ? "Unstar channel" : "Star channel"}
         >
           <Star className={cn("h-3.5 w-3.5", isStarred && "fill-yellow-400 text-yellow-400")} />
         </button>
 
         <button
-          className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+          className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           title="Pinned messages"
         >
           <Pin className="h-3.5 w-3.5" />
         </button>
 
         <button
-          className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+          className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
           title="Attachments"
         >
           <Paperclip className="h-3.5 w-3.5" />
@@ -147,10 +112,11 @@ export function ChannelTopBar({
         <div className="relative">
           <button
             onClick={() => setShowMembers((v) => !v)}
-            className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+            className="flex items-center gap-1 rounded p-1.5 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
             title="Members"
           >
             <Users className="h-3.5 w-3.5" />
+            <span className="text-2xs tabular-nums">{memberCount}</span>
           </button>
 
           {showMembers && (
@@ -191,7 +157,7 @@ export function ChannelTopBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+              className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Options"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />

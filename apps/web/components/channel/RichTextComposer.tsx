@@ -457,7 +457,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
     }, [editor, onSend]);
 
     return (
-      <div ref={composerRef} className={cn("relative min-w-0 rounded border border-subtle bg-surface-2 focus-within:border-foreground/15", className)}>
+      <div ref={composerRef} className={cn("relative min-w-0 rounded border border-subtle bg-background focus-within:border-foreground/15", className)}>
         {/* Mention popover */}
         <MentionPopover
           query={mentionQuery}

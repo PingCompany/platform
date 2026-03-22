@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TrendingUp, Clock, Zap, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 const PERIODS = ["7d", "30d", "90d"] as const;
 type Period = (typeof PERIODS)[number];
@@ -53,8 +54,17 @@ function KpiCard({ icon: Icon, label, value, delta, sub }: KpiCardProps) {
 }
 
 export default function AnalyticsPage() {
+  const { role } = useWorkspace();
   const [period, setPeriod] = useState<Period>("30d");
   const kpi = KPI_DATA[period];
+
+  if (role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to view analytics.
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl animate-fade-in px-6 py-6">

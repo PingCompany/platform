@@ -52,7 +52,7 @@ export default function DMPage({ params }: Props) {
   const { openThreadPanel, closeThreadPanel } = useThreadPanel();
   const { toast } = useToast();
   const router = useRouter();
-  const { buildPath } = useWorkspace();
+  const { buildPath, workspaceId } = useWorkspace();
 
   // Mark as read on mount
   useEffect(() => {
@@ -119,9 +119,10 @@ export default function DMPage({ params }: Props) {
         messageTable: "directMessages",
         conversationId,
         contextName: displayName,
+        workspaceId,
       });
     },
-    [openThreadPanel, conversationId, displayName],
+    [openThreadPanel, conversationId, displayName, workspaceId],
   );
 
   const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);

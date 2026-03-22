@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/useWorkspace";
+import { WorkspaceContext } from "@/components/workspace/WorkspaceProvider";
 
 export interface MentionUser {
   id: string;
@@ -32,7 +32,8 @@ export function MentionPopover({
   onDismiss,
 }: MentionPopoverProps) {
   const { isAuthenticated } = useConvexAuth();
-  const { workspaceId } = useWorkspace();
+  const workspaceCtx = useContext(WorkspaceContext);
+  const workspaceId = workspaceCtx?.workspaceId;
   const allUsers = useQuery(api.users.listAll, isAuthenticated && workspaceId ? { workspaceId } : "skip");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
