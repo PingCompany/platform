@@ -109,7 +109,7 @@ export function RelatedDecisionView({ decision, onClose }: RelatedDecisionViewPr
           {/* Outcome */}
           {decision.outcome ? (
             <div className="rounded-md bg-surface-2 px-3 py-3">
-              <p className="mb-1 text-2xs font-medium uppercase tracking-widest text-foreground/25">
+              <p className="mb-1 text-2xs font-medium uppercase tracking-widest text-foreground/45">
                 Decision made
               </p>
               <div className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export function RelatedDecisionView({ decision, onClose }: RelatedDecisionViewPr
           {/* People */}
           {involved.length > 0 && (
             <div>
-              <p className="mb-2 text-2xs font-medium uppercase tracking-widest text-foreground/25">
+              <p className="mb-2 text-2xs font-medium uppercase tracking-widest text-foreground/45">
                 People involved
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -151,7 +151,7 @@ export function RelatedDecisionView({ decision, onClose }: RelatedDecisionViewPr
                       {initials(p.name)}
                     </span>
                     <span className="text-2xs text-foreground/70">{p.name}</span>
-                    <span className="text-2xs text-foreground/30">{ROLE_LABEL[p.role] ?? p.role}</span>
+                    <span className="text-2xs text-foreground/50">{ROLE_LABEL[p.role] ?? p.role}</span>
                   </div>
                 ))}
               </div>

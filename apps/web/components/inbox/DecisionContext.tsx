@@ -128,7 +128,7 @@ export function DecisionContext({
                 {initials(p.name)}
               </span>
               <span className="text-2xs text-foreground/70">{p.name}</span>
-              <span className="text-2xs text-foreground/30">{ROLE_LABEL[p.role] ?? p.role}</span>
+              <span className="text-2xs text-foreground/50">{ROLE_LABEL[p.role] ?? p.role}</span>
             </span>
           ))}
         </div>

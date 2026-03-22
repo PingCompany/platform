@@ -87,11 +87,15 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-label={title}
+      aria-pressed={isActive}
+      data-toolbar-item
+      tabIndex={-1}
       className={cn(
         "rounded p-1 transition-colors",
         isActive
           ? "bg-foreground/10 text-foreground"
-          : "text-foreground/30 hover:bg-surface-3 hover:text-foreground/60",
+          : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
         disabled && "cursor-not-allowed opacity-30"
       )}
     >
@@ -128,8 +132,37 @@ function ComposerBar({
     [editor]
   );
 
+  const toolbarRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const first = node.querySelector<HTMLElement>("[data-toolbar-item]:not(:disabled)");
+    if (first) first.tabIndex = 0;
+  }, []);
+
+  const handleToolbarKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+    const toolbar = e.currentTarget;
+    const items = Array.from(toolbar.querySelectorAll<HTMLElement>("[data-toolbar-item]:not(:disabled)"));
+    if (items.length === 0) return;
+    const idx = items.indexOf(e.target as HTMLElement);
+    if (idx === -1) return;
+    let next: number;
+    if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = items.length - 1;
+    else if (e.key === "ArrowRight") next = idx < items.length - 1 ? idx + 1 : 0;
+    else next = idx > 0 ? idx - 1 : items.length - 1;
+    e.preventDefault();
+    items.forEach((el, i) => { el.tabIndex = i === next ? 0 : -1; });
+    items[next].focus();
+  }, []);
+
   return (
-    <div className="flex items-center gap-0.5">
+    <div
+      ref={toolbarRef}
+      role="toolbar"
+      aria-label="Formatting"
+      className="flex items-center gap-0.5"
+      onKeyDown={handleToolbarKeyDown}
+    >
       <ToolbarButton
         onClick={() => editor.chain().focus().toggleBold().run()}
         isActive={editor.isActive("bold")}
@@ -216,7 +249,10 @@ function ComposerBar({
           <EmojiPickerPopover onSelect={handleEmojiSelect}>
             <button
               type="button"
-              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+              data-toolbar-item
+              tabIndex={-1}
+              aria-label="Emoji"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Emoji"
             >
               <Smile className="h-3.5 w-3.5" />
@@ -492,7 +528,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
                   "rounded p-1 transition-colors",
                   !isEmpty
                     ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
-                    : "text-foreground/20"
+                    : "text-muted-foreground/60"
                 )}
                 title="Send message"
               >

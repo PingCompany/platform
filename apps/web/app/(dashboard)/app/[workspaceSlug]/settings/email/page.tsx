@@ -134,7 +134,7 @@ export default function EmailSettingsPage() {
 
       {/* Connected accounts */}
       <div>
-        <h2 className="mb-3 text-2xs font-medium uppercase tracking-widest text-foreground/30">
+        <h2 className="mb-3 text-2xs font-medium uppercase tracking-widest text-foreground/50">
           Connected Accounts
         </h2>
 
@@ -216,7 +216,7 @@ export default function EmailSettingsPage() {
 
       {/* Info box */}
       <div className="mt-6 rounded border border-subtle bg-surface-1 px-4 py-3">
-        <p className="text-2xs font-medium uppercase tracking-widest text-foreground/30">
+        <p className="text-2xs font-medium uppercase tracking-widest text-foreground/50">
           How it works
         </p>
         <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">

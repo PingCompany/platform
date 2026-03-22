@@ -55,7 +55,7 @@ const QUADRANT_PILL_CONFIG: Record<
   },
   "fyi": {
     label: "Skip",
-    bg: "bg-foreground/4", text: "text-foreground/25",
+    bg: "bg-foreground/4", text: "text-foreground/45",
     activeBg: "bg-foreground/8", activeText: "text-foreground/40",
     border: "border-foreground/15", dot: "bg-foreground/20",
   },
@@ -88,7 +88,7 @@ const PRIORITY_CONFIG: Record<
   },
   low: {
     label: "Low",
-    bg: "bg-foreground/4", text: "text-foreground/25",
+    bg: "bg-foreground/4", text: "text-foreground/45",
     activeBg: "bg-foreground/8", activeText: "text-foreground/40",
     border: "border-foreground/15", dot: "bg-foreground/20",
   },
@@ -281,7 +281,7 @@ export default function InboxPage() {
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
       </div>
     );
   }
@@ -290,7 +290,7 @@ export default function InboxPage() {
   if (totalCount === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in px-8 text-center">
-        <CheckCircle2 className="h-10 w-10 text-foreground/15" />
+        <CheckCircle2 className="h-10 w-10 text-foreground/50" />
         <h2 className="text-sm font-medium text-foreground">Inbox is empty</h2>
         <p className="max-w-xs text-xs text-muted-foreground leading-relaxed">
           Decisions, summaries, and action items appear here as your team communicates in channels.
@@ -366,7 +366,7 @@ export default function InboxPage() {
                   isActive
                     ? [cfg.activeBg, cfg.activeText, cfg.border]
                     : anyActive
-                      ? "border-transparent text-foreground/20 hover:text-foreground/40"
+                      ? "border-transparent text-foreground/40 hover:text-foreground/40"
                       : [cfg.bg, cfg.text, "border-transparent hover:border-white/10"],
                 )}
               >
@@ -387,7 +387,7 @@ export default function InboxPage() {
                   ? "border-white/15 bg-surface-2 text-foreground"
                   : activePriorityFilter
                     ? "border-white/10 bg-surface-2/50 text-muted-foreground hover:bg-surface-2"
-                    : "border-transparent text-foreground/20 hover:bg-surface-2 hover:text-muted-foreground",
+                    : "border-transparent text-foreground/40 hover:bg-surface-2 hover:text-muted-foreground",
               )}
             >
               Priority
@@ -420,7 +420,7 @@ export default function InboxPage() {
                       <span className={cn("flex-1 text-left", isChecked ? "text-foreground" : "text-muted-foreground")}>
                         {cfg.label}
                       </span>
-                      <span className="tabular-nums text-foreground/25">{priorityCounts[p]}</span>
+                      <span className="tabular-nums text-foreground/45">{priorityCounts[p]}</span>
                     </button>
                   );
                 })}
@@ -444,7 +444,7 @@ export default function InboxPage() {
           <button
             onClick={() => seedDecisionsMutation({})}
             title="Load demo decisions"
-            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-muted-foreground"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/40 transition-colors hover:bg-surface-2 hover:text-muted-foreground"
           >
             <FlaskConical className="h-3 w-3" />
             demo
@@ -452,7 +452,7 @@ export default function InboxPage() {
           <button
             onClick={() => clearSeedMutation({})}
             title="Clear all pending decisions"
-            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-red-400"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/40 transition-colors hover:bg-surface-2 hover:text-red-400"
           >
             ✕
           </button>
@@ -558,7 +558,7 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
   return (
     <div className="sticky top-[37px] z-10 flex items-center gap-2 border-b border-subtle bg-background/95 px-4 py-2.5 backdrop-blur-sm">
       <span className="text-xs font-semibold uppercase tracking-wider text-foreground/50">{label}</span>
-      <span className="text-2xs tabular-nums text-foreground/30">{count}</span>
+      <span className="text-2xs tabular-nums text-foreground/50">{count}</span>
     </div>
   );
 }

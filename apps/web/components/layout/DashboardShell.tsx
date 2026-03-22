@@ -286,6 +286,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     <ThreadPanelProvider>
       <TopBarProvider>
         <div className="flex h-screen flex-col overflow-hidden bg-background">
+          {/* Skip link for keyboard users */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-ping-purple focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:shadow-lg"
+          >
+            Skip to content
+          </a>
+
           {/* TopBar — full width, always on top */}
           <TopBar
             onToggleSidebar={toggleSidebar}
@@ -311,12 +319,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               className="hidden md:block shrink-0 overflow-hidden transition-[width] duration-200 ease-out"
               style={{ width: sidebarOpen ? sidebarWidth : 0 }}
             >
-              <aside className="h-full" style={{ width: sidebarWidth }}>
+              <aside className="h-full relative" style={{ width: sidebarWidth }} role="navigation" aria-label="Sidebar">
                 <Sidebar
                   isSettingsRoute={isSettingsRoute}
                   onOpenShortcuts={openShortcuts}
                   onCollapse={toggleSidebar}
                 />
+                {/* Right-edge inset shadow for depth */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-border" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-4 shadow-[inset_-8px_0_12px_-8px_rgba(94,106,210,0.1)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.3)]" />
               </aside>
             </div>
 
@@ -331,6 +342,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
             {/* Mobile sidebar — slides in as overlay */}
             <aside
+              role="navigation"
+              aria-label="Sidebar"
               className={`fixed top-[--topbar-h] z-30 h-[calc(100vh-var(--topbar-h))] transition-transform duration-200 ease-out md:hidden ${
                 sidebarOpen ? "translate-x-0" : "-translate-x-full"
               }`}
@@ -344,7 +357,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
             {/* Main content + Thread panel */}
             <div className="flex min-w-0 flex-1 overflow-hidden">
-              <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+              <main id="main-content" className="min-w-0 flex-1 overflow-hidden">{children}</main>
               <ThreadPanelSlot />
             </div>
           </div>
@@ -353,6 +366,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           {!sidebarOpen && (
             <button
               onClick={toggleSidebar}
+              aria-label="Show sidebar (⌘B)"
               className="fixed bottom-4 left-4 z-30 hidden md:flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 border border-subtle text-muted-foreground shadow-sm transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Show sidebar (⌘B)"
             >

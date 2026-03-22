@@ -47,7 +47,7 @@ export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcut
         <div className="space-y-4 pt-1">
           {SHORTCUTS.map(({ section, items }) => (
             <div key={section}>
-              <p className="mb-2 text-2xs font-medium uppercase tracking-widest text-foreground/25">
+              <p className="mb-2 text-2xs font-medium uppercase tracking-widest text-foreground/45">
                 {section}
               </p>
               <div className="space-y-1.5">

@@ -126,7 +126,7 @@ export default function AdminPage() {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-foreground/30" />
+            <Shield className="h-4 w-4 text-foreground/50" />
             <h1 className="text-md font-semibold text-foreground">Backoffice</h1>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -166,7 +166,7 @@ export default function AdminPage() {
         {/* Header */}
         <div className={cn("grid gap-4 border-b border-subtle bg-surface-1 px-4 py-2", GRID_COLS)}>
           {["Workspace", "Plan", "Members", "CRON Health", "Webhooks", ""].map((h) => (
-            <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+            <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
               {h}
             </span>
           ))}
@@ -187,7 +187,7 @@ export default function AdminPage() {
               {/* Name */}
               <div>
                 <p className="text-xs font-medium text-foreground">{tenant.name}</p>
-                <p className="text-2xs text-foreground/25">Active {tenant.lastActive}</p>
+                <p className="text-2xs text-foreground/45">Active {tenant.lastActive}</p>
               </div>
 
               {/* Plan */}
@@ -212,7 +212,7 @@ export default function AdminPage() {
               {/* Actions */}
               <Link
                 href={`/admin/${tenant.id}/security`}
-                className="flex h-6 w-6 items-center justify-center rounded text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground"
+                className="flex h-6 w-6 items-center justify-center rounded text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground"
               >
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
@@ -221,7 +221,7 @@ export default function AdminPage() {
         )}
       </div>
 
-      <p className="mt-3 text-2xs text-foreground/20">
+      <p className="mt-3 text-2xs text-foreground/40">
         Auto-refreshes every 30s · All times UTC
       </p>
     </div>

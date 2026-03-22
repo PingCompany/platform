@@ -190,7 +190,7 @@ function WorkspacePageContent() {
           <input
             value={workspaceName}
             onChange={(e) => setWorkspaceName(e.target.value)}
-            className="w-full rounded border border-subtle bg-surface-2 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/45 focus:border-ring focus:outline-none"
+            className="w-full rounded border border-subtle bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/45 focus:border-ring focus:outline-none"
           />
         </div>
 

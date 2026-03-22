@@ -71,14 +71,14 @@ export function ChannelTopBar({
       {/* Channel name + member count */}
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {isPrivate ? (
-          <Lock className="h-3.5 w-3.5 shrink-0 text-foreground/30" />
+          <Lock className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
         ) : (
-          <Hash className="h-3.5 w-3.5 shrink-0 text-foreground/30" />
+          <Hash className="h-3.5 w-3.5 shrink-0 text-foreground/50" />
         )}
         <span className="text-sm font-medium text-foreground truncate">{name}</span>
         {description && (
           <>
-            <span className="text-foreground/15">|</span>
+            <span className="text-foreground/50">|</span>
             <span className="text-2xs text-muted-foreground truncate">{description}</span>
           </>
         )}

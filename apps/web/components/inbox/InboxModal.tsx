@@ -123,12 +123,12 @@ function Accordion({
         className="flex w-full items-center gap-2 px-5 py-2.5 text-left transition-colors hover:bg-surface-2/40"
       >
         <ChevronRight className={cn(
-          "h-3 w-3 shrink-0 text-foreground/25 transition-transform duration-150",
+          "h-3 w-3 shrink-0 text-foreground/45 transition-transform duration-150",
           open && "rotate-90",
         )} />
         <span className="text-xs text-foreground/50">{label}</span>
         {badge !== undefined && badge > 0 && (
-          <span className="rounded bg-white/5 px-1 text-2xs text-foreground/25">{badge}</span>
+          <span className="rounded bg-white/5 px-1 text-2xs text-foreground/45">{badge}</span>
         )}
       </button>
       {open && <div>{children}</div>}
@@ -159,7 +159,7 @@ function PersonPill({
         {initials(name)}
       </span>
       <span className="text-xs text-foreground/80">{name}</span>
-      <span className="text-2xs text-foreground/30">{ROLE_LABEL[role] ?? role}</span>
+      <span className="text-2xs text-foreground/50">{ROLE_LABEL[role] ?? role}</span>
     </button>
   );
 }
@@ -357,7 +357,7 @@ export function InboxModal({
 
                   {context === undefined ? (
                     <div className="flex items-center justify-center py-6">
-                      <Loader2 className="h-4 w-4 animate-spin text-foreground/20" />
+                      <Loader2 className="h-4 w-4 animate-spin text-foreground/40" />
                     </div>
                   ) : (
                     <>
@@ -607,7 +607,7 @@ export function InboxModal({
                   title={showNote ? "Remove note" : "Add reasoning"}
                   className={cn(
                     "ml-auto rounded p-1 transition-colors",
-                    showNote ? "text-foreground/50 hover:text-foreground" : "text-foreground/20 hover:text-foreground/50",
+                    showNote ? "text-foreground/50 hover:text-foreground" : "text-foreground/40 hover:text-foreground/70",
                   )}
                 >
                   <PenLine className="h-3.5 w-3.5" />

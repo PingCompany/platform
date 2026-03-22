@@ -256,10 +256,10 @@ function TeamPageContent() {
               <button
                 key={key}
                 onClick={() => toggleSort(key)}
-                className="flex items-center gap-1 text-2xs font-medium uppercase tracking-widest text-foreground/25 transition-colors hover:text-foreground/50 cursor-pointer"
+                className="flex items-center gap-1 text-2xs font-medium uppercase tracking-widest text-foreground/45 transition-colors hover:text-foreground/70 cursor-pointer"
               >
                 {label}
-                <SortIcon className={cn("h-3 w-3", sortCol === key ? "text-foreground/40" : "text-foreground/15")} />
+                <SortIcon className={cn("h-3 w-3", sortCol === key ? "text-foreground/40" : "text-foreground/50")} />
               </button>
             );
           })}
@@ -312,7 +312,7 @@ function TeamPageContent() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex h-6 w-6 items-center justify-center rounded text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground">
+                  <button className="flex h-6 w-6 items-center justify-center rounded text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </button>
                 </DropdownMenuTrigger>
@@ -345,7 +345,7 @@ function TeamPageContent() {
         })}
       </div>
 
-      <p className="mt-3 text-2xs text-foreground/20">
+      <p className="mt-3 text-2xs text-foreground/40">
         {members.length} total members · Real-time sync via Convex
       </p>
 
@@ -479,7 +479,7 @@ function TeamPageContent() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@company.com"
-                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/45 focus:border-ring focus:outline-none"
                 />
               </div>
               <div>

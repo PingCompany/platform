@@ -140,11 +140,11 @@ export function AgentCard({ agent, onConfigure }: AgentCardProps) {
               </span>
               {agent.scope && (
                 <>
-                  <span className="text-foreground/10">·</span>
+                  <span className="text-foreground/45">·</span>
                   {agent.scope === "workspace" ? (
-                    <Globe className="h-2.5 w-2.5 text-foreground/25" />
+                    <Globe className="h-2.5 w-2.5 text-foreground/45" />
                   ) : (
-                    <Lock className="h-2.5 w-2.5 text-foreground/25" />
+                    <Lock className="h-2.5 w-2.5 text-foreground/45" />
                   )}
                 </>
               )}
@@ -253,7 +253,7 @@ function ChipGrid({
               <p className={cn("text-xs font-medium truncate", active ? "text-foreground" : "text-foreground/60")}>
                 {opt.label}
               </p>
-              <p className="text-2xs text-foreground/30 line-clamp-1">{opt.description}</p>
+              <p className="text-2xs text-foreground/50 line-clamp-1">{opt.description}</p>
             </div>
           </button>
         );
@@ -361,7 +361,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. KnowledgeBot"
-                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
                 autoFocus
               />
             </div>
@@ -373,7 +373,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description of what this agent does"
-                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
               />
             </div>
             <div>
@@ -384,7 +384,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 rows={3}
-                className="w-full resize-none rounded border border-subtle bg-surface-3 px-2.5 py-1.5 font-mono text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                className="w-full resize-none rounded border border-subtle bg-surface-3 px-2.5 py-1.5 font-mono text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
               />
             </div>
           </div>
@@ -416,7 +416,7 @@ export function AgentConfigDialog({ agent, mode, open, onClose, onSave, onToggle
                     />
                     <div>
                       <p className="text-xs font-medium text-foreground">{m.label}</p>
-                      <p className="text-2xs text-foreground/30">{m.description}</p>
+                      <p className="text-2xs text-foreground/50">{m.description}</p>
                     </div>
                   </button>
                 ))}

@@ -110,7 +110,7 @@ export function ChannelDecisionsBar({ channelId }: ChannelDecisionsBarProps) {
           <span className="text-2xs font-medium text-foreground">
             {items.length} {items.length === 1 ? "decision" : "decisions"}
           </span>
-          <span className="text-2xs text-foreground/25">·</span>
+          <span className="text-2xs text-foreground/45">·</span>
           <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground">
             {topItem.title}
           </span>

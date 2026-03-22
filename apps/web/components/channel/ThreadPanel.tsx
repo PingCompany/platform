@@ -349,7 +349,7 @@ function ThreadPanelShell({
           onSend={onSend}
           onTyping={onTyping}
         />
-        <p className="mt-1 h-4 text-2xs leading-4 text-foreground/20">
+        <p className="mt-1 h-4 text-2xs leading-4 text-foreground/40">
           <label className="inline-flex items-center gap-1.5 cursor-pointer">
             <input
               type="checkbox"

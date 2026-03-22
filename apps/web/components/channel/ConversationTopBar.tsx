@@ -114,7 +114,7 @@ export function ConversationTopBar({
       <div className="flex items-center gap-0.5">
         <button
           onClick={onPinned}
-          className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+          className="rounded p-1.5 text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground/80"
           title="Pinned messages"
         >
           <Pin className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ export function ConversationTopBar({
 
         <button
           onClick={onAttachments}
-          className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+          className="rounded p-1.5 text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground/80"
           title="Attachments"
         >
           <Paperclip className="h-3.5 w-3.5" />
@@ -132,7 +132,7 @@ export function ConversationTopBar({
         <div className="relative">
           <button
             onClick={() => setShowMembers((v) => !v)}
-            className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+            className="rounded p-1.5 text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground/80"
             title="Members"
           >
             <Users className="h-3.5 w-3.5" />
@@ -176,7 +176,7 @@ export function ConversationTopBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="rounded p-1.5 text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+              className="rounded p-1.5 text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground/80"
               title="Options"
             >
               <MoreHorizontal className="h-3.5 w-3.5" />

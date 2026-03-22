@@ -308,8 +308,8 @@ export default function KnowledgeGraphPage() {
 
       <div className="mb-4 flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/25" />
-          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search entities..." className="h-8 w-full rounded border border-subtle bg-surface-2 pl-8 pr-3 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/15 focus:outline-none" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/45" />
+          <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search entities..." className="h-8 w-full rounded border border-subtle bg-surface-2 pl-8 pr-3 text-xs text-foreground placeholder:text-foreground/45 focus:border-foreground/15 focus:outline-none" />
         </div>
         <button onClick={() => fgRef.current?.zoomToFit(400, 40)} className="rounded border border-subtle px-2 py-1.5 text-2xs text-muted-foreground hover:text-foreground">Fit</button>
         <button onClick={() => setExpanded((v) => !v)} className="rounded border border-subtle p-1.5 text-muted-foreground hover:text-foreground">
@@ -370,12 +370,12 @@ export default function KnowledgeGraphPage() {
       </div>
 
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-2xs text-foreground/25">Drag nodes · Scroll to zoom · Click to inspect</p>
+        <p className="text-2xs text-foreground/45">Drag nodes · Scroll to zoom · Click to inspect</p>
         <div className="flex gap-3">
           {Object.entries(TYPE_COLORS).filter(([k]) => k !== "Entity").map(([label, color]) => (
             <div key={label} className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-2xs text-foreground/30">{label}</span>
+              <span className="text-2xs text-foreground/50">{label}</span>
             </div>
           ))}
         </div>
@@ -388,7 +388,7 @@ export default function KnowledgeGraphPage() {
             <div className="overflow-hidden rounded border border-subtle">
               <div className="grid grid-cols-[1fr_100px_80px] gap-4 border-b border-subtle bg-surface-1 px-4 py-2">
                 {["Entity", "Type", "Edges"].map((h) => (
-                  <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/25">{h}</span>
+                  <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/45">{h}</span>
                 ))}
               </div>
               {filteredNodes.slice(0, 20).map((node) => (
@@ -428,7 +428,7 @@ export default function KnowledgeGraphPage() {
                       <p className="text-xs text-foreground">{isSource ? "→" : "←"} <span className="font-medium">{otherName}</span></p>
                       {edge.fact && <p className="mt-0.5 text-2xs text-muted-foreground line-clamp-2">{edge.fact}</p>}
                     </div>
-                    {edge.created_at && <span className="shrink-0 text-2xs text-foreground/20">{new Date(edge.created_at).toLocaleDateString()}</span>}
+                    {edge.created_at && <span className="shrink-0 text-2xs text-foreground/40">{new Date(edge.created_at).toLocaleDateString()}</span>}
                   </div>
                 );
               })}

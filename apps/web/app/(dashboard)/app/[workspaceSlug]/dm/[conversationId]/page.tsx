@@ -160,7 +160,7 @@ export default function DMPage({ params }: Props) {
   if (status === "LoadingFirstPage") {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
       </div>
     );
   }

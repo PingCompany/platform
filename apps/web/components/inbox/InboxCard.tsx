@@ -36,7 +36,7 @@ export const priorityConfig: Record<
   "urgent-important": { borderColor: "bg-priority-urgent",    borderWidth: "w-[3px]", bg: "bg-priority-urgent/8",    label: "URGENT",     textColor: "text-priority-urgent",    dimmed: false, bold: true,  pulse: true  },
   "important":        { borderColor: "bg-priority-important", borderWidth: "w-0.5",   bg: "bg-priority-important/8", label: "IMPORTANT",  textColor: "text-priority-important", dimmed: false, bold: false, pulse: false },
   "urgent":           { borderColor: "bg-blue-500",           borderWidth: "w-0.5",   bg: "bg-blue-500/8",           label: "URGENT",     textColor: "text-blue-400",           dimmed: false, bold: false, pulse: false },
-  "fyi":              { borderColor: "bg-foreground/20",      borderWidth: "w-0.5",   bg: "bg-foreground/5",         label: "FYI",        textColor: "text-foreground/30",      dimmed: true,  bold: false, pulse: false },
+  "fyi":              { borderColor: "bg-foreground/20",      borderWidth: "w-0.5",   bg: "bg-foreground/5",         label: "FYI",        textColor: "text-foreground/50",      dimmed: true,  bold: false, pulse: false },
 };
 
 // Sort order for Eisenhower quadrants
@@ -96,9 +96,9 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
         {/* Header row */}
         <div className="flex items-center gap-2 pb-1">
           <span className="text-xs font-medium text-foreground">{item.author}</span>
-          <span className="text-2xs text-foreground/25">·</span>
+          <span className="text-2xs text-foreground/45">·</span>
           <span className="text-2xs text-muted-foreground">#{item.channel}</span>
-          <span className="text-2xs text-foreground/25">·</span>
+          <span className="text-2xs text-foreground/45">·</span>
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(item.timestamp)}
           </span>
@@ -140,21 +140,21 @@ export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProp
           <div className="ml-auto flex items-center gap-1">
             <button
               onClick={() => onMarkRead?.(item.id)}
-              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Mark as read"
             >
               <Check className="h-3 w-3" />
             </button>
             <button
               onClick={() => onArchive?.(item.id)}
-              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Archive"
             >
               <Archive className="h-3 w-3" />
             </button>
             <button
               onClick={() => router.push(`/channel/${item.channel}`)}
-              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Go to channel"
             >
               <ExternalLink className="h-3 w-3" />

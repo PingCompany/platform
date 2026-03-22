@@ -254,7 +254,7 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
                   title="Focus mode"
                   className={cn(
                     "rounded p-0.5 transition-colors hover:bg-surface-3 hover:text-foreground",
-                    hovered ? "text-foreground/25" : "text-transparent pointer-events-none",
+                    hovered ? "text-foreground/45" : "text-transparent pointer-events-none",
                   )}
                 >
                   <Maximize2 className="h-3 w-3" />

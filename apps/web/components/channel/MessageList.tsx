@@ -143,7 +143,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
       </div>
       {/* Hover timestamp — absolute so it never affects row height */}
       {!showAvatar && (
-        <span className="pointer-events-none absolute left-0 top-[8px] w-[calc(1rem+24px+0.75rem)] select-none text-center text-[10px] text-foreground/25 opacity-0 group-hover:opacity-100">
+        <span className="pointer-events-none absolute left-0 top-[8px] w-[calc(1rem+24px+0.75rem)] select-none text-center text-[10px] text-foreground/45 opacity-0 group-hover:opacity-100">
           {message.timestamp.toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
@@ -172,7 +172,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
                 AI
               </span>
             )}
-            <span className="text-2xs text-foreground/25">
+            <span className="text-2xs text-foreground/45">
               {message.timestamp.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -180,7 +180,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
               })}
             </span>
             {message.isEdited && (
-              <span className="text-2xs text-foreground/25">(edited)</span>
+              <span className="text-2xs text-foreground/45">(edited)</span>
             )}
           </div>
         )}
@@ -570,7 +570,7 @@ export function MessageList({
                 ? "No messages yet. Don\u2019t be shy, say hi!"
                 : `This is the very beginning of #${channelName}. It\u2019s so quiet you can hear the electrons flowing.`}
             </p>
-            <p className="text-2xs text-foreground/20">Be the first to break the silence</p>
+            <p className="text-2xs text-foreground/40">Be the first to break the silence</p>
           </div>
         ) : (
           <div
@@ -654,7 +654,7 @@ export function MessageList({
             showActions
             isDM={isDM}
           />
-          <p className="mt-1 h-4 text-2xs leading-4 text-foreground/20">
+          <p className="mt-1 h-4 text-2xs leading-4 text-foreground/40">
             Enter to send · Shift+Enter for new line{!isDM && " · @mention to summon agents"}
           </p>
         </div>

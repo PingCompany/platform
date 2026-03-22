@@ -62,7 +62,7 @@ export function UserProfileDialog({
 
         {!profile ? (
           <div className="flex h-48 items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+            <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
           </div>
         ) : (
           <>
@@ -101,7 +101,7 @@ export function UserProfileDialog({
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
                       {profile.title}
                       {profile.department && (
-                        <span className="text-foreground/20">
+                        <span className="text-foreground/40">
                           {" "}
                           · {profile.department}
                         </span>
@@ -113,7 +113,7 @@ export function UserProfileDialog({
                       &ldquo;{profile.statusMessage}&rdquo;
                     </p>
                   )}
-                  <p className="mt-1 text-2xs text-foreground/30">
+                  <p className="mt-1 text-2xs text-foreground/50">
                     {isOnline ? "Online" : lastSeen ? `Last seen ${lastSeen}` : "Offline"}
                   </p>
                 </div>
@@ -226,7 +226,7 @@ function ProfileRow({
 }) {
   return (
     <div className="flex items-center gap-2.5 text-xs text-foreground/70">
-      <Icon className="h-3.5 w-3.5 text-foreground/30 shrink-0" />
+      <Icon className="h-3.5 w-3.5 text-foreground/50 shrink-0" />
       <span className="truncate">{label}</span>
     </div>
   );

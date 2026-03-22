@@ -64,7 +64,7 @@ export function GroupChatHeader({ name, members }: GroupChatHeaderProps) {
       <div className="relative ml-auto">
         <button
           onClick={() => setShowMembers((v) => !v)}
-          className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+          className="rounded p-1 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground"
           title="Members"
         >
           <Users className="h-3.5 w-3.5" />

@@ -216,7 +216,7 @@ function PersonPill({
       <span className={cn("text-xs", dim ? "text-foreground/50" : "text-foreground/80")}>
         {name}
       </span>
-      <span className="text-2xs text-foreground/30">{ROLE_LABEL[role] ?? role}</span>
+      <span className="text-2xs text-foreground/50">{ROLE_LABEL[role] ?? role}</span>
     </button>
   );
 }
@@ -406,7 +406,7 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
             <div className="min-h-[80px] px-5 pb-4 pt-3">
               {context === undefined ? (
                 <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-foreground/20" />
+                  <Loader2 className="h-4 w-4 animate-spin text-foreground/40" />
                 </div>
               ) : (
                 <>
@@ -553,15 +553,15 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
                 className="mb-3 flex w-full items-center justify-between"
               >
                 <div className="flex items-center gap-2">
-                  <Bot className="h-3.5 w-3.5 text-foreground/30" />
-                  <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+                  <Bot className="h-3.5 w-3.5 text-foreground/50" />
+                  <span className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
                     What PING will do
                   </span>
                 </div>
                 {nextStepsExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-foreground/25" />
+                  <ChevronUp className="h-3.5 w-3.5 text-foreground/45" />
                 ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-foreground/25" />
+                  <ChevronDown className="h-3.5 w-3.5 text-foreground/45" />
                 )}
               </button>
               {nextStepsExpanded && (
@@ -610,7 +610,7 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
 
           {/* 4. PEOPLE */}
           <div className="border-t border-subtle px-5 py-4">
-            <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+            <span className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
               People
             </span>
 

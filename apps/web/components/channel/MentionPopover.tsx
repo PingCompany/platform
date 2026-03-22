@@ -127,7 +127,7 @@ export function MentionPopover({
       }}
     >
       <div className="px-2 py-1.5 border-b border-subtle">
-        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
           Mention someone
         </span>
       </div>

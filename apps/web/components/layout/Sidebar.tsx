@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useContext } from "react";
+import { useState, useMemo, useContext, useCallback, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
@@ -59,6 +59,9 @@ function NavItem({ href, icon: Icon, label, badge, kbd, isActive }: NavItemProps
   return (
     <Link
       href={href}
+      data-nav-item
+      tabIndex={-1}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
         "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
         "transition-colors duration-100",
@@ -95,12 +98,13 @@ function SectionHeader({ label, action, href }: SectionHeaderProps) {
       {href ? (
         <Link
           href={href}
-          className="text-2xs font-medium uppercase tracking-widest text-foreground/30 transition-colors hover:text-foreground/50"
+          tabIndex={-1}
+          className="text-2xs font-medium uppercase tracking-widest text-foreground/50 transition-colors hover:text-foreground/70"
         >
           {label}
         </Link>
       ) : (
-        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">
+        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/50">
           {label}
         </span>
       )}
@@ -171,12 +175,63 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
   const userName = user?.name ?? "User";
   const userEmail = user?.email ?? "user@company.com";
 
+  const navRef = useRef<HTMLElement>(null);
+
+  const handleNavKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown" && e.key !== "Home" && e.key !== "End") return;
+    const nav = navRef.current;
+    if (!nav) return;
+    const items = Array.from(nav.querySelectorAll<HTMLElement>("[data-nav-item]"));
+    if (items.length === 0) return;
+    const current = document.activeElement as HTMLElement;
+    const idx = items.indexOf(current);
+    let next: number;
+    if (e.key === "Home") {
+      next = 0;
+    } else if (e.key === "End") {
+      next = items.length - 1;
+    } else if (e.key === "ArrowDown") {
+      next = idx < items.length - 1 ? idx + 1 : 0;
+    } else {
+      next = idx > 0 ? idx - 1 : items.length - 1;
+    }
+    e.preventDefault();
+    items[next].focus();
+  }, []);
+
+  // Keep the active route item as the roving tab target
+  const activeNavRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const items = Array.from(nav.querySelectorAll<HTMLElement>("[data-nav-item]"));
+    const active = items.find((el) => el.getAttribute("aria-current") === "page") ?? items[0];
+    items.forEach((el) => { el.tabIndex = el === active ? 0 : -1; });
+    activeNavRef.current = active ?? null;
+  }, [pathname, channels, dmConversations, isSettingsRoute]);
+
+  const handleNavFocus = useCallback((e: React.FocusEvent) => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const target = e.target as HTMLElement;
+    if (!target.hasAttribute("data-nav-item")) return;
+    // Update roving tabindex
+    const items = Array.from(nav.querySelectorAll<HTMLElement>("[data-nav-item]"));
+    items.forEach((el) => { el.tabIndex = el === target ? 0 : -1; });
+  }, []);
+
   return (
     <div
       className="flex h-full flex-col border-r border-subtle bg-surface-1 w-full"
     >
       {/* Navigation */}
-      <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2 scrollbar-thin">
+      <nav
+        ref={navRef}
+        aria-label="Workspace navigation"
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2 scrollbar-thin"
+        onKeyDown={handleNavKeyDown}
+        onFocus={handleNavFocus}
+      >
         {isSettingsRoute ? (
           <SettingsNav pathname={pathname} buildPath={buildPath} user={user} />
         ) : (
@@ -236,7 +291,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
 
             {/* Workspaces */}
             <div className="px-2 py-1">
-              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">Workspaces</span>
+              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/50">Workspaces</span>
             </div>
             {allWorkspaces?.map((ws) => (
               <DropdownMenuItem
@@ -273,7 +328,8 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
             <button
               type="button"
               onClick={onCollapse}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-all hover:bg-surface-3 hover:text-foreground group-hover/row:opacity-100"
+              aria-label="Collapse sidebar (⌘B)"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-all hover:bg-surface-3 hover:text-foreground group-hover/row:opacity-100 focus-visible:opacity-100"
               title="Collapse sidebar (⌘B)"
             >
               <PanelLeftClose className="h-4 w-4" />
@@ -294,7 +350,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
               onChange={(e) => setDmUserSearch(e.target.value)}
               placeholder="Search people..."
               autoFocus
-              className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+              className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
             />
             <div className="max-h-52 space-y-0.5 overflow-y-auto scrollbar-thin">
               {(allUsers ?? [])
@@ -365,7 +421,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
                 onChange={(e) => setNewChannelName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateChannel()}
                 placeholder="e.g. announcements"
-                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/40 focus:border-ring focus:outline-none"
                 autoFocus
               />
             </div>
@@ -377,7 +433,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
                 className="h-3.5 w-3.5 rounded border-subtle bg-surface-3"
               />
               <div className="flex items-center gap-1.5">
-                <Lock className="h-3 w-3 text-foreground/30" />
+                <Lock className="h-3 w-3 text-foreground/50" />
                 <span className="text-xs text-muted-foreground">Private channel</span>
               </div>
             </label>
@@ -446,26 +502,29 @@ function ConvLink({
   if (conv.kind === "agent_group") {
     ConvIcon = (
       <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-        <Users className="h-3.5 w-3.5 text-foreground/30" />
+        <Users className="h-3.5 w-3.5 text-foreground/50" />
         <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
       </div>
     );
   } else if (conv.kind === "agent_1to1") {
     ConvIcon = (
       <div className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
-        <User className="h-3.5 w-3.5 text-foreground/30" />
+        <User className="h-3.5 w-3.5 text-foreground/50" />
         <Sparkles className="absolute -right-1.5 -top-1 h-2 w-2 text-ping-purple" />
       </div>
     );
   } else if (conv.kind === "group") {
-    ConvIcon = <Users className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
+    ConvIcon = <Users className="h-3.5 w-3.5 shrink-0 text-foreground/50" />;
   } else {
-    ConvIcon = <User className="h-3.5 w-3.5 shrink-0 text-foreground/30" />;
+    ConvIcon = <User className="h-3.5 w-3.5 shrink-0 text-foreground/50" />;
   }
 
   return (
     <Link
       href={buildPath(`/dm/${conv._id}`)}
+      data-nav-item
+      tabIndex={-1}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
         "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
         "transition-colors duration-100",
@@ -534,8 +593,10 @@ function MainNav({
         action={
           <button
             onClick={onNewDm}
-            className="rounded p-0.5 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+            tabIndex={-1}
+            className="rounded p-0.5 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground/80"
             title="New message"
+            aria-label="New message"
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -561,7 +622,9 @@ function MainNav({
         action={
           <button
             onClick={onNewChannel}
-            className="rounded p-0.5 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground/60"
+            tabIndex={-1}
+            className="rounded p-0.5 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground/80"
+            aria-label="New channel"
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -584,6 +647,9 @@ function MainNav({
             <Link
               key={channel._id}
               href={buildPath(`/channel/${channel._id}`)}
+              data-nav-item
+              tabIndex={-1}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "group/ch relative flex h-7 items-center gap-2 rounded px-2 text-sm",
                 "transition-colors duration-100",
@@ -594,9 +660,9 @@ function MainNav({
             >
               <span className="flex h-3 w-3 shrink-0 items-center justify-center">
                 {channel.isPrivate ? (
-                  <Lock className="h-3 w-3 text-foreground/30" />
+                  <Lock className="h-3 w-3 text-foreground/50" />
                 ) : (
-                  <span className="text-2xs font-medium text-foreground/30">#</span>
+                  <span className="text-2xs font-medium text-foreground/50">#</span>
                 )}
               </span>
               <span className={cn("flex-1 truncate", channel.unreadCount > 0 && "font-semibold text-foreground")}>{channel.name}</span>
@@ -606,8 +672,10 @@ function MainNav({
                     "h-3 w-3 shrink-0 cursor-pointer transition-opacity",
                     channel.isStarred
                       ? "fill-yellow-400 text-yellow-400 opacity-100"
-                      : "text-foreground/20 opacity-0 group-hover/ch:opacity-100",
+                      : "text-foreground/40 opacity-0 group-hover/ch:opacity-100",
                   )}
+                  tabIndex={-1}
+                  aria-label={channel.isStarred ? "Unstar channel" : "Star channel"}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleStar(channel._id); }}
                 />
               )}
@@ -642,6 +710,8 @@ function SettingsNav({ pathname, buildPath, user }: SettingsNavProps) {
   return (
     <>
       <button
+        data-nav-item
+        tabIndex={-1}
         onClick={() => router.push(buildPath("/inbox"))}
         className="flex h-7 items-center gap-2 rounded px-2 text-sm text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
       >

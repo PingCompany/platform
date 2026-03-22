@@ -42,7 +42,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
 
         {user === undefined ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-4 w-4 animate-spin text-foreground/20" />
+            <Loader2 className="h-4 w-4 animate-spin text-foreground/40" />
           </div>
         ) : user === null ? (
           <div className="px-4 py-8 text-center text-xs text-muted-foreground">
@@ -71,7 +71,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
             {/* Bio */}
             {user.bio && (
               <div className="mb-4">
-                <div className="mb-1.5 flex items-center gap-1.5 text-2xs text-foreground/30">
+                <div className="mb-1.5 flex items-center gap-1.5 text-2xs text-foreground/50">
                   <BookOpen className="h-3 w-3" />
                   About
                 </div>
@@ -82,7 +82,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
             {/* Expertise */}
             {user.expertise && user.expertise.length > 0 && (
               <div className="mb-4">
-                <div className="mb-1.5 flex items-center gap-1.5 text-2xs text-foreground/30">
+                <div className="mb-1.5 flex items-center gap-1.5 text-2xs text-foreground/50">
                   <Briefcase className="h-3 w-3" />
                   Expertise
                 </div>
@@ -100,7 +100,7 @@ export function UserProfileModal({ userId, onClose }: UserProfileModalProps) {
             )}
 
             {/* Email */}
-            <div className="flex items-center gap-1.5 text-2xs text-foreground/30">
+            <div className="flex items-center gap-1.5 text-2xs text-foreground/50">
               <Mail className="h-3 w-3" />
               <span className="text-foreground/50">{user.email}</span>
             </div>

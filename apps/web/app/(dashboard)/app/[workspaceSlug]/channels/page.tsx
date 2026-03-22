@@ -106,7 +106,7 @@ export default function ChannelsPage() {
   if (activity === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function ChannelsPage() {
 
       {groupedActivity.length === 0 && (
         <div className="rounded-lg border border-subtle bg-surface-1 p-8 text-center">
-          <Hash className="mx-auto h-8 w-8 text-foreground/15 mb-3" />
+          <Hash className="mx-auto h-8 w-8 text-foreground/50 mb-3" />
           <p className="text-sm text-muted-foreground">No recent activity in your channels</p>
         </div>
       )}
@@ -146,7 +146,7 @@ export default function ChannelsPage() {
             {group.isStarred && (
               <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
             )}
-            <Hash className="h-3.5 w-3.5 text-foreground/30" />
+            <Hash className="h-3.5 w-3.5 text-foreground/50" />
             <span className="text-sm font-medium text-foreground group-hover:text-ping-purple transition-colors">
               {group.channelName}
             </span>
@@ -163,7 +163,7 @@ export default function ChannelsPage() {
                   {item.type === "mention" ? (
                     <AtSign className="h-3.5 w-3.5 text-ping-purple" />
                   ) : (
-                    <MessageSquare className="h-3.5 w-3.5 text-foreground/30" />
+                    <MessageSquare className="h-3.5 w-3.5 text-foreground/50" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -194,7 +194,7 @@ export default function ChannelsPage() {
       {/* Other channels without recent activity */}
       {channelsWithoutActivity.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-2xs font-medium uppercase tracking-widest text-foreground/30 mb-3">
+          <h2 className="text-2xs font-medium uppercase tracking-widest text-foreground/50 mb-3">
             Other channels
           </h2>
           <div className="space-y-0.5">
@@ -210,7 +210,7 @@ export default function ChannelsPage() {
                 {channel.isStarred ? (
                   <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                 ) : (
-                  <Hash className="h-3.5 w-3.5 text-foreground/30" />
+                  <Hash className="h-3.5 w-3.5 text-foreground/50" />
                 )}
                 <span className="flex-1 truncate">{channel.name}</span>
                 {channel.unreadCount > 0 && (
@@ -239,7 +239,7 @@ export default function ChannelsPage() {
                 onChange={(e) => setNewChannelName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleCreateChannel()}
                 placeholder="e.g. announcements"
-                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/45 focus:border-ring focus:outline-none"
                 autoFocus
               />
             </div>
@@ -251,7 +251,7 @@ export default function ChannelsPage() {
                 className="h-3.5 w-3.5 rounded border-subtle bg-surface-3"
               />
               <div className="flex items-center gap-1.5">
-                <Lock className="h-3 w-3 text-foreground/30" />
+                <Lock className="h-3 w-3 text-foreground/50" />
                 <span className="text-xs text-muted-foreground">Private channel</span>
               </div>
             </label>

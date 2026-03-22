@@ -58,7 +58,7 @@ export function BlockedTaskCard({
           <span className="text-xs font-medium text-foreground">
             Blocked Task
           </span>
-          <span className="text-2xs text-foreground/25">·</span>
+          <span className="text-2xs text-foreground/45">·</span>
           <span className="text-2xs text-muted-foreground">
             {formatRelativeTime(createdAt)}
           </span>
@@ -125,7 +125,7 @@ export function BlockedTaskCard({
           <div className="ml-auto">
             <button
               onClick={() => onDismiss?.(alertId)}
-              className="rounded p-1 text-foreground/30 transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground"
               title="Dismiss"
             >
               <X className="h-3 w-3" />

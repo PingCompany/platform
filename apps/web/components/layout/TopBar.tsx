@@ -51,6 +51,7 @@ export function TopBar({
 
   return (
     <header
+      role="banner"
       className="grid grid-cols-[1fr_auto_1fr] items-center border-b border-subtle bg-background/80 px-3 backdrop-blur-sm"
       style={{ height: TOPBAR_HEIGHT, minHeight: TOPBAR_HEIGHT }}
     >
@@ -58,6 +59,7 @@ export function TopBar({
       <div className="flex items-center gap-2 min-w-0">
         <button
           onClick={onToggleSidebar}
+          aria-label="Toggle sidebar"
           className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground md:hidden"
         >
           <Menu className="h-4 w-4" />
@@ -66,7 +68,7 @@ export function TopBar({
           <span className="text-sm font-bold text-ping-purple">PING</span>
           {workspaceName && (
             <>
-              <span className="text-foreground/20">·</span>
+              <span className="text-foreground/40">·</span>
               <span className="text-sm font-medium text-foreground/60 hidden sm:inline">{workspaceName}</span>
             </>
           )}

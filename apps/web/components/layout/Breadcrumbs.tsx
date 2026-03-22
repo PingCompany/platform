@@ -28,7 +28,7 @@ export function Breadcrumbs({ channelName, conversationName }: BreadcrumbsProps)
       {segments.map((segment, i) => (
         <span key={i} className="flex items-center gap-1">
           {i > 0 && (
-            <ChevronRight className="h-3 w-3 shrink-0 text-foreground/20" />
+            <ChevronRight className="h-3 w-3 shrink-0 text-foreground/40" />
           )}
           {segment.href && i < segments.length - 1 ? (
             <Link

@@ -39,7 +39,7 @@ export default function ProxyPage({ params }: Props) {
             <ArrowLeft className="h-3 w-3" />
             Security
           </Link>
-          <span className="text-2xs text-foreground/20">›</span>
+          <span className="text-2xs text-foreground/40">›</span>
           <span className="text-2xs text-foreground">Impersonation</span>
         </div>
 
@@ -75,7 +75,7 @@ export default function ProxyPage({ params }: Props) {
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Customer reported misconfigured agent — investigating knowledge scope"
               rows={3}
-              className="w-full resize-none rounded border border-subtle bg-surface-2 px-3 py-2 text-xs text-foreground placeholder:text-foreground/20 focus:border-foreground/15 focus:outline-none"
+              className="w-full resize-none rounded border border-subtle bg-surface-2 px-3 py-2 text-xs text-foreground placeholder:text-foreground/40 focus:border-foreground/15 focus:outline-none"
             />
           </div>
 
@@ -183,13 +183,13 @@ export default function ProxyPage({ params }: Props) {
           {/* Members table (proxied) */}
           <div className="overflow-hidden rounded border border-subtle">
             <div className="border-b border-subtle bg-surface-1 px-4 py-2">
-              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
                 Team Members
               </span>
             </div>
             <div className="grid grid-cols-[1fr_1fr_80px_80px] gap-4 border-b border-subtle bg-surface-1/50 px-4 py-2">
               {["Name", "Email", "Role", "Status"].map((h) => (
-                <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+                <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
                   {h}
                 </span>
               ))}
@@ -211,7 +211,7 @@ export default function ProxyPage({ params }: Props) {
             ))}
           </div>
 
-          <p className="mt-4 text-2xs text-foreground/20">
+          <p className="mt-4 text-2xs text-foreground/40">
             All actions in this session are logged · Session ID: proxy_{Date.now().toString(36)}
           </p>
         </div>
