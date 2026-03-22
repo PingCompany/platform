@@ -46,9 +46,10 @@ interface InboxCardProps {
   item: InboxItem;
   onMarkRead?: (id: string) => void;
   onArchive?: (id: string) => void;
+  onOpen?: () => void;
 }
 
-export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
+export function InboxCard({ item, onMarkRead, onArchive, onOpen }: InboxCardProps) {
   const [hovered, setHovered] = useState(false);
   const router = useRouter();
   const config = priorityConfig[item.quadrant] ?? priorityConfig["fyi"];
@@ -57,10 +58,12 @@ export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
     <div
       className={cn(
         "group relative flex gap-3 border-b border-subtle px-4 py-3",
-        "cursor-default transition-colors duration-75",
+        onOpen ? "cursor-pointer" : "cursor-default",
+        "transition-colors duration-75",
         hovered ? "bg-surface-2" : "bg-transparent",
         item.isRead && "opacity-60"
       )}
+      onClick={onOpen}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -129,6 +132,7 @@ export function InboxCard({ item, onMarkRead, onArchive }: InboxCardProps) {
             "mt-2 flex items-center gap-1.5 transition-all duration-150",
             hovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1 pointer-events-none"
           )}
+          onClick={(e) => e.stopPropagation()}
         >
           {item.actions.map((action) => (
             <button
