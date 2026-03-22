@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast-provider";
 import { StatusDot } from "@/components/ui/status-dot";
 import {
-  Building2,
   Link,
   Github,
   Loader2,

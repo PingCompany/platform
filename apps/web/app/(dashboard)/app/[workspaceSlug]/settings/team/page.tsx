@@ -67,10 +67,9 @@ const statusConfig: Record<Status, { dot: "online" | "pending" | "offline"; labe
 };
 
 export default function TeamPage() {
-  const ws = useWorkspace();
-  const { workspaceId } = ws;
+  const { role } = useWorkspace();
 
-  if (ws.role !== "admin") {
+  if (role !== "admin") {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
         You don&apos;t have permission to view team settings.

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Bot, ChevronDown, Pin, Users, MessageSquare, SmilePlus, Pencil, Trash2 } from "lucide-react";
+import { Bot, ChevronDown, MessageSquare, SmilePlus, Pencil, Trash2 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { RichTextComposer, type RichTextComposerHandle } from "@/components/channel/RichTextComposer";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
