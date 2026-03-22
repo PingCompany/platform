@@ -11,11 +11,15 @@ import { CitationRow, type Citation } from "@/components/bot/CitationPill";
 import { MessageReactions, EmojiPickerPopover, type ReactionGroup } from "@/components/channel/MessageReactions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { MarkdownContent } from "@/components/channel/MarkdownContent";
+import { IntegrationMessageCard } from "@/components/integrations/IntegrationMessageCard";
+import { IntegrationStack } from "@/components/integrations/IntegrationStack";
 import { cn, avatarGradient, formatRelativeTime } from "@/lib/utils";
 
 export interface Message {
   id: string;
   type: "user" | "bot";
+  /** Raw message type from DB (user/bot/system/integration) */
+  messageType?: string;
   authorId: string;
   author: string;
   authorInitials: string;
@@ -30,11 +34,14 @@ export interface Message {
   alsoSentToChannel?: boolean;
   reactions?: ReactionGroup[];
   isEdited?: boolean;
+  integrationObjectId?: string;
+  integrationHistory?: Array<{ body: string; timestamp: number }>;
 }
 
 interface MessageItemProps {
   message: Message;
   showAvatar: boolean;
+  showThreadLabel?: boolean;
   onOpenThread?: (messageId: string) => void;
   onToggleReaction?: (messageId: string, emoji: string) => void;
   currentUserId?: string;
@@ -44,7 +51,7 @@ interface MessageItemProps {
   onClickMention?: (name: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor, onClickMention }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, showThreadLabel = true, onOpenThread, onToggleReaction, currentUserId, onEditMessage, onDeleteMessage, onClickAuthor, onClickMention }: MessageItemProps) {
   const isBot = message.type === "bot";
   const hasThread = (message.threadReplyCount ?? 0) > 0;
   const isThreadReplyInFeed = message.threadId && message.alsoSentToChannel;
@@ -186,7 +193,7 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
         )}
 
         {/* "Replied to thread" label for thread replies shown in main feed */}
-        {isThreadReplyInFeed && onOpenThread && (
+        {isThreadReplyInFeed && showThreadLabel && onOpenThread && (
           <button
             onClick={() => onOpenThread(message.threadId!)}
             className="mb-0.5 flex items-center gap-1 text-2xs text-ping-purple hover:underline"
@@ -218,6 +225,11 @@ export function MessageItem({ message, showAvatar, onOpenThread, onToggleReactio
               </button>
             </div>
           </div>
+        ) : message.messageType === "integration" ? (
+          <IntegrationMessageCard
+            body={message.content}
+            history={message.integrationHistory}
+          />
         ) : (
           <MarkdownContent
             content={message.content}
@@ -435,6 +447,48 @@ export function MessageList({
     });
   }, [messages]);
 
+  // Only show "Replied to thread" on the first message of consecutive thread replies to the same thread
+  const showThreadLabelFlags = useMemo(() => {
+    return messages.map((msg, i) => {
+      if (!msg.threadId || !msg.alsoSentToChannel) return false;
+      const prev = messages[i - 1];
+      if (!prev) return true;
+      return prev.threadId !== msg.threadId || !prev.alsoSentToChannel;
+    });
+  }, [messages]);
+
+  // Group consecutive integration messages into stacks (3+ in a row)
+  const integrationStackInfo = useMemo(() => {
+    const info: Array<{ isPartOfStack: boolean; isStackLeader: boolean; stackMessages: Message[] | null }> = messages.map(() => ({
+      isPartOfStack: false,
+      isStackLeader: false,
+      stackMessages: null,
+    }));
+
+    let i = 0;
+    while (i < messages.length) {
+      if (messages[i].messageType === "integration") {
+        // Find the run of consecutive integration messages
+        let j = i;
+        while (j < messages.length && messages[j].messageType === "integration") {
+          j++;
+        }
+        const runLength = j - i;
+        if (runLength >= 3) {
+          const stackMessages = messages.slice(i, j);
+          info[i] = { isPartOfStack: true, isStackLeader: true, stackMessages };
+          for (let k = i + 1; k < j; k++) {
+            info[k] = { isPartOfStack: true, isStackLeader: false, stackMessages: null };
+          }
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+    return info;
+  }, [messages]);
+
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollRef.current,
@@ -582,13 +636,55 @@ export function MessageList({
           >
             {virtualItems.map((virtualRow) => {
               const msg = messages[virtualRow.index];
+              const stackInfo = integrationStackInfo[virtualRow.index];
               const showAvatar = showAvatarFlags[virtualRow.index];
+              const showThreadLabel = showThreadLabelFlags[virtualRow.index];
 
               const msgWithReactions = reactionsByMessage?.[msg.id]
                 ? { ...msg, reactions: reactionsByMessage[msg.id] }
                 : msg;
 
               const isNew = msg.id === newMessageId;
+
+              // Hidden: part of a stack but not the leader
+              if (stackInfo.isPartOfStack && !stackInfo.isStackLeader) {
+                return (
+                  <div
+                    key={msg.id}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: 0,
+                      overflow: "hidden",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  />
+                );
+              }
+
+              // Stack leader: render the collapsed stack
+              if (stackInfo.isStackLeader && stackInfo.stackMessages) {
+                return (
+                  <div
+                    key={msg.id}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <IntegrationStack messages={stackInfo.stackMessages} />
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -611,6 +707,7 @@ export function MessageList({
                   <MessageItem
                     message={msgWithReactions}
                     showAvatar={showAvatar}
+                    showThreadLabel={showThreadLabel}
                     onOpenThread={onOpenThread}
                     onToggleReaction={onToggleReaction}
                     currentUserId={currentUserId}

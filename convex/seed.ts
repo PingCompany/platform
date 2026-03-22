@@ -1,4 +1,5 @@
 import { internalMutation, mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireUser } from "./auth";
 
 export const seedDefaultData = internalMutation({
@@ -60,6 +61,13 @@ export const seedDefaultData = internalMutation({
       channelId: generalId,
       userId: systemUserId,
     });
+
+    // Provision managed agents (mrPING etc.)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.managedAgents.ensureManagedAgents,
+      { workspaceId },
+    );
   },
 });
 
@@ -373,21 +381,18 @@ export const seedDecisions = mutation({
       });
     }
 
-    // ── Step C: Build mock decisions with userIds in orgTrace ──────────────────
+    // ── Step C: Build mock inbox items with userIds in orgTrace ──────────────────
 
     const now = Date.now();
 
-    const mockDecisions: Parameters<typeof ctx.db.insert<"decisions">>[1][] = [
-      // 0: PR review — Q1 urgent-important
+    const mockItems: Parameters<typeof ctx.db.insert<"inboxItems">>[1][] = [
+      // 0: PR review — Do
       {
-        userId: user._id,
-        workspaceId,
-        type: "pr_review",
+        userId: user._id, workspaceId, type: "pr_review", category: "do",
         title: "Should we approve PR #847 to unblock the staging deploy?",
         summary: "PR #847 refactors the JWT middleware. Staging is blocked until it merges — QA window closes in 2 hours. CI is green, 1 approval still needed.",
-        eisenhowerQuadrant: "urgent-important",
-        status: "pending",
-        channelId: channelMap["engineering"],
+        pingWillDo: "Post approval comment, notify QA, trigger staging deploy pipeline",
+        status: "pending", channelId: channelMap["engineering"],
         orgTrace: [
           { name: "Sarah Kim", role: "author", userId: userIdByName["Sarah Kim"] },
           { name: "Alex Chen", role: "assignee", userId: userIdByName["Alex Chen"] },
@@ -413,16 +418,13 @@ export const seedDecisions = mutation({
         ],
         createdAt: now - 12 * 60 * 1000,
       },
-      // 1: Rate limit — Q1 urgent-important
+      // 1: Rate limit — Do
       {
-        userId: user._id,
-        workspaceId,
-        type: "question_answer",
+        userId: user._id, workspaceId, type: "question_answer", category: "do",
         title: "Should we raise Acme Corp's API rate limit above their contract?",
         summary: "Acme is hitting 429s. Their contract allows 1,000 req/min but the limiter is set to 200. Marcus escalated — their batch job runs at end of business today.",
-        eisenhowerQuadrant: "urgent-important",
-        status: "pending",
-        channelId: channelMap["support"],
+        pingWillDo: "Update Acme Corp rate limit to 1,000/min, send confirmation, log audit trail",
+        status: "pending", channelId: channelMap["support"],
         orgTrace: [
           { name: "Marcus Lee", role: "author", userId: userIdByName["Marcus Lee"] },
           { name: "Priya Patel", role: "mentioned", userId: userIdByName["Priya Patel"] },
@@ -445,16 +447,13 @@ export const seedDecisions = mutation({
         ],
         createdAt: now - 28 * 60 * 1000,
       },
-      // 2: Ticket triage — Q2 important
+      // 2: Ticket triage — Decide
       {
-        userId: user._id,
-        workspaceId,
-        type: "ticket_triage",
+        userId: user._id, workspaceId, type: "ticket_triage", category: "decide",
         title: "Which ds-v2 Linear tickets belong in Q2 scope?",
         summary: "34 tickets tagged 'ds-v2' are open. Jordan needs the scope locked this week — it affects roadmap planning for product, frontend, and design. Q3 starts in 5 weeks.",
-        eisenhowerQuadrant: "important",
-        status: "pending",
-        channelId: channelMap["product"],
+        pingWillDo: "Add selected tickets to Q2 milestone in Linear, move rest to Q3 backlog, post summary in #product",
+        status: "pending", channelId: channelMap["product"],
         orgTrace: [
           { name: "Jordan Park", role: "assignee", userId: userIdByName["Jordan Park"] },
           { name: "Mia Torres", role: "mentioned", userId: userIdByName["Mia Torres"] },
@@ -480,16 +479,13 @@ export const seedDecisions = mutation({
         ],
         createdAt: now - 2 * 60 * 60 * 1000,
       },
-      // 3: Stripe blocked — Q2 important
+      // 3: Stripe blocked — Decide
       {
-        userId: user._id,
-        workspaceId,
-        type: "blocked_unblock",
+        userId: user._id, workspaceId, type: "blocked_unblock", category: "decide",
         title: "How do we unblock the Stripe payment launch?",
         summary: "Integration is code-complete. Legal has had the DPA for 6 days with no response. Launch is on the roadmap for next Monday. Options involve scope trade-offs.",
-        eisenhowerQuadrant: "important",
-        status: "pending",
-        channelId: channelMap["ops"],
+        pingWillDo: "Escalate to legal with SLA breach notice, set reminder to follow up in 4 hours",
+        status: "pending", channelId: channelMap["ops"],
         orgTrace: [
           { name: "Chris Wang", role: "author", userId: userIdByName["Chris Wang"] },
           { name: "Dana Ross", role: "mentioned", userId: userIdByName["Dana Ross"] },
@@ -513,16 +509,13 @@ export const seedDecisions = mutation({
         ],
         createdAt: now - 4 * 60 * 60 * 1000,
       },
-      // 4: API deprecation — Q3 urgent
+      // 4: API deprecation — Delegate
       {
-        userId: user._id,
-        workspaceId,
-        type: "cross_team_ack",
+        userId: user._id, workspaceId, type: "cross_team_ack", category: "delegate",
         title: "Should we hold the /v1/users deprecation for mobile?",
         summary: "Backend is dropping v1/users on Friday. Mobile needs 3 more weeks. Backend says the old endpoint is causing incidents in production. One team's timeline has to move.",
-        eisenhowerQuadrant: "urgent",
-        status: "pending",
-        channelId: channelMap["engineering"],
+        pingWillDo: "Extend deprecation date 3 weeks, notify backend team, create migration guide task in Linear",
+        status: "pending", channelId: channelMap["engineering"],
         orgTrace: [
           { name: "Alex Chen", role: "author", userId: userIdByName["Alex Chen"] },
           { name: "Sarah Kim", role: "mentioned", userId: userIdByName["Sarah Kim"] },
@@ -549,16 +542,13 @@ export const seedDecisions = mutation({
         ],
         createdAt: now - 45 * 60 * 1000,
       },
-      // 5: Fact verify — Q4 fyi
+      // 5: Fact verify — Skip
       {
-        userId: user._id,
-        workspaceId,
-        type: "fact_verify",
+        userId: user._id, workspaceId, type: "fact_verify", category: "skip",
         title: "Which activation metric goes in the board deck?",
         summary: "The board deck says 68% activation but the dashboard shows 61%. One uses 'account created', the other 'first message sent'. The deck goes out Thursday.",
-        eisenhowerQuadrant: "fyi",
-        status: "pending",
-        channelId: channelMap["data"],
+        pingWillDo: "Update board deck metric, add footnote explaining definition",
+        status: "pending", channelId: channelMap["data"],
         orgTrace: [
           { name: "Dana Ross", role: "author", userId: userIdByName["Dana Ross"] },
           { name: "Priya Patel", role: "mentioned", userId: userIdByName["Priya Patel"] },
@@ -582,16 +572,13 @@ export const seedDecisions = mutation({
         ],
         createdAt: now - 6 * 60 * 60 * 1000,
       },
-      // 6: Channel summary — Q4 fyi
+      // 6: Channel summary — Skip
       {
-        userId: user._id,
-        workspaceId,
-        type: "channel_summary",
+        userId: user._id, workspaceId, type: "channel_summary", category: "skip",
         title: "How do we handle the low office move survey response?",
         summary: "12 of 40 responses collected. Deadline is tomorrow. Also: all-hands slide deck needs exec review by EOD Thursday. Two things to address.",
-        eisenhowerQuadrant: "fyi",
-        status: "pending",
-        channelId: channelMap["general"],
+        pingWillDo: "Post reminder in #general, send DM to non-responders",
+        status: "pending", channelId: channelMap["general"],
         orgTrace: [
           { name: "Marcus Lee", role: "author", userId: userIdByName["Marcus Lee"] },
           { name: "Mia Torres", role: "author", userId: userIdByName["Mia Torres"] },
@@ -617,52 +604,33 @@ export const seedDecisions = mutation({
       },
     ];
 
-    // ── Step D: Insert decisions and cross-reference ────────────────────────────
+    // ── Step D: Insert items and cross-reference ────────────────────────────
 
-    const decisionIds: import("./_generated/dataModel").Id<"decisions">[] = [];
-    for (const d of mockDecisions) {
-      const id = await ctx.db.insert("decisions", d);
-      decisionIds.push(id);
+    const itemIds: import("./_generated/dataModel").Id<"inboxItems">[] = [];
+    for (const d of mockItems) {
+      const id = await ctx.db.insert("inboxItems", d);
+      itemIds.push(id);
     }
 
-    // Cross-reference related decisions:
-    // PR review (0) ↔ API deprecation (4) — both #engineering
-    // Rate limit (1) ↔ Ticket triage (2) — both customer/priority
-    // Stripe (3) ↔ Office survey (6) — both operational blocks
-    await ctx.db.patch(decisionIds[0]!, { relatedDecisionIds: [decisionIds[4]!] });
-    await ctx.db.patch(decisionIds[4]!, { relatedDecisionIds: [decisionIds[0]!] });
-    await ctx.db.patch(decisionIds[1]!, { relatedDecisionIds: [decisionIds[2]!] });
-    await ctx.db.patch(decisionIds[2]!, { relatedDecisionIds: [decisionIds[1]!] });
-    await ctx.db.patch(decisionIds[3]!, { relatedDecisionIds: [decisionIds[6]!] });
-    await ctx.db.patch(decisionIds[6]!, { relatedDecisionIds: [decisionIds[3]!] });
+    // Cross-reference related items
+    await ctx.db.patch(itemIds[0]!, { relatedItemIds: [itemIds[4]!] });
+    await ctx.db.patch(itemIds[4]!, { relatedItemIds: [itemIds[0]!] });
+    await ctx.db.patch(itemIds[1]!, { relatedItemIds: [itemIds[2]!] });
+    await ctx.db.patch(itemIds[2]!, { relatedItemIds: [itemIds[1]!] });
+    await ctx.db.patch(itemIds[3]!, { relatedItemIds: [itemIds[6]!] });
+    await ctx.db.patch(itemIds[6]!, { relatedItemIds: [itemIds[3]!] });
 
-    return { inserted: decisionIds.length };
+    return { inserted: itemIds.length };
   },
 });
 
 export const clearSeedDecisions = mutation({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query("decisions").collect();
+    const all = await ctx.db.query("inboxItems").collect();
 
     let deleted = 0;
     for (const d of all) {
-      await ctx.db.delete(d._id);
-      deleted++;
-    }
-
-    return { deleted };
-  },
-});
-
-export const clearAllInboxAndAlerts = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const summaries = await ctx.db.query("inboxSummaries").collect();
-    const alerts = await ctx.db.query("proactiveAlerts").collect();
-
-    let deleted = 0;
-    for (const d of [...summaries, ...alerts]) {
       await ctx.db.delete(d._id);
       deleted++;
     }

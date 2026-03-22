@@ -9,25 +9,22 @@ import { Zap, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DecisionCard,
-  type DecisionItem,
+  type InboxItemData,
   type OrgTracePerson,
-  type EisenhowerQuadrant,
-  type PriorityLevel,
 } from "@/components/inbox/DecisionCard";
-import { DecisionModal } from "@/components/inbox/DecisionModal";
+import {
+  type InboxCategory,
+  type PriorityLevel,
+  CATEGORY_TO_PRIORITY,
+  priorityConfig,
+} from "@/components/inbox/InboxCard";
+import { InboxModal, type ModalItem } from "@/components/inbox/InboxModal";
 
-const QUADRANT_TO_PRIORITY: Record<EisenhowerQuadrant, PriorityLevel> = {
-  "urgent-important": "urgent",
-  important: "high",
-  urgent: "medium",
-  fyi: "low",
-};
-
-const QUADRANT_ACCENT: Record<EisenhowerQuadrant, string> = {
-  "urgent-important": "bg-priority-urgent",
-  important: "bg-priority-important",
-  urgent: "bg-blue-500",
-  fyi: "bg-white/20",
+const CATEGORY_ACCENT: Record<InboxCategory, string> = {
+  do: "bg-priority-urgent",
+  decide: "bg-priority-important",
+  delegate: "bg-blue-500",
+  skip: "bg-white/20",
 };
 
 interface ChannelDecisionsBarProps {
@@ -36,79 +33,103 @@ interface ChannelDecisionsBarProps {
 
 export function ChannelDecisionsBar({ channelId }: ChannelDecisionsBarProps) {
   const [expanded, setExpanded] = useState(false);
-  const [openDecisionId, setOpenDecisionId] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
 
-  const raw = useQuery(api.decisions.listByChannel, {
-    channelId: channelId as Id<"channels">,
-  });
+  const raw = useQuery(api.inboxItems.list, {});
+  const actMutation = useMutation(api.inboxItems.act);
+  const snoozeMutation = useMutation(api.inboxItems.snooze);
+  const archiveMutation = useMutation(api.inboxItems.archive);
 
-  const decideMutation = useMutation(api.decisions.decide);
-  const snoozeMutation = useMutation(api.decisions.snooze);
-
-  const items: DecisionItem[] = useMemo(() => {
+  const items: InboxItemData[] = useMemo(() => {
     if (!raw) return [];
-    return raw.map((d) => {
-      const quadrant = d.eisenhowerQuadrant as EisenhowerQuadrant;
-      return {
+    return raw
+      .filter((d) => d.channelId === channelId)
+      .map((d) => ({
         id: d._id,
         type: d.type,
         title: d.title,
         summary: d.summary,
-        eisenhowerQuadrant: quadrant,
-        priority: QUADRANT_TO_PRIORITY[quadrant],
+        category: d.category as InboxCategory,
+        priority: CATEGORY_TO_PRIORITY[d.category as InboxCategory],
         status: d.status,
         channelName: d.channelName ?? "unknown",
+        pingWillDo: d.pingWillDo ?? undefined,
         createdAt: new Date(d.createdAt),
         agentExecutionStatus: d.agentExecutionStatus ?? undefined,
         agentExecutionResult: d.agentExecutionResult ?? undefined,
         orgTrace: (d.orgTrace ?? []) as OrgTracePerson[],
-        nextSteps: (d.nextSteps ?? []) as DecisionItem["nextSteps"],
-        recommendedActions: (d.recommendedActions ?? []) as DecisionItem["recommendedActions"],
-        links: (d.links ?? []) as DecisionItem["links"],
-        relatedDecisionIds: d.relatedDecisionIds as string[] | undefined,
-      };
-    });
-  }, [raw]);
+        nextSteps: (d.nextSteps ?? []) as InboxItemData["nextSteps"],
+        recommendedActions: (d.recommendedActions ?? []) as InboxItemData["recommendedActions"],
+        links: (d.links ?? []) as InboxItemData["links"],
+        relatedItemIds: d.relatedItemIds as string[] | undefined,
+      }));
+  }, [raw, channelId]);
 
   const handleAction = useCallback(
     (id: string, action: string, comment?: string) => {
       if (action === "Snooze" || action === "snooze") {
         snoozeMutation({
-          decisionId: id as Id<"decisions">,
+          itemId: id as Id<"inboxItems">,
           snoozeUntil: Date.now() + 60 * 60 * 1000,
         });
       } else {
-        decideMutation({
-          decisionId: id as Id<"decisions">,
+        actMutation({
+          itemId: id as Id<"inboxItems">,
           action,
           comment,
         });
       }
     },
-    [decideMutation, snoozeMutation],
+    [actMutation, snoozeMutation],
+  );
+
+  const handleArchive = useCallback(
+    (id: string) => {
+      archiveMutation({ itemId: id as Id<"inboxItems"> });
+    },
+    [archiveMutation],
   );
 
   if (!raw || items.length === 0) return null;
 
   const topItem = items[0];
-  const accent = QUADRANT_ACCENT[topItem.eisenhowerQuadrant];
-  const openDecision = items.find((d) => d.id === openDecisionId) ?? null;
+  const accent = CATEGORY_ACCENT[topItem.category];
+  const openItem = items.find((d) => d.id === openItemId) ?? null;
+
+  const openModalItem: ModalItem | null = openItem
+    ? {
+        id: openItem.id,
+        kind: "decision",
+        title: openItem.title,
+        summary: openItem.summary,
+        priority: openItem.priority,
+        channelName: openItem.channelName,
+        createdAt: openItem.createdAt,
+        category: openItem.category,
+        decisionType: openItem.type,
+        orgTrace: openItem.orgTrace,
+        nextSteps: openItem.nextSteps,
+        recommendedActions: openItem.recommendedActions,
+        links: openItem.links,
+        relatedItemIds: openItem.relatedItemIds,
+        agentExecutionStatus: openItem.agentExecutionStatus,
+        pingWillDo: openItem.pingWillDo,
+      }
+    : null;
 
   return (
     <>
       <div className="relative shrink-0 border-b border-subtle bg-surface-1">
-        {/* Accent left border */}
         <div className={cn("absolute left-0 top-2 bottom-2 w-[3px] rounded-r", accent)} />
 
-        {/* Collapsed bar — always visible */}
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex w-full items-center gap-2 px-4 py-1.5 text-left transition-colors hover:bg-surface-2/60"
         >
           <Zap className="h-3.5 w-3.5 shrink-0 text-amber-400" />
           <span className="text-2xs font-medium text-foreground">
-            {items.length} {items.length === 1 ? "decision" : "decisions"}
+            {items.length} {items.length === 1 ? "item" : "items"}
           </span>
           <span className="text-2xs text-foreground/45">·</span>
           <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground">
@@ -122,7 +143,6 @@ export function ChannelDecisionsBar({ channelId }: ChannelDecisionsBarProps) {
           />
         </button>
 
-        {/* Expanded list */}
         <AnimatePresence>
           {expanded && (
             <motion.div
@@ -138,7 +158,8 @@ export function ChannelDecisionsBar({ channelId }: ChannelDecisionsBarProps) {
                     key={item.id}
                     item={item}
                     onAction={handleAction}
-                    onOpen={() => setOpenDecisionId(item.id)}
+                    onArchive={handleArchive}
+                    onOpen={() => setOpenItemId(item.id)}
                   />
                 ))}
               </div>
@@ -147,12 +168,11 @@ export function ChannelDecisionsBar({ channelId }: ChannelDecisionsBarProps) {
         </AnimatePresence>
       </div>
 
-      {/* Decision modal — rendered via portal inside DecisionModal */}
-      {openDecision && (
-        <DecisionModal
-          item={openDecision}
+      {openModalItem && (
+        <InboxModal
+          item={openModalItem}
           onAction={handleAction}
-          onClose={() => setOpenDecisionId(null)}
+          onClose={() => setOpenItemId(null)}
           focusMode={focusMode}
           onToggleFocusMode={() => setFocusMode((f) => !f)}
         />

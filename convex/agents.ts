@@ -136,6 +136,17 @@ export const update = mutation({
     if (!agent || agent.workspaceId !== args.workspaceId)
       throw new Error("Agent not found");
 
+    // Managed agents: only allow status and color changes
+    if (agent.isManaged) {
+      const allowedUpdates: Record<string, unknown> = {};
+      if (args.status !== undefined) allowedUpdates.status = args.status;
+      if (args.color !== undefined) allowedUpdates.color = args.color;
+      if (Object.keys(allowedUpdates).length > 0) {
+        await ctx.db.patch(agentId, allowedUpdates);
+      }
+      return;
+    }
+
     const { agentId, workspaceId, ...updates } = args;
     const filtered = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v !== undefined),
@@ -162,6 +173,8 @@ export const remove = mutation({
     const agent = await ctx.db.get(args.agentId);
     if (!agent || agent.workspaceId !== args.workspaceId)
       throw new Error("Agent not found");
+    if (agent.isManaged)
+      throw new Error("Managed agents cannot be deleted");
 
     // Revoke all tokens
     const tokens = await ctx.db

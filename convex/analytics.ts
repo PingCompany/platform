@@ -63,21 +63,18 @@ export const getKPIs = query({
       }
     }
 
-    const summaries = await ctx.db
-      .query("inboxSummaries")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .order("desc")
-      .take(1000);
-    const summaryCount = summaries.filter(
-      (s) => s._creationTime >= cutoff,
-    ).length;
-
-    const alerts = await ctx.db
-      .query("proactiveAlerts")
+    const inboxItems = await ctx.db
+      .query("inboxItems")
       .withIndex("by_user_status", (q) => q.eq("userId", user._id))
       .order("desc")
       .take(1000);
-    const alertCount = alerts.filter((a) => a.createdAt >= cutoff).length;
+    const summaryCount = inboxItems.filter(
+      (s) => s.type === "channel_summary" && s._creationTime >= cutoff,
+    ).length;
+
+    const alertCount = inboxItems.filter(
+      (a) => a.type !== "channel_summary" && a.type !== "email_summary" && a.createdAt >= cutoff,
+    ).length;
 
     const queryDelta =
       prevBotMessages > 0
@@ -180,11 +177,11 @@ export const getAgentLeaderboard = query({
 // Decision-centric analytics
 // ---------------------------------------------------------------------------
 
-const QUADRANT_LABELS: Record<string, string> = {
-  "urgent-important": "Urgent & Important",
-  important: "Important",
-  urgent: "Urgent",
-  fyi: "FYI",
+const CATEGORY_LABELS: Record<string, string> = {
+  do: "Do",
+  decide: "Decide",
+  delegate: "Delegate",
+  skip: "Skip",
 };
 
 const DECISION_TYPE_LABELS: Record<string, string> = {
@@ -197,13 +194,15 @@ const DECISION_TYPE_LABELS: Record<string, string> = {
   channel_summary: "Summary",
 };
 
-const ALERT_TYPE_LABELS: Record<string, string> = {
-  unanswered_question: "Unanswered Question",
-  pr_review_nudge: "PR Review Nudge",
-  incident_route: "Incident Route",
-  blocked_task: "Blocked Task",
-  fact_check: "Fact Check",
-  cross_team_sync: "Cross-Team Sync",
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  pr_review: "PR Review",
+  ticket_triage: "Ticket Triage",
+  question_answer: "Q&A",
+  blocked_unblock: "Unblock",
+  fact_verify: "Fact Check",
+  cross_team_ack: "Cross-Team",
+  channel_summary: "Summary",
+  email_summary: "Email Summary",
 };
 
 /**
@@ -218,20 +217,17 @@ export const getUserAnalytics = query({
     const cutoff = now - periodMs;
     const prevCutoff = cutoff - periodMs;
 
-    // --- Decisions ---
-    const allDecisions = await ctx.db
-      .query("decisions")
+    // --- Inbox Items ---
+    const allItems = await ctx.db
+      .query("inboxItems")
       .withIndex("by_user_status", (q) => q.eq("userId", user._id))
       .order("desc")
       .take(2000);
 
-    const decisionsInPeriod = allDecisions.filter((d) => d.createdAt >= cutoff);
-    const resolved = decisionsInPeriod.filter(
-      (d) => d.status === "decided" || d.status === "delegated",
-    );
-    const pending = allDecisions.filter((d) => d.status === "pending");
+    const itemsInPeriod = allItems.filter((d) => d.createdAt >= cutoff);
+    const resolved = itemsInPeriod.filter((d) => d.status === "archived" && d.outcome);
+    const pending = allItems.filter((d) => d.status === "pending");
 
-    // Avg decision time (createdAt → outcome.decidedAt)
     let totalDecisionMs = 0;
     let decidedCount = 0;
     for (const d of resolved) {
@@ -243,62 +239,50 @@ export const getUserAnalytics = query({
     const avgDecisionTimeMinutes =
       decidedCount > 0 ? Math.round(totalDecisionMs / decidedCount / 60000) : 0;
 
-    // By quadrant
-    const quadrantCounts: Record<string, number> = {};
-    for (const d of decisionsInPeriod) {
-      quadrantCounts[d.eisenhowerQuadrant] =
-        (quadrantCounts[d.eisenhowerQuadrant] ?? 0) + 1;
+    const categoryCounts: Record<string, number> = {};
+    for (const d of itemsInPeriod) {
+      categoryCounts[d.category] = (categoryCounts[d.category] ?? 0) + 1;
     }
-    const decisionsByQuadrant = Object.entries(quadrantCounts).map(
-      ([quadrant, count]) => ({
-        quadrant,
-        label: QUADRANT_LABELS[quadrant] ?? quadrant,
+    const decisionsByQuadrant = Object.entries(categoryCounts).map(
+      ([category, count]) => ({
+        quadrant: category,
+        label: CATEGORY_LABELS[category] ?? category,
         count,
       }),
     );
 
-    // By type
     const typeCounts: Record<string, number> = {};
-    for (const d of decisionsInPeriod) {
+    for (const d of itemsInPeriod) {
       typeCounts[d.type] = (typeCounts[d.type] ?? 0) + 1;
     }
     const decisionsByType = Object.entries(typeCounts)
       .map(([type, count]) => ({
         type,
-        label: DECISION_TYPE_LABELS[type] ?? type,
+        label: ITEM_TYPE_LABELS[type] ?? type,
         count,
       }))
       .sort((a, b) => b.count - a.count);
 
-    // --- AI Context Prep ---
-    const summaries = await ctx.db
-      .query("inboxSummaries")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .order("desc")
-      .take(1000);
-    const summariesReceived = summaries.filter(
-      (s) => s._creationTime >= cutoff,
+    const summariesReceived = itemsInPeriod.filter(
+      (s) => s.type === "channel_summary" || s.type === "email_summary",
     ).length;
 
-    const alerts = await ctx.db
-      .query("proactiveAlerts")
-      .withIndex("by_user_status", (q) => q.eq("userId", user._id))
-      .order("desc")
-      .take(1000);
-    const alertsInPeriod = alerts.filter((a) => a.createdAt >= cutoff);
-    const alertsSurfaced = alertsInPeriod.length;
-    const alertsActedOn = alertsInPeriod.filter(
-      (a) => a.status === "acted",
+    const alertItems = itemsInPeriod.filter(
+      (a) => a.type !== "channel_summary" && a.type !== "email_summary",
+    );
+    const alertsSurfaced = alertItems.length;
+    const alertsActedOn = alertItems.filter(
+      (a) => a.status === "archived" && a.outcome,
     ).length;
 
     const alertTypeCounts: Record<string, number> = {};
-    for (const a of alertsInPeriod) {
+    for (const a of alertItems) {
       alertTypeCounts[a.type] = (alertTypeCounts[a.type] ?? 0) + 1;
     }
     const alertsByType = Object.entries(alertTypeCounts)
       .map(([type, count]) => ({
         type,
-        label: ALERT_TYPE_LABELS[type] ?? type,
+        label: ITEM_TYPE_LABELS[type] ?? type,
         count,
       }))
       .sort((a, b) => b.count - a.count);
@@ -433,31 +417,30 @@ export const getWorkspaceAnalytics = query({
       }
     }
 
-    // --- Workspace decisions ---
-    // Collect decisions across all members
+    // --- Workspace inbox items ---
     let totalDecisions = 0;
     let totalPending = 0;
     let totalDecisionMs = 0;
     let decidedCount = 0;
-    const quadrantCounts: Record<string, number> = {};
+    const wsCategoryCounts: Record<string, number> = {};
     const userDecisionCounts: Record<string, number> = {};
     const userPendingCounts: Record<string, number> = {};
 
     for (const m of members) {
-      const decisions = await ctx.db
-        .query("decisions")
+      const items = await ctx.db
+        .query("inboxItems")
         .withIndex("by_user_status", (q) => q.eq("userId", m.userId))
         .order("desc")
         .take(500);
 
-      for (const d of decisions) {
+      for (const d of items) {
         if (d.status === "pending") {
           totalPending++;
           userPendingCounts[m.userId] =
             (userPendingCounts[m.userId] ?? 0) + 1;
         }
         if (d.createdAt < cutoff) continue;
-        if (d.status === "decided" || d.status === "delegated") {
+        if (d.status === "archived" && d.outcome) {
           totalDecisions++;
           userDecisionCounts[m.userId] =
             (userDecisionCounts[m.userId] ?? 0) + 1;
@@ -466,23 +449,22 @@ export const getWorkspaceAnalytics = query({
             decidedCount++;
           }
         }
-        quadrantCounts[d.eisenhowerQuadrant] =
-          (quadrantCounts[d.eisenhowerQuadrant] ?? 0) + 1;
+        wsCategoryCounts[d.category] =
+          (wsCategoryCounts[d.category] ?? 0) + 1;
       }
     }
 
     const avgDecisionTimeMinutes =
       decidedCount > 0 ? Math.round(totalDecisionMs / decidedCount / 60000) : 0;
 
-    const decisionsByQuadrant = Object.entries(quadrantCounts).map(
-      ([quadrant, count]) => ({
-        quadrant,
-        label: QUADRANT_LABELS[quadrant] ?? quadrant,
+    const decisionsByQuadrant = Object.entries(wsCategoryCounts).map(
+      ([category, count]) => ({
+        quadrant: category,
+        label: CATEGORY_LABELS[category] ?? category,
         count,
       }),
     );
 
-    // Top deciders
     const sortedDeciders = Object.entries(userDecisionCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 10);
@@ -498,7 +480,6 @@ export const getWorkspaceAnalytics = query({
       }),
     );
 
-    // Bottlenecks (most pending)
     const sortedBottlenecks = Object.entries(userPendingCounts)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
@@ -512,34 +493,29 @@ export const getWorkspaceAnalytics = query({
     // --- AI platform ---
     let totalSummaries = 0;
     let totalAlerts = 0;
-    const alertTypeCounts: Record<string, number> = {};
+    const wsAlertTypeCounts: Record<string, number> = {};
 
     for (const m of members) {
-      const summaries = await ctx.db
-        .query("inboxSummaries")
-        .withIndex("by_user", (q) => q.eq("userId", m.userId))
-        .order("desc")
-        .take(200);
-      totalSummaries += summaries.filter(
-        (s) => s._creationTime >= cutoff,
-      ).length;
-
-      const alerts = await ctx.db
-        .query("proactiveAlerts")
+      const items = await ctx.db
+        .query("inboxItems")
         .withIndex("by_user_status", (q) => q.eq("userId", m.userId))
         .order("desc")
         .take(200);
-      for (const a of alerts) {
-        if (a.createdAt < cutoff) continue;
-        totalAlerts++;
-        alertTypeCounts[a.type] = (alertTypeCounts[a.type] ?? 0) + 1;
+      for (const item of items) {
+        if (item.createdAt < cutoff) continue;
+        if (item.type === "channel_summary" || item.type === "email_summary") {
+          totalSummaries++;
+        } else {
+          totalAlerts++;
+          wsAlertTypeCounts[item.type] = (wsAlertTypeCounts[item.type] ?? 0) + 1;
+        }
       }
     }
 
-    const totalAlertsByType = Object.entries(alertTypeCounts)
+    const totalAlertsByType = Object.entries(wsAlertTypeCounts)
       .map(([type, count]) => ({
         type,
-        label: ALERT_TYPE_LABELS[type] ?? type,
+        label: ITEM_TYPE_LABELS[type] ?? type,
         count,
       }))
       .sort((a, b) => b.count - a.count);

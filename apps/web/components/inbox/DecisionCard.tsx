@@ -9,15 +9,18 @@ import {
   Search,
   RefreshCw,
   FileText,
+  Mail,
   ExternalLink,
   Maximize2,
+  Archive,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { DecisionActions } from "./DecisionActions";
 import type { DecisionType } from "./DecisionActions";
-import type { EisenhowerQuadrant, PriorityLevel } from "./InboxCard";
+import type { InboxCategory, PriorityLevel } from "./InboxCard";
+import { priorityConfig } from "./InboxCard";
 
-export type { DecisionType, EisenhowerQuadrant, PriorityLevel };
+export type { DecisionType, InboxCategory, PriorityLevel };
 
 export interface OrgTracePerson {
   name: string;
@@ -25,15 +28,16 @@ export interface OrgTracePerson {
   avatarUrl?: string;
 }
 
-export interface DecisionItem {
+export interface InboxItemData {
   id: string;
   type: DecisionType;
   title: string;
   summary: string;
-  eisenhowerQuadrant: EisenhowerQuadrant;
+  category: InboxCategory;
   priority: PriorityLevel;
   status: string;
   channelName: string;
+  pingWillDo?: string;
   sourceUrl?: string;
   createdAt: Date;
   agentExecutionStatus?: "pending" | "running" | "completed" | "failed";
@@ -55,63 +59,8 @@ export interface DecisionItem {
     url: string;
     type: "doc" | "sheet" | "video" | "pr" | "other";
   }>;
-  relatedDecisionIds?: string[];
+  relatedItemIds?: string[];
 }
-
-const priorityConfig: Record<
-  EisenhowerQuadrant,
-  {
-    borderColor: string;
-    borderWidth: string;
-    bg: string;
-    label: string;
-    textColor: string;
-    dimmed: boolean;
-    bold: boolean;
-    pulse: boolean;
-  }
-> = {
-  "urgent-important": {
-    borderColor: "bg-priority-urgent",
-    borderWidth: "w-[3px]",
-    bg: "bg-priority-urgent/8",
-    label: "URGENT",
-    textColor: "text-priority-urgent",
-    dimmed: false,
-    bold: true,
-    pulse: true,
-  },
-  important: {
-    borderColor: "bg-priority-important",
-    borderWidth: "w-0.5",
-    bg: "bg-priority-important/8",
-    label: "IMPORTANT",
-    textColor: "text-priority-important",
-    dimmed: false,
-    bold: false,
-    pulse: false,
-  },
-  urgent: {
-    borderColor: "bg-blue-500",
-    borderWidth: "w-0.5",
-    bg: "bg-blue-500/8",
-    label: "URGENT",
-    textColor: "text-blue-400",
-    dimmed: false,
-    bold: false,
-    pulse: false,
-  },
-  fyi: {
-    borderColor: "bg-white/20",
-    borderWidth: "w-0.5",
-    bg: "bg-white/5",
-    label: "FYI",
-    textColor: "text-white/30",
-    dimmed: true,
-    bold: false,
-    pulse: false,
-  },
-};
 
 function initials(name: string) {
   return name
@@ -151,7 +100,7 @@ function OrgFacepile({ people }: { people: OrgTracePerson[] }) {
   );
 }
 
-const typeConfig: Record<DecisionType, { icon: typeof GitPullRequest; label: string }> = {
+const typeConfig: Record<string, { icon: typeof GitPullRequest; label: string }> = {
   pr_review: { icon: GitPullRequest, label: "PR Review" },
   ticket_triage: { icon: Ticket, label: "Ticket" },
   question_answer: { icon: HelpCircle, label: "Question" },
@@ -159,19 +108,21 @@ const typeConfig: Record<DecisionType, { icon: typeof GitPullRequest; label: str
   fact_verify: { icon: Search, label: "Fact Check" },
   cross_team_ack: { icon: RefreshCw, label: "Cross-Team" },
   channel_summary: { icon: FileText, label: "Summary" },
+  email_summary: { icon: Mail, label: "Email" },
 };
 
 interface DecisionCardProps {
-  item: DecisionItem;
+  item: InboxItemData;
   onAction: (id: string, action: string, comment?: string) => void;
+  onArchive: (id: string) => void;
   onOpen: () => void;
   onFocus?: () => void;
 }
 
-export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardProps) {
+export function DecisionCard({ item, onAction, onArchive, onOpen, onFocus }: DecisionCardProps) {
   const [hovered, setHovered] = useState(false);
-  const config = priorityConfig[item.eisenhowerQuadrant];
-  const typeInfo = typeConfig[item.type];
+  const config = priorityConfig[item.category];
+  const typeInfo = typeConfig[item.type] ?? typeConfig.channel_summary;
   const TypeIcon = typeInfo.icon;
 
   return (
@@ -194,7 +145,7 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
         )}
       />
 
-      {/* Pulse dot for Q1 urgent-important */}
+      {/* Pulse dot for Do items */}
       {config.pulse && (
         <span className="absolute left-3 top-4 flex h-2 w-2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-priority-urgent opacity-60" />
@@ -237,17 +188,16 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
                   {item.agentExecutionStatus}
                 </span>
               )}
-              {item.sourceUrl && (
-                <a
-                  href={item.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="rounded p-0.5 text-white/30 transition-colors hover:bg-surface-3 hover:text-foreground"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); onArchive(item.id); }}
+                title="Archive"
+                className={cn(
+                  "rounded p-0.5 transition-colors hover:bg-surface-3 hover:text-foreground",
+                  hovered ? "text-foreground/25" : "text-transparent pointer-events-none",
+                )}
+              >
+                <Archive className="h-3 w-3" />
+              </button>
               {onFocus && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onFocus(); }}
@@ -273,13 +223,20 @@ export function DecisionCard({ item, onAction, onOpen, onFocus }: DecisionCardPr
             {item.summary}
           </p>
 
+          {/* PING will do */}
+          {item.pingWillDo && (
+            <p className="mt-1 text-2xs text-blue-400/60 line-clamp-1">
+              PING will: {item.pingWillDo}
+            </p>
+          )}
+
           {/* Quick actions — always visible */}
           <div
             className="mt-2"
             onClick={(e) => e.stopPropagation()}
           >
             <DecisionActions
-              type={item.type}
+              type={item.type as DecisionType}
               recommendedActions={item.recommendedActions}
               onAction={(action, comment) => onAction(item.id, action, comment)}
             />

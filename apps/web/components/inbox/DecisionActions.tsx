@@ -10,7 +10,8 @@ export type DecisionType =
   | "blocked_unblock"
   | "fact_verify"
   | "cross_team_ack"
-  | "channel_summary";
+  | "channel_summary"
+  | "email_summary";
 
 interface ActionDef {
   label: string;
@@ -58,6 +59,10 @@ const fallbackActionsByType: Record<DecisionType, ActionDef[]> = {
   channel_summary: [
     { label: "Mark Read", actionKey: "mark_read", primary: true },
     { label: "Investigate", actionKey: "investigate" },
+  ],
+  email_summary: [
+    { label: "Mark Read", actionKey: "mark_read", primary: true },
+    { label: "Reply", actionKey: "reply" },
   ],
 };
 

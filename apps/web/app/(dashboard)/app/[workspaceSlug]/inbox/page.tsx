@@ -1,59 +1,49 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { InboxCard, type InboxItem, type EisenhowerQuadrant, type PriorityLevel, QUADRANT_ORDER } from "@/components/inbox/InboxCard";
-import { DecisionCard, type DecisionItem, type OrgTracePerson } from "@/components/inbox/DecisionCard";
+import { DecisionCard, type InboxItemData, type OrgTracePerson } from "@/components/inbox/DecisionCard";
 import { InboxModal, type ModalItem } from "@/components/inbox/InboxModal";
 import { DraftReminderCard } from "@/components/inbox/DraftReminderCard";
-import { UnansweredQuestionCard } from "@/components/inbox/UnansweredQuestionCard";
-import { CheckCircle2, Loader2, FlaskConical, ChevronDown, Check } from "lucide-react";
+import { type InboxCategory, type PriorityLevel, CATEGORY_ORDER, CATEGORY_TO_PRIORITY } from "@/components/inbox/InboxCard";
+import { CheckCircle2, Loader2, FlaskConical, ChevronDown, Check, Archive } from "lucide-react";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { cn } from "@/lib/utils";
 
-// Quadrant → human action label (section headers)
-const SECTION_LABELS: Record<EisenhowerQuadrant, string> = {
-  "urgent-important": "Do",
-  "important":        "Decide",
-  "urgent":           "Delegate",
-  "fyi":              "Skip",
+// ── Section labels ──
+const SECTION_LABELS: Record<InboxCategory, string> = {
+  do: "Do",
+  decide: "Decide",
+  delegate: "Delegate",
+  skip: "Skip",
 };
 
-// Quadrant → priority level
-const QUADRANT_TO_PRIORITY: Record<EisenhowerQuadrant, PriorityLevel> = {
-  "urgent-important": "urgent",
-  "important":        "high",
-  "urgent":           "medium",
-  "fyi":              "low",
-};
-
-// ── Quadrant pill config (for header filter pills) ──
-const QUADRANT_PILL_CONFIG: Record<
-  EisenhowerQuadrant,
+// ── Quadrant pill config ──
+const CATEGORY_PILL_CONFIG: Record<
+  InboxCategory,
   { label: string; bg: string; text: string; activeBg: string; activeText: string; border: string; dot: string }
 > = {
-  "urgent-important": {
+  do: {
     label: "Do",
     bg: "bg-priority-urgent/8", text: "text-priority-urgent/60",
     activeBg: "bg-priority-urgent/15", activeText: "text-priority-urgent",
     border: "border-priority-urgent/30", dot: "bg-priority-urgent",
   },
-  "important": {
+  decide: {
     label: "Decide",
     bg: "bg-priority-important/8", text: "text-priority-important/60",
     activeBg: "bg-priority-important/15", activeText: "text-priority-important",
     border: "border-priority-important/30", dot: "bg-priority-important",
   },
-  "urgent": {
+  delegate: {
     label: "Delegate",
     bg: "bg-blue-500/8", text: "text-blue-400/60",
     activeBg: "bg-blue-500/15", activeText: "text-blue-400",
     border: "border-blue-500/30", dot: "bg-blue-400",
   },
-  "fyi": {
+  skip: {
     label: "Skip",
     bg: "bg-foreground/4", text: "text-foreground/45",
     activeBg: "bg-foreground/8", activeText: "text-foreground/40",
@@ -69,33 +59,28 @@ const PRIORITY_CONFIG: Record<
   { label: string; bg: string; text: string; activeBg: string; activeText: string; border: string; dot: string }
 > = {
   urgent: {
-    label: "Urgent",
-    bg: "bg-priority-urgent/8", text: "text-priority-urgent/60",
+    label: "Urgent", bg: "bg-priority-urgent/8", text: "text-priority-urgent/60",
     activeBg: "bg-priority-urgent/15", activeText: "text-priority-urgent",
     border: "border-priority-urgent/30", dot: "bg-priority-urgent",
   },
   high: {
-    label: "High",
-    bg: "bg-priority-important/8", text: "text-priority-important/60",
+    label: "High", bg: "bg-priority-important/8", text: "text-priority-important/60",
     activeBg: "bg-priority-important/15", activeText: "text-priority-important",
     border: "border-priority-important/30", dot: "bg-priority-important",
   },
   medium: {
-    label: "Medium",
-    bg: "bg-blue-500/8", text: "text-blue-400/60",
+    label: "Medium", bg: "bg-blue-500/8", text: "text-blue-400/60",
     activeBg: "bg-blue-500/15", activeText: "text-blue-400",
     border: "border-blue-500/30", dot: "bg-blue-400",
   },
   low: {
-    label: "Low",
-    bg: "bg-foreground/4", text: "text-foreground/45",
+    label: "Low", bg: "bg-foreground/4", text: "text-foreground/25",
     activeBg: "bg-foreground/8", activeText: "text-foreground/40",
     border: "border-foreground/15", dot: "bg-foreground/20",
   },
 };
 
-// ── Item → ModalItem builders ──
-function decisionToModalItem(d: DecisionItem): ModalItem {
+function itemToModalItem(d: InboxItemData): ModalItem {
   return {
     id: d.id,
     kind: "decision",
@@ -104,55 +89,35 @@ function decisionToModalItem(d: DecisionItem): ModalItem {
     priority: d.priority,
     channelName: d.channelName,
     createdAt: d.createdAt,
-    eisenhowerQuadrant: d.eisenhowerQuadrant,
+    category: d.category,
     decisionType: d.type,
     orgTrace: d.orgTrace,
     nextSteps: d.nextSteps,
     recommendedActions: d.recommendedActions,
     links: d.links,
-    relatedDecisionIds: d.relatedDecisionIds,
+    relatedItemIds: d.relatedItemIds,
     agentExecutionStatus: d.agentExecutionStatus,
-  };
-}
-
-function inboxToModalItem(item: InboxItem): ModalItem {
-  return {
-    id: item.id,
-    kind: "summary",
-    title: item.summary,
-    summary: item.context,
-    priority: item.priority,
-    channelName: item.channel,
-    createdAt: item.timestamp,
-    eisenhowerQuadrant: item.quadrant,
-    decisionType: "channel_summary",
-    quickActions: item.actions,
+    pingWillDo: d.pingWillDo,
   };
 }
 
 export default function InboxPage() {
-  const router = useRouter();
   const { buildPath } = useWorkspace();
-
   const { isAuthenticated } = useConvexAuth();
-  const summaries = useQuery(api.inboxSummaries.list, isAuthenticated ? {} : "skip");
+  const inboxItems = useQuery(api.inboxItems.list, isAuthenticated ? {} : "skip");
   const drafts = useQuery(api.drafts.listActive, isAuthenticated ? {} : "skip");
-  const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
-  const decisions = useQuery(api.decisions.list, isAuthenticated ? {} : "skip");
-  const markReadMutation = useMutation(api.inboxSummaries.markRead);
-  const archiveMutation = useMutation(api.inboxSummaries.archive);
-  const dismissAlertMutation = useMutation(api.proactiveAlerts.dismiss);
-  const decideMutation = useMutation(api.decisions.decide);
-  const snoozeMutation = useMutation(api.decisions.snooze);
-  const seedDecisionsMutation = useMutation(api.seed.seedDecisions);
-  const clearSeedMutation = useMutation(api.seed.clearSeedDecisions);
+  const actMutation = useMutation(api.inboxItems.act);
+  const archiveMutation = useMutation(api.inboxItems.archive);
+  const snoozeMutation = useMutation(api.inboxItems.snooze);
+  const seedMutation = useMutation(api.seed.seedDecisions);
+  const clearMutation = useMutation(api.seed.clearSeedDecisions);
 
-  const [openItem, setOpenItem] = useState<{ kind: "decision" | "summary"; id: string } | null>(null);
+  const [openItem, setOpenItem] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
 
-  // Quadrant filter (pills) — empty = show all
-  const [selectedQuadrants, setSelectedQuadrants] = useState<Set<EisenhowerQuadrant>>(new Set());
-  // Priority filter (dropdown) — empty = show all
+  // Filters
+  const [selectedCategories, setSelectedCategories] = useState<Set<InboxCategory>>(new Set());
   const [selectedPriorities, setSelectedPriorities] = useState<Set<PriorityLevel>>(new Set());
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -168,10 +133,10 @@ export default function InboxPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [dropdownOpen]);
 
-  const toggleQuadrant = (q: EisenhowerQuadrant) => {
-    setSelectedQuadrants((prev) => {
+  const toggleCategory = (c: InboxCategory) => {
+    setSelectedCategories((prev) => {
       const next = new Set(prev);
-      if (next.has(q)) next.delete(q); else next.add(q);
+      if (next.has(c)) next.delete(c); else next.add(c);
       return next;
     });
   };
@@ -184,100 +149,56 @@ export default function InboxPage() {
     });
   };
 
-  const unansweredQuestions = useMemo(
-    () => (alerts ?? []).filter((a) => a.type === "unanswered_question"),
-    [alerts],
-  );
+  const items: InboxItemData[] = useMemo(() => {
+    if (!inboxItems) return [];
+    return inboxItems.map((d) => ({
+      id: d._id,
+      type: d.type,
+      title: d.title,
+      summary: d.summary,
+      category: d.category as InboxCategory,
+      priority: CATEGORY_TO_PRIORITY[d.category as InboxCategory],
+      status: d.status,
+      channelName: d.channelName ?? "unknown",
+      pingWillDo: d.pingWillDo ?? undefined,
+      createdAt: new Date(d.createdAt),
+      agentExecutionStatus: d.agentExecutionStatus ?? undefined,
+      agentExecutionResult: d.agentExecutionResult ?? undefined,
+      orgTrace: (d.orgTrace ?? []) as OrgTracePerson[],
+      nextSteps: (d.nextSteps ?? []) as InboxItemData["nextSteps"],
+      recommendedActions: (d.recommendedActions ?? []) as InboxItemData["recommendedActions"],
+      links: (d.links ?? []) as InboxItemData["links"],
+      relatedItemIds: d.relatedItemIds as string[] | undefined,
+    }));
+  }, [inboxItems]);
 
-  const items: InboxItem[] = useMemo(() => {
-    if (!summaries) return [];
-    return summaries.map((s) => {
-      const quadrant = (s.eisenhowerQuadrant ?? "fyi") as EisenhowerQuadrant;
-      return {
-        id: s._id,
-        quadrant,
-        priority: QUADRANT_TO_PRIORITY[quadrant],
-        channel: s.channelName,
-        author: "PING",
-        authorInitials: "P",
-        summary: s.bullets[0]?.text ?? "New activity",
-        context: s.bullets.slice(1).map((b) => b.text).join(". "),
-        timestamp: new Date(s.periodEnd),
-        actions: [
-          {
-            label: "View Channel",
-            primary: true,
-            onClick: () => router.push(buildPath(`/channel/${s.channelId}`)),
-          },
-          ...(s.actionItems ?? []).map((ai) => ({
-            label: ai.text,
-            onClick: () => {
-              if (ai.integrationUrl) window.open(ai.integrationUrl, "_blank");
-              else router.push(buildPath(`/channel/${s.channelId}`));
-              markReadMutation({ summaryId: s._id });
-            },
-          })),
-        ],
-        isRead: s.isRead,
-      };
-    });
-  }, [summaries, router, markReadMutation, buildPath]);
-
-  const decisionItems: DecisionItem[] = useMemo(() => {
-    if (!decisions) return [];
-    return decisions.map((d) => {
-      const quadrant = d.eisenhowerQuadrant as EisenhowerQuadrant;
-      return {
-        id: d._id,
-        type: d.type,
-        title: d.title,
-        summary: d.summary,
-        eisenhowerQuadrant: quadrant,
-        priority: QUADRANT_TO_PRIORITY[quadrant],
-        status: d.status,
-        channelName: d.channelName ?? "unknown",
-        createdAt: new Date(d.createdAt),
-        agentExecutionStatus: d.agentExecutionStatus ?? undefined,
-        agentExecutionResult: d.agentExecutionResult ?? undefined,
-        orgTrace: (d.orgTrace ?? []) as OrgTracePerson[],
-        nextSteps: (d.nextSteps ?? []) as DecisionItem["nextSteps"],
-        recommendedActions: (d.recommendedActions ?? []) as DecisionItem["recommendedActions"],
-        links: (d.links ?? []) as DecisionItem["links"],
-        relatedDecisionIds: d.relatedDecisionIds as string[] | undefined,
-      };
-    });
-  }, [decisions]);
-
-  // Counts per quadrant (unfiltered) for pills
-  const quadrantCounts = useMemo(() => {
-    const counts: Record<EisenhowerQuadrant, number> = {
-      "urgent-important": 0, "important": 0, "urgent": 0, "fyi": 0,
-    };
-    for (const item of items) counts[item.quadrant]++;
-    for (const d of decisionItems) counts[d.eisenhowerQuadrant]++;
+  // Counts per category (unfiltered) for pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<InboxCategory, number> = { do: 0, decide: 0, delegate: 0, skip: 0 };
+    for (const d of items) counts[d.category]++;
     return counts;
-  }, [items, decisionItems]);
+  }, [items]);
 
   // Counts per priority (unfiltered) for dropdown
   const priorityCounts = useMemo(() => {
     const counts: Record<PriorityLevel, number> = { urgent: 0, high: 0, medium: 0, low: 0 };
-    for (const item of items) counts[item.priority]++;
-    for (const d of decisionItems) counts[d.priority]++;
+    for (const d of items) counts[d.priority]++;
     return counts;
-  }, [items, decisionItems]);
+  }, [items]);
 
-  const handleMarkRead = (id: string) => markReadMutation({ summaryId: id as Id<"inboxSummaries"> });
-  const handleArchive = (id: string) => archiveMutation({ summaryId: id as Id<"inboxSummaries"> });
-  const handleDismissAlert = (alertId: string) => dismissAlertMutation({ alertId: alertId as Id<"proactiveAlerts"> });
-  const handleDecisionAction = (id: string, action: string, comment?: string) => {
+  const handleAction = (id: string, action: string, comment?: string) => {
     if (action === "Snooze" || action === "snooze") {
-      snoozeMutation({ decisionId: id as Id<"decisions">, snoozeUntil: Date.now() + 60 * 60 * 1000 });
+      snoozeMutation({ itemId: id as Id<"inboxItems">, snoozeUntil: Date.now() + 60 * 60 * 1000 });
     } else {
-      decideMutation({ decisionId: id as Id<"decisions">, action, comment });
+      actMutation({ itemId: id as Id<"inboxItems">, action, comment });
     }
   };
 
-  const isLoading = summaries === undefined || drafts === undefined || decisions === undefined;
+  const handleArchive = (id: string) => {
+    archiveMutation({ itemId: id as Id<"inboxItems"> });
+  };
+
+  const isLoading = inboxItems === undefined || drafts === undefined;
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -286,62 +207,49 @@ export default function InboxPage() {
     );
   }
 
-  const totalCount = items.length + (drafts?.length ?? 0) + unansweredQuestions.length + decisionItems.length;
-  if (totalCount === 0) {
+  const totalCount = items.length + (drafts?.length ?? 0);
+  if (totalCount === 0 && !showArchive) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in px-8 text-center">
         <CheckCircle2 className="h-10 w-10 text-foreground/50" />
         <h2 className="text-sm font-medium text-foreground">Inbox is empty</h2>
         <p className="max-w-xs text-xs text-muted-foreground leading-relaxed">
-          Decisions, summaries, and action items appear here as your team communicates in channels.
+          Items appear here as your team communicates in channels.
           Send messages in a channel — AI summaries and decisions generate every 5–15 minutes.
         </p>
         <button
-          onClick={() => seedDecisionsMutation({})}
+          onClick={() => seedMutation({})}
           className="mt-2 flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
         >
           <FlaskConical className="h-3.5 w-3.5" />
-          Load demo decisions
+          Load demo data
         </button>
       </div>
     );
   }
 
-  // Sort by quadrant order then time desc
-  const sortedItems = [...items].sort((a, b) => {
-    const qDiff = QUADRANT_ORDER.indexOf(a.quadrant) - QUADRANT_ORDER.indexOf(b.quadrant);
-    return qDiff !== 0 ? qDiff : b.timestamp.getTime() - a.timestamp.getTime();
-  });
-  const sortedDecisions = [...decisionItems].sort((a, b) => {
-    const qDiff = QUADRANT_ORDER.indexOf(a.eisenhowerQuadrant) - QUADRANT_ORDER.indexOf(b.eisenhowerQuadrant);
-    return qDiff !== 0 ? qDiff : b.createdAt.getTime() - a.createdAt.getTime();
+  // Sort by category order then time desc
+  const sorted = [...items].sort((a, b) => {
+    const cDiff = CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
+    return cDiff !== 0 ? cDiff : b.createdAt.getTime() - a.createdAt.getTime();
   });
 
-  // Apply both filters
-  const activeQuadrantFilter = selectedQuadrants.size > 0;
+  // Apply filters
+  const activeCategoryFilter = selectedCategories.size > 0;
   const activePriorityFilter = selectedPriorities.size > 0;
-  const activeFilter = activeQuadrantFilter || activePriorityFilter;
+  const activeFilter = activeCategoryFilter || activePriorityFilter;
 
-  const filteredItems = sortedItems.filter((i) => {
-    if (activeQuadrantFilter && !selectedQuadrants.has(i.quadrant)) return false;
-    if (activePriorityFilter && !selectedPriorities.has(i.priority)) return false;
-    return true;
-  });
-  const filteredDecisions = sortedDecisions.filter((d) => {
-    if (activeQuadrantFilter && !selectedQuadrants.has(d.eisenhowerQuadrant)) return false;
+  const filtered = sorted.filter((d) => {
+    if (activeCategoryFilter && !selectedCategories.has(d.category)) return false;
     if (activePriorityFilter && !selectedPriorities.has(d.priority)) return false;
     return true;
   });
 
-  // Find the open modal item (search all items, not just filtered, so modal stays open during filter changes)
+  // Find modal item
   const openModalItem: ModalItem | null = (() => {
     if (!openItem) return null;
-    if (openItem.kind === "decision") {
-      const d = sortedDecisions.find((d) => d.id === openItem.id);
-      return d ? decisionToModalItem(d) : null;
-    }
-    const s = sortedItems.find((i) => i.id === openItem.id);
-    return s ? inboxToModalItem(s) : null;
+    const d = sorted.find((i) => i.id === openItem);
+    return d ? itemToModalItem(d) : null;
   })();
 
   return (
@@ -350,17 +258,17 @@ export default function InboxPage() {
       {/* ── Sticky header ── */}
       <div className="sticky top-0 z-20 flex items-center justify-between border-b border-subtle bg-background px-3 py-2">
 
-        {/* Quadrant filter pills + Priority dropdown */}
+        {/* Category filter pills + Priority dropdown */}
         <div className="flex items-center gap-1">
-          {QUADRANT_ORDER.map((q) => {
-            const cfg = QUADRANT_PILL_CONFIG[q];
-            const count = quadrantCounts[q];
-            const isActive = selectedQuadrants.has(q);
-            const anyActive = activeQuadrantFilter;
+          {CATEGORY_ORDER.map((c) => {
+            const cfg = CATEGORY_PILL_CONFIG[c];
+            const count = categoryCounts[c];
+            const isActive = selectedCategories.has(c);
+            const anyActive = activeCategoryFilter;
             return (
               <button
-                key={q}
-                onClick={() => toggleQuadrant(q)}
+                key={c}
+                onClick={() => toggleCategory(c)}
                 className={cn(
                   "flex items-center gap-1.5 rounded border px-2 py-0.5 text-2xs font-medium transition-all",
                   isActive
@@ -437,114 +345,105 @@ export default function InboxPage() {
               </div>
             )}
           </div>
+
+          {/* Archive toggle */}
+          <button
+            onClick={() => setShowArchive((s) => !s)}
+            className={cn(
+              "ml-2 flex items-center gap-1 rounded border px-2 py-0.5 text-2xs font-medium transition-colors",
+              showArchive
+                ? "border-white/15 bg-surface-2 text-foreground"
+                : "border-transparent text-foreground/20 hover:bg-surface-2 hover:text-muted-foreground",
+            )}
+          >
+            <Archive className="h-3 w-3" />
+            Archive
+          </button>
         </div>
 
         {/* Demo controls */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => seedDecisionsMutation({})}
-            title="Load demo decisions"
-            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/40 transition-colors hover:bg-surface-2 hover:text-muted-foreground"
+            onClick={() => seedMutation({})}
+            title="Load demo data"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-muted-foreground"
           >
             <FlaskConical className="h-3 w-3" />
             demo
           </button>
           <button
-            onClick={() => clearSeedMutation({})}
-            title="Clear all pending decisions"
-            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/40 transition-colors hover:bg-surface-2 hover:text-red-400"
+            onClick={() => clearMutation({})}
+            title="Clear all items"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-red-400"
           >
             ✕
           </button>
         </div>
       </div>
 
-      {/* ── Draft reminders (not priority-filtered) ── */}
-      {!activeFilter && drafts.length > 0 && (
-        <div>
-          <SectionHeader label="Drafts" count={drafts.length} />
-          {drafts.map((draft) => (
-            <DraftReminderCard
-              key={draft._id}
-              draftId={draft._id}
-              channelId={draft.channelId}
-              channelName={draft.channelName}
-              body={draft.body}
-              suggestedCompletion={draft.suggestedCompletion}
-              updatedAt={new Date(draft.updatedAt)}
-            />
-          ))}
-        </div>
-      )}
+      {showArchive ? (
+        <ArchiveView />
+      ) : (
+        <>
+          {/* ── Draft reminders (not filtered) ── */}
+          {!activeFilter && drafts.length > 0 && (
+            <div>
+              <SectionHeader label="Drafts" count={drafts.length} />
+              {drafts.map((draft) => (
+                <DraftReminderCard
+                  key={draft._id}
+                  draftId={draft._id}
+                  channelId={draft.channelId}
+                  channelName={draft.channelName}
+                  body={draft.body}
+                  suggestedCompletion={draft.suggestedCompletion}
+                  updatedAt={new Date(draft.updatedAt)}
+                />
+              ))}
+            </div>
+          )}
 
-      {/* ── Unanswered questions (not priority-filtered) ── */}
-      {!activeFilter && unansweredQuestions.length > 0 && (
-        <div>
-          <SectionHeader label="Needs Your Answer" count={unansweredQuestions.length} />
-          {unansweredQuestions.map((alert) => (
-            <UnansweredQuestionCard
-              key={alert._id}
-              alertId={alert._id}
-              channelId={alert.channelId}
-              channelName={"channel"}
-              title={alert.title}
-              body={alert.body}
-              suggestedAction={alert.suggestedAction}
-              createdAt={new Date(alert.createdAt)}
-              onDismiss={handleDismissAlert}
-            />
-          ))}
-        </div>
-      )}
+          {/* ── Per-category sections ── */}
+          {CATEGORY_ORDER.map((category) => {
+            const sectionItems = filtered.filter((d) => d.category === category);
+            if (sectionItems.length === 0) return null;
+            return (
+              <div key={category}>
+                <SectionHeader label={SECTION_LABELS[category]} count={sectionItems.length} />
+                {sectionItems.map((item) => (
+                  <DecisionCard
+                    key={item.id}
+                    item={item}
+                    onAction={handleAction}
+                    onArchive={handleArchive}
+                    onOpen={() => { setOpenItem(item.id); setFocusMode(false); }}
+                    onFocus={() => { setOpenItem(item.id); setFocusMode(true); }}
+                  />
+                ))}
+              </div>
+            );
+          })}
 
-      {/* ── Per-quadrant sections: decisions + inbox items merged ── */}
-      {QUADRANT_ORDER.map((quadrant) => {
-        const sectionDecisions = filteredDecisions.filter((d) => d.eisenhowerQuadrant === quadrant);
-        const sectionItems = filteredItems.filter((i) => i.quadrant === quadrant);
-        if (sectionDecisions.length === 0 && sectionItems.length === 0) return null;
-        return (
-          <div key={quadrant}>
-            <SectionHeader label={SECTION_LABELS[quadrant]} count={sectionDecisions.length + sectionItems.length} />
-            {sectionDecisions.map((decision) => (
-              <DecisionCard
-                key={decision.id}
-                item={decision}
-                onAction={handleDecisionAction}
-                onOpen={() => { setOpenItem({ kind: "decision", id: decision.id }); setFocusMode(false); }}
-                onFocus={() => { setOpenItem({ kind: "decision", id: decision.id }); setFocusMode(true); }}
-              />
-            ))}
-            {sectionItems.map((item) => (
-              <InboxCard
-                key={item.id}
-                item={item}
-                onMarkRead={handleMarkRead}
-                onArchive={handleArchive}
-                onOpen={() => { setOpenItem({ kind: "summary", id: item.id }); setFocusMode(false); }}
-              />
-            ))}
-          </div>
-        );
-      })}
-
-      {/* Empty state when filter returns nothing */}
-      {activeFilter && filteredDecisions.length === 0 && filteredItems.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No items match the selected filter</p>
-          <button
-            onClick={() => { setSelectedQuadrants(new Set()); setSelectedPriorities(new Set()); }}
-            className="text-xs text-foreground/40 underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Clear filters
-          </button>
-        </div>
+          {/* Empty state when filter returns nothing */}
+          {activeFilter && filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+              <p className="text-sm text-muted-foreground">No items match the selected filter</p>
+              <button
+                onClick={() => { setSelectedCategories(new Set()); setSelectedPriorities(new Set()); }}
+                className="text-xs text-foreground/40 underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Unified inbox modal */}
       {openModalItem && (
         <InboxModal
           item={openModalItem}
-          onAction={handleDecisionAction}
+          onAction={handleAction}
           onClose={() => setOpenItem(null)}
           focusMode={focusMode}
           onToggleFocusMode={() => setFocusMode((f) => !f)}
@@ -559,6 +458,56 @@ function SectionHeader({ label, count }: { label: string; count: number }) {
     <div className="sticky top-[37px] z-10 flex items-center gap-2 border-b border-subtle bg-background/95 px-4 py-2.5 backdrop-blur-sm">
       <span className="text-xs font-semibold uppercase tracking-wider text-foreground/50">{label}</span>
       <span className="text-2xs tabular-nums text-foreground/50">{count}</span>
+    </div>
+  );
+}
+
+function ArchiveView() {
+  const { isAuthenticated } = useConvexAuth();
+  const archived = useQuery(
+    api.inboxItems.listArchived,
+    isAuthenticated ? { paginationOpts: { numItems: 50, cursor: null } } : "skip",
+  );
+
+  if (!archived) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+      </div>
+    );
+  }
+
+  if (archived.page.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+        <Archive className="h-8 w-8 text-foreground/15" />
+        <p className="text-sm text-muted-foreground">No archived items yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <SectionHeader label="Archive" count={archived.page.length} />
+      {archived.page.map((item) => (
+        <div
+          key={item._id}
+          className="flex items-start gap-3 border-b border-subtle px-4 py-3 opacity-60"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-foreground">{item.title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{item.summary}</p>
+            {item.outcome && (
+              <span className="mt-1 inline-block rounded bg-ping-purple/15 px-1.5 py-px text-2xs text-ping-purple/80">
+                {item.outcome.action}
+              </span>
+            )}
+          </div>
+          <span className="shrink-0 text-2xs text-muted-foreground">
+            {new Date(item.createdAt).toLocaleDateString()}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

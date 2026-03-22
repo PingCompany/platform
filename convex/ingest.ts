@@ -401,44 +401,44 @@ export const processIntegrationObject = internalAction({
   },
 });
 
-// ── Decision ingestion ────────────────────────────────────────────
+// ── Inbox item ingestion ────────────────────────────────────────────
 
-export const getDecision = internalQuery({
-  args: { decisionId: v.id("decisions") },
+export const getInboxItem = internalQuery({
+  args: { itemId: v.id("inboxItems") },
   handler: async (ctx, args) => {
-    const decision = await ctx.db.get(args.decisionId);
-    if (!decision) return null;
-    const user = await ctx.db.get(decision.userId);
+    const item = await ctx.db.get(args.itemId);
+    if (!item) return null;
+    const user = await ctx.db.get(item.userId);
     return {
-      _id: decision._id,
-      workspaceId: decision.workspaceId,
-      type: decision.type,
-      title: decision.title,
-      summary: decision.summary,
-      eisenhowerQuadrant: decision.eisenhowerQuadrant,
-      status: decision.status,
+      _id: item._id,
+      workspaceId: item.workspaceId,
+      type: item.type,
+      title: item.title,
+      summary: item.summary,
+      category: item.category,
+      status: item.status,
       userName: user?.name ?? "Unknown",
-      outcome: decision.outcome,
-      createdAt: decision.createdAt,
+      outcome: item.outcome,
+      createdAt: item.createdAt,
     };
   },
 });
 
-export const patchDecisionEpisodeId = internalMutation({
+export const patchInboxItemEpisodeId = internalMutation({
   args: {
-    decisionId: v.id("decisions"),
+    itemId: v.id("inboxItems"),
     graphitiEpisodeId: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.decisionId, {
+    await ctx.db.patch(args.itemId, {
       graphitiEpisodeId: args.graphitiEpisodeId,
     });
   },
 });
 
-export const processDecision = internalAction({
+export const processInboxItem = internalAction({
   args: {
-    decisionId: v.id("decisions"),
+    itemId: v.id("inboxItems"),
     retryCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -446,34 +446,34 @@ export const processDecision = internalAction({
       process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
     const retryCount = args.retryCount ?? 0;
 
-    const decision = await ctx.runQuery(internal.ingest.getDecision, {
-      decisionId: args.decisionId,
+    const item = await ctx.runQuery(internal.ingest.getInboxItem, {
+      itemId: args.itemId,
     });
-    if (!decision) {
-      console.warn("[ingest] Decision not found:", args.decisionId);
+    if (!item) {
+      console.warn("[ingest] Inbox item not found:", args.itemId);
       return;
     }
 
     let content: string;
-    if (decision.outcome) {
-      content = `Decision made [${decision.type}]: ${decision.title}. Action: ${decision.outcome.action}.${decision.outcome.comment ? ` Comment: ${decision.outcome.comment}` : ""} (Quadrant: ${decision.eisenhowerQuadrant})`;
+    if (item.outcome) {
+      content = `Decision made [${item.type}]: ${item.title}. Action: ${item.outcome.action}.${item.outcome.comment ? ` Comment: ${item.outcome.comment}` : ""} (Category: ${item.category})`;
     } else {
-      content = `Decision pending [${decision.type}]: ${decision.title}. ${decision.summary} (Quadrant: ${decision.eisenhowerQuadrant})`;
+      content = `Inbox item [${item.type}]: ${item.title}. ${item.summary} (Category: ${item.category})`;
     }
 
     const response = await fetch(`${graphitiUrl}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        group_id: `decisions-${decision.workspaceId}`,
+        group_id: `inbox-${item.workspaceId}`,
         messages: [
           {
             content,
             role_type: "user",
-            role: decision.userName,
-            timestamp: new Date(decision.createdAt).toISOString(),
-            source_description: `decision - ${decision.type}`,
-            name: `${decision.userName} decision - ${decision.type}`,
+            role: item.userName,
+            timestamp: new Date(item.createdAt).toISOString(),
+            source_description: `inbox - ${item.type}`,
+            name: `${item.userName} inbox - ${item.type}`,
           },
         ],
       }),
@@ -490,22 +490,22 @@ export const processDecision = internalAction({
         );
         await ctx.scheduler.runAfter(
           RETRY_DELAY_MS,
-          internal.ingest.processDecision,
-          { decisionId: args.decisionId, retryCount: retryCount + 1 },
+          internal.ingest.processInboxItem,
+          { itemId: args.itemId, retryCount: retryCount + 1 },
         );
         return;
       }
       console.error(
-        `[ingest] Graphiti decision ingest failed: ${response.status} ${body}`,
+        `[ingest] Graphiti inbox item ingest failed: ${response.status} ${body}`,
       );
       return;
     }
 
-    await ctx.runMutation(internal.ingest.patchDecisionEpisodeId, {
-      decisionId: args.decisionId,
-      graphitiEpisodeId: decision._id,
+    await ctx.runMutation(internal.ingest.patchInboxItemEpisodeId, {
+      itemId: args.itemId,
+      graphitiEpisodeId: item._id,
     });
 
-    console.log("[ingest] Ingested decision:", args.decisionId);
+    console.log("[ingest] Ingested inbox item:", args.itemId);
   },
 });

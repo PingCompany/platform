@@ -49,8 +49,8 @@ export default function ChannelPage({ params }: Props) {
   const markRead = useMutation(api.channels.markRead);
   const memberCount = useQuery(api.channels.memberCount, isAuthenticated ? { channelId: typedChannelId } : "skip");
   const channelMembers = useQuery(api.channels.listMembers, isAuthenticated ? { channelId: typedChannelId } : "skip");
-  const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
-  const dismissAlert = useMutation(api.proactiveAlerts.dismiss);
+  const alerts = useQuery(api.inboxItems.list, isAuthenticated ? {} : "skip");
+  const dismissAlert = useMutation(api.inboxItems.archive);
   const leaveChannel = useMutation(api.channels.leave);
   const toggleStar = useMutation(api.channels.toggleStar);
   const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId, isMember);
@@ -107,6 +107,9 @@ export default function ChannelPage({ params }: Props) {
       threadId: msg.threadId,
       alsoSentToChannel: msg.alsoSentToChannel,
       isEdited: msg.isEdited,
+      integrationObjectId: msg.integrationObjectId,
+      integrationHistory: msg.integrationHistory as Array<{ body: string; timestamp: number }> | undefined,
+      messageType: msg.type,
     }));
   }, [results]);
 
@@ -219,11 +222,11 @@ export default function ChannelPage({ params }: Props) {
       {firstAlert && (
         <AlertBanner
           title={firstAlert.title}
-          description={firstAlert.body}
+          description={firstAlert.summary}
           actions={[
-            { label: firstAlert.suggestedAction, primary: true },
+            { label: firstAlert.pingWillDo ?? "View", primary: true },
           ]}
-          onDismiss={() => dismissAlert({ alertId: firstAlert._id })}
+          onDismiss={() => dismissAlert({ itemId: firstAlert._id })}
         />
       )}
 

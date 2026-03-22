@@ -16,7 +16,7 @@ interface RelatedDecision {
   id: string;
   title: string;
   type: string;
-  eisenhowerQuadrant: string;
+  category: string;
   summary: string;
   outcome?: {
     action: string;
@@ -43,11 +43,11 @@ const typeConfig: Record<string, { icon: typeof GitPullRequest; label: string }>
   channel_summary: { icon: FileText, label: "Summary" },
 };
 
-const quadrantLabel: Record<string, string> = {
-  "urgent-important": "URGENT · IMPORTANT",
-  important: "IMPORTANT",
-  urgent: "URGENT",
-  fyi: "FYI",
+const categoryLabel: Record<string, string> = {
+  do: "DO",
+  decide: "DECIDE",
+  delegate: "DELEGATE",
+  skip: "SKIP",
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -83,7 +83,7 @@ export function RelatedDecisionView({ decision, onClose }: RelatedDecisionViewPr
             <span className="text-2xs font-medium text-muted-foreground">{typeInfo.label}</span>
             <span className="text-2xs text-white/25">·</span>
             <span className="text-2xs text-muted-foreground">
-              {quadrantLabel[decision.eisenhowerQuadrant] ?? decision.eisenhowerQuadrant}
+              {categoryLabel[decision.category] ?? decision.category}
             </span>
           </div>
           <div className="flex items-center gap-2">

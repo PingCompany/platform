@@ -30,7 +30,7 @@ import {
   Minimize2,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import type { DecisionItem } from "./DecisionCard";
+import type { InboxItemData } from "./DecisionCard";
 import { UserProfileModal } from "./UserProfileModal";
 import { RelatedDecisionView } from "./RelatedDecisionView";
 
@@ -47,7 +47,7 @@ interface RelatedDecisionData {
   id: string;
   title: string;
   type: string;
-  eisenhowerQuadrant: string;
+  category: string;
   summary: string;
   outcome?: { action: string; comment?: string; decidedAt: number } | null;
   orgTrace: Array<{ name: string; role: string; userId?: string }>;
@@ -56,7 +56,7 @@ interface RelatedDecisionData {
 }
 
 interface DecisionModalProps {
-  item: DecisionItem;
+  item: InboxItemData;
   onAction: (id: string, action: string, comment?: string) => void;
   onClose: () => void;
   focusMode?: boolean;
@@ -77,27 +77,27 @@ const typeConfig: Record<string, { icon: typeof GitPullRequest; label: string }>
   channel_summary: { icon: FileText, label: "Summary" },
 };
 
-const quadrantConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  "urgent-important": {
-    label: "URGENT · IMPORTANT",
+const categoryModalConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
+  do: {
+    label: "DO",
     bg: "bg-priority-urgent/10",
     text: "text-priority-urgent",
     border: "border-priority-urgent/30",
   },
-  important: {
-    label: "IMPORTANT",
+  decide: {
+    label: "DECIDE",
     bg: "bg-priority-important/10",
     text: "text-priority-important",
     border: "border-priority-important/30",
   },
-  urgent: {
-    label: "URGENT",
+  delegate: {
+    label: "DELEGATE",
     bg: "bg-blue-500/10",
     text: "text-blue-400",
     border: "border-blue-500/30",
   },
-  fyi: {
-    label: "FYI",
+  skip: {
+    label: "SKIP",
     bg: "bg-white/5",
     text: "text-white/30",
     border: "border-white/10",
@@ -260,13 +260,13 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
     }
   }, [focusMode, setSidebarOpen]);
 
-  const context = useQuery(api.decisions.getContext, {
-    decisionId: item.id as Id<"decisions">,
+  const context = useQuery(api.inboxItems.getContext, {
+    itemId: item.id as Id<"inboxItems">,
   });
 
   const typeInfo = typeConfig[item.type] ?? typeConfig.channel_summary;
   const TypeIcon = typeInfo.icon;
-  const qConfig = quadrantConfig[item.eisenhowerQuadrant] ?? quadrantConfig.fyi;
+  const qConfig = categoryModalConfig[item.category] ?? categoryModalConfig.skip;
   const actions: RecommendedAction[] = item.recommendedActions ?? fallbackActions[item.type] ?? [];
 
   const involved = (item.orgTrace ?? []).filter((p) => p.role !== "to_consult");
@@ -296,9 +296,9 @@ export function DecisionModal({ item, onAction, onClose, focusMode = false, onTo
 
   const msgCount = context?.relatedMessages.length ?? 0;
   const linkedCount = decisionLinks.length + (context?.sourceIntegrationObject ? 1 : 0);
-  const historyCount = context?.relatedDecisions?.length ?? 0;
+  const historyCount = context?.relatedItems?.length ?? 0;
 
-  const relatedDecisions = (context?.relatedDecisions ?? []) as RelatedDecisionData[];
+  const relatedDecisions = (context?.relatedItems ?? []) as RelatedDecisionData[];
 
   return createPortal(
     <>

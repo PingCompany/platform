@@ -17,17 +17,16 @@ export const getAlerts = query({
     status: v.optional(
       v.union(
         v.literal("pending"),
-        v.literal("acted"),
-        v.literal("dismissed"),
-        v.literal("expired"),
+        v.literal("snoozed"),
+        v.literal("archived"),
       ),
     ),
     type: v.optional(
       v.union(
-        v.literal("unanswered_question"),
-        v.literal("pr_review_nudge"),
-        v.literal("incident_route"),
-        v.literal("blocked_task"),
+        v.literal("pr_review"),
+        v.literal("ticket_triage"),
+        v.literal("question_answer"),
+        v.literal("blocked_unblock"),
       ),
     ),
   },
@@ -36,24 +35,15 @@ export const getAlerts = query({
 
     if (args.status) {
       return await ctx.db
-        .query("proactiveAlerts")
+        .query("inboxItems")
         .withIndex("by_user_status", (q) =>
           q.eq("userId", user._id).eq("status", args.status!),
         )
         .take(100);
     }
 
-    if (args.type) {
-      return await ctx.db
-        .query("proactiveAlerts")
-        .withIndex("by_user_type", (q) =>
-          q.eq("userId", user._id).eq("type", args.type!),
-        )
-        .take(100);
-    }
-
     return await ctx.db
-      .query("proactiveAlerts")
+      .query("inboxItems")
       .withIndex("by_user_status", (q) =>
         q.eq("userId", user._id).eq("status", "pending"),
       )
@@ -61,41 +51,9 @@ export const getAlerts = query({
   },
 });
 
-export const createAlert = internalMutation({
-  args: {
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    type: v.union(
-      v.literal("unanswered_question"),
-      v.literal("pr_review_nudge"),
-      v.literal("incident_route"),
-      v.literal("blocked_task"),
-    ),
-    channelId: v.id("channels"),
-    title: v.string(),
-    body: v.string(),
-    sourceMessageId: v.optional(v.id("messages")),
-    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
-    suggestedAction: v.string(),
-    priority: v.union(
-      v.literal("high"),
-      v.literal("medium"),
-      v.literal("low"),
-    ),
-    expiresAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("proactiveAlerts", {
-      ...args,
-      status: "pending",
-      createdAt: Date.now(),
-    });
-  },
-});
-
 export const actOnAlert = mutation({
   args: {
-    alertId: v.id("proactiveAlerts"),
+    alertId: v.id("inboxItems"),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -104,13 +62,13 @@ export const actOnAlert = mutation({
     if (!alert) throw new Error("Alert not found");
     if (alert.userId !== user._id) throw new Error("Not authorized");
 
-    await ctx.db.patch(args.alertId, { status: "acted" });
+    await ctx.db.patch(args.alertId, { status: "archived" });
   },
 });
 
 export const dismissAlert = mutation({
   args: {
-    alertId: v.id("proactiveAlerts"),
+    alertId: v.id("inboxItems"),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -119,7 +77,7 @@ export const dismissAlert = mutation({
     if (!alert) throw new Error("Alert not found");
     if (alert.userId !== user._id) throw new Error("Not authorized");
 
-    await ctx.db.patch(args.alertId, { status: "dismissed" });
+    await ctx.db.patch(args.alertId, { status: "archived" });
   },
 });
 
@@ -127,31 +85,38 @@ export const expireStaleAlerts = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const allAlerts = await ctx.db.query("proactiveAlerts").take(10000);
+    const pendingItems = await ctx.db
+      .query("inboxItems")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "pending"),
+          q.neq(q.field("expiresAt"), undefined),
+        ),
+      )
+      .take(10000);
     let expiredCount = 0;
 
-    for (const alert of allAlerts) {
-      if (alert.status === "pending" && alert.expiresAt < now) {
-        await ctx.db.patch(alert._id, { status: "expired" });
+    for (const item of pendingItems) {
+      if (item.expiresAt && item.expiresAt < now) {
+        await ctx.db.patch(item._id, { status: "archived" });
         expiredCount++;
       }
     }
 
-    console.log(`[proactive.expireStaleAlerts] Expired ${expiredCount} alerts`);
+    console.log(`[proactive.expireStaleAlerts] Expired ${expiredCount} items`);
   },
 });
 
 export const scanUnansweredQuestions = internalAction({
   args: {},
   handler: async () => {
-    // TODO: Implement with Civic Nexus + AI classification
     console.log(
       "[proactive.scanUnansweredQuestions stub] Would scan for unanswered questions",
     );
   },
 });
 
-const PR_STALE_THRESHOLD_MS = 4 * 60 * 60 * 1000; // 4 hours
+const PR_STALE_THRESHOLD_MS = 4 * 60 * 60 * 1000;
 
 export const scanPRReviewNudges = internalAction({
   args: {},
@@ -183,7 +148,6 @@ export const scanPRReviewNudges = internalAction({
       return;
     }
 
-    // Find #engineering channel for alerts
     const channels = await ctx.runQuery(internal.channels.getByWorkspaceName, {
       workspaceId: workspace._id,
       name: "engineering",
@@ -206,9 +170,6 @@ export const scanPRReviewNudges = internalAction({
         number?: number;
       };
 
-      // Use Civic Nexus → GitHub to check review status.
-      // Tool names match Civic Nexus GitHub server registration.
-      // Run listCivicNexusTools() to discover exact names for your setup.
       let reviewInfo = "";
       let requestedReviewers: string[] = [];
       try {
@@ -220,7 +181,6 @@ export const scanPRReviewNudges = internalAction({
           });
           reviewInfo = reviewData;
 
-          // Also get requested reviewers
           const prData = await callCivicNexusTool("get_pull_request", {
             owner: meta.owner,
             repo: meta.repo,
@@ -242,10 +202,8 @@ export const scanPRReviewNudges = internalAction({
           `[scanPRReviewNudges] Civic Nexus call failed for PR #${meta.number}:`,
           err,
         );
-        // Fall through — still create a nudge based on time threshold
       }
 
-      // Check if PR already has approvals
       let hasApproval = false;
       try {
         const parsed = JSON.parse(reviewInfo);
@@ -264,8 +222,6 @@ export const scanPRReviewNudges = internalAction({
         (now - pr.lastSyncedAt) / (60 * 60 * 1000),
       );
 
-      // Create an alert for each active user in the workspace
-      // (in production, target only requested reviewers or domain experts)
       const targetUsers =
         requestedReviewers.length > 0
           ? allUsers.filter((u: any) =>
@@ -280,24 +236,22 @@ export const scanPRReviewNudges = internalAction({
             );
 
       for (const user of targetUsers) {
-        // Only alert users who are members of the target channel
         const isMember = await ctx.runQuery(internal.channels.isMember, {
           channelId: channels._id,
           userId: user._id,
         });
         if (!isMember) continue;
 
-        await ctx.runMutation(internal.proactive.createAlert, {
+        await ctx.runMutation(internal.inboxItems.insertItem, {
           userId: user._id,
           workspaceId: workspace._id,
-          type: "pr_review_nudge",
-          channelId: channels._id,
+          type: "pr_review",
+          category: hoursOpen > 24 ? "do" : "decide",
           title: `PR #${meta.number ?? "?"} waiting for review`,
-          body: `"${pr.title}" by ${pr.author} has been open for ${hoursOpen}h without approval.`,
+          summary: `"${pr.title}" by ${pr.author} has been open for ${hoursOpen}h without approval.`,
+          pingWillDo: `Review PR at ${pr.url}`,
           sourceIntegrationObjectId: pr._id,
-          suggestedAction: `Review PR at ${pr.url}`,
-          priority: hoursOpen > 24 ? "high" : "medium",
-          expiresAt: now + 24 * 60 * 60 * 1000,
+          channelId: channels._id,
         });
         nudgeCount++;
       }
@@ -310,7 +264,7 @@ export const scanPRReviewNudges = internalAction({
   },
 });
 
-const BLOCKED_TASK_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+const BLOCKED_TASK_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000;
 
 export const scanBlockedTasks = internalAction({
   args: {},
@@ -361,8 +315,6 @@ export const scanBlockedTasks = internalAction({
         priority?: number;
       };
 
-      // Use Civic Nexus → Linear to check for blocker signals.
-      // Tool names match Civic Nexus Linear server registration.
       let ticketDetails = "";
       try {
         ticketDetails = await callCivicNexusTool("get_issue", {
@@ -379,7 +331,6 @@ export const scanBlockedTasks = internalAction({
         (now - ticket.lastSyncedAt) / (24 * 60 * 60 * 1000),
       );
 
-      // Try to find the assignee among workspace users
       const assigneeUser = allUsers.find(
         (u: any) =>
           u.status === "active" &&
@@ -390,37 +341,34 @@ export const scanBlockedTasks = internalAction({
       const targetUser = assigneeUser ?? allUsers.find((u: any) => u.status === "active");
       if (!targetUser) continue;
 
-      // Only alert users who are members of the target channel
       const isMember = await ctx.runQuery(internal.channels.isMember, {
         channelId: channels._id,
         userId: targetUser._id,
       });
       if (!isMember) continue;
 
-      let suggestedAction = `Check on ${meta.identifier ?? ticket.title} — in progress for ${daysStuck} days.`;
+      let pingWillDo = `Check on ${meta.identifier ?? ticket.title} — in progress for ${daysStuck} days.`;
 
-      // Parse Linear response for additional context
       try {
         const parsed = JSON.parse(ticketDetails);
         if (parsed.comments?.length > 0) {
           const lastComment = parsed.comments[parsed.comments.length - 1];
-          suggestedAction += ` Last comment: "${lastComment.body?.slice(0, 100)}"`;
+          pingWillDo += ` Last comment: "${lastComment.body?.slice(0, 100)}"`;
         }
       } catch {
         // ticketDetails might not be JSON
       }
 
-      await ctx.runMutation(internal.proactive.createAlert, {
+      await ctx.runMutation(internal.inboxItems.insertItem, {
         userId: targetUser._id,
         workspaceId: workspace._id,
-        type: "blocked_task",
-        channelId: channels._id,
+        type: "blocked_unblock",
+        category: daysStuck > 5 ? "do" : "decide",
         title: `${meta.identifier ?? "Ticket"} may be blocked`,
-        body: `"${ticket.title}" has been in progress for ${daysStuck} days without updates.`,
+        summary: `"${ticket.title}" has been in progress for ${daysStuck} days without updates.`,
+        pingWillDo,
         sourceIntegrationObjectId: ticket._id,
-        suggestedAction,
-        priority: daysStuck > 5 ? "high" : "medium",
-        expiresAt: now + 24 * 60 * 60 * 1000,
+        channelId: channels._id,
       });
       alertCount++;
     }

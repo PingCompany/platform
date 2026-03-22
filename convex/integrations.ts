@@ -32,8 +32,9 @@ function buildIntegrationMessageBody(
   }
 
   const priority = (metadata?.priority as string) ?? "";
+  const identifier = (metadata?.identifier as string) ?? "";
   const parts = [
-    `**[Linear ticket ${action}]** [${title}](${url})`,
+    `**[Linear ticket ${action}]** [${identifier ? `${identifier} ` : ""}${title}](${url})`,
     `Author: ${author} | Status: ${status}${priority ? ` | Priority: ${priority}` : ""}`,
     description ? `> ${description}` : null,
   ];
@@ -156,6 +157,30 @@ export const upsert = internalMutation({
       for (const rule of routingRules) {
         if (rule.externalTarget !== "*" && objectTarget && rule.externalTarget !== objectTarget) {
           continue;
+        }
+
+        // For updates, find and edit the existing message instead of creating a new one
+        if (isUpdate) {
+          const existingMessages = await ctx.db
+            .query("messages")
+            .withIndex("by_channel", (q) => q.eq("channelId", rule.channelId))
+            .order("desc")
+            .take(100);
+
+          const existingMsg = existingMessages.find(
+            (m) => m.type === "integration" && m.integrationObjectId === objectId,
+          );
+
+          if (existingMsg) {
+            const history = (existingMsg.integrationHistory as Array<{ body: string; timestamp: number }>) ?? [];
+            history.push({ body: existingMsg.body, timestamp: existingMsg._creationTime });
+            await ctx.db.patch(existingMsg._id, {
+              body,
+              isEdited: true,
+              integrationHistory: history,
+            });
+            continue;
+          }
         }
 
         const messageId = await ctx.db.insert("messages", {

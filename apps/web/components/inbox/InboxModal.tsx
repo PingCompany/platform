@@ -13,7 +13,7 @@ import {
   Minimize2, PenLine,
 } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
-import type { EisenhowerQuadrant, PriorityLevel } from "./InboxCard";
+import type { InboxCategory, PriorityLevel } from "./InboxCard";
 import type { OrgTracePerson } from "./DecisionCard";
 import { UserProfileModal } from "./UserProfileModal";
 import { RelatedDecisionView } from "./RelatedDecisionView";
@@ -31,16 +31,15 @@ export interface ModalItem {
   priority: PriorityLevel;
   channelName: string;
   createdAt: Date;
-  // Decision fields
-  eisenhowerQuadrant?: EisenhowerQuadrant;
+  category?: InboxCategory;
   decisionType?: string;
   orgTrace?: OrgTracePerson[];
   nextSteps?: Array<{ actionKey: string; label: string; automated: boolean }>;
   recommendedActions?: Array<{ label: string; actionKey: string; primary?: boolean }>;
   links?: Array<{ title: string; url: string; type: string }>;
-  relatedDecisionIds?: string[];
+  relatedItemIds?: string[];
   agentExecutionStatus?: string;
-  // Summary fields
+  pingWillDo?: string;
   quickActions?: Array<{ label: string; primary?: boolean; onClick?: () => void }>;
 }
 
@@ -48,7 +47,7 @@ interface RelatedDecisionData {
   id: string;
   title: string;
   type: string;
-  eisenhowerQuadrant: string;
+  category: string;
   summary: string;
   outcome?: { action: string; comment?: string; decidedAt: number } | null;
   orgTrace: Array<{ name: string; role: string; userId?: string }>;
@@ -78,11 +77,11 @@ const typeConfig: Record<string, { icon: typeof GitPullRequest; label: string }>
   channel_summary:{ icon: FileText,       label: "Summary" },
 };
 
-const quadrantConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  "urgent-important": { label: "URGENT · IMPORTANT", bg: "bg-priority-urgent/10",    text: "text-priority-urgent",    border: "border-priority-urgent/30" },
-  "important":        { label: "IMPORTANT",           bg: "bg-priority-important/10", text: "text-priority-important", border: "border-priority-important/30" },
-  "urgent":           { label: "URGENT",              bg: "bg-blue-500/10",           text: "text-blue-400",           border: "border-blue-500/30" },
-  "fyi":              { label: "FYI",                 bg: "bg-white/5",               text: "text-white/30",           border: "border-white/10" },
+const categoryConfig: Record<string, { label: string; bg: string; text: string; border: string }> = {
+  do:       { label: "DO",       bg: "bg-priority-urgent/10",    text: "text-priority-urgent",    border: "border-priority-urgent/30" },
+  decide:   { label: "DECIDE",   bg: "bg-priority-important/10", text: "text-priority-important", border: "border-priority-important/30" },
+  delegate: { label: "DELEGATE", bg: "bg-blue-500/10",           text: "text-blue-400",           border: "border-blue-500/30" },
+  skip:     { label: "SKIP",     bg: "bg-white/5",               text: "text-white/30",           border: "border-white/10" },
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -186,8 +185,8 @@ export function InboxModal({
   const isDecision = item.kind === "decision";
 
   const context = useQuery(
-    api.decisions.getContext,
-    isDecision ? { decisionId: item.id as Id<"decisions"> } : "skip",
+    api.inboxItems.getContext,
+    isDecision ? { itemId: item.id as Id<"inboxItems"> } : "skip",
   );
 
   // Escape to close
@@ -221,8 +220,8 @@ export function InboxModal({
     ? (typeConfig[item.decisionType] ?? typeConfig.channel_summary)
     : typeConfig.channel_summary;
   const TypeIcon = typeInfo.icon;
-  const qConfig = item.eisenhowerQuadrant
-    ? (quadrantConfig[item.eisenhowerQuadrant] ?? quadrantConfig.fyi)
+  const qConfig = item.category
+    ? (categoryConfig[item.category] ?? categoryConfig.skip)
     : null;
 
   const actions = item.recommendedActions
@@ -239,8 +238,8 @@ export function InboxModal({
   const decisionLinks = item.links ?? [];
   const msgCount = context?.relatedMessages.length ?? 0;
   const linkedCount = decisionLinks.length + (context?.sourceIntegrationObject ? 1 : 0);
-  const historyCount = context?.relatedDecisions?.length ?? 0;
-  const relatedDecisions = (context?.relatedDecisions ?? []) as RelatedDecisionData[];
+  const historyCount = context?.relatedItems?.length ?? 0;
+  const relatedDecisions = (context?.relatedItems ?? []) as RelatedDecisionData[];
   const contextBadge = msgCount + linkedCount + historyCount;
 
   function handleDecisionAction(action: { actionKey: string; label: string }) {

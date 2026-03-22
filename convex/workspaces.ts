@@ -1,4 +1,5 @@
 import { query, mutation, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireAuth, requireUser } from "./auth";
 
@@ -43,6 +44,13 @@ export const create = mutation({
       channelId,
       userId: user._id,
     });
+
+    // Provision managed agents (mrPING etc.)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.managedAgents.ensureManagedAgents,
+      { workspaceId },
+    );
 
     return workspaceId;
   },

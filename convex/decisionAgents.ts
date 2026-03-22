@@ -10,7 +10,7 @@ import {
 
 export const updateExecutionStatus = internalMutation({
   args: {
-    decisionId: v.id("decisions"),
+    decisionId: v.id("inboxItems"),
     agentExecutionStatus: v.union(
       v.literal("pending"),
       v.literal("running"),
@@ -30,16 +30,22 @@ export const updateExecutionStatus = internalMutation({
 // ─── Read decision for agent execution ───────────────────────────────────────
 
 export const getDecision = internalQuery({
-  args: { decisionId: v.id("decisions") },
+  args: { decisionId: v.id("inboxItems") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.decisionId);
+    const item = await ctx.db.get(args.decisionId);
+    if (!item) return null;
+    // Adapt to the DecisionDoc interface used by handlers
+    return {
+      ...item,
+      workspaceId: item.workspaceId,
+    };
   },
 });
 
 // ─── Main dispatcher ─────────────────────────────────────────────────────────
 
 export const executeDecisionAction = internalAction({
-  args: { decisionId: v.id("decisions") },
+  args: { decisionId: v.id("inboxItems") },
   handler: async (ctx, args) => {
     const decision = await ctx.runQuery(
       internal.decisionAgents.getDecision,

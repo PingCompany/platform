@@ -295,18 +295,23 @@ export const getRecentMessages = internalQuery({
 });
 
 /**
- * Get the latest summary period end for a channel so we can skip channels
+ * Get the latest summary time for a channel so we can skip channels
  * with no new messages since the last run.
  */
 export const getLastSummaryTime = internalQuery({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const latest = await ctx.db
-      .query("inboxSummaries")
-      .withIndex("by_channel_period", (q) => q.eq("channelId", args.channelId))
+      .query("inboxItems")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("channelId"), args.channelId),
+          q.eq(q.field("type"), "channel_summary"),
+        ),
+      )
       .order("desc")
       .first();
-    return latest?.periodEnd ?? null;
+    return latest?.createdAt ?? null;
   },
 });
 
@@ -329,6 +334,13 @@ export const getUserRoleAndPrefs = internalQuery({
     };
   },
 });
+
+const QUADRANT_TO_CATEGORY: Record<string, "do" | "decide" | "delegate" | "skip"> = {
+  "urgent-important": "do",
+  "important": "decide",
+  "urgent": "delegate",
+  "fyi": "skip",
+};
 
 export const writeSummary = internalMutation({
   args: {
@@ -357,16 +369,23 @@ export const writeSummary = internalMutation({
     periodEnd: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("inboxSummaries", {
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) return;
+
+    const title = args.bullets[0]?.text ?? "New activity";
+    const summary = args.bullets.slice(1).map((b) => b.text).join(". ");
+    const category = QUADRANT_TO_CATEGORY[args.eisenhowerQuadrant] ?? "skip";
+
+    await ctx.db.insert("inboxItems", {
       userId: args.userId,
+      workspaceId: channel.workspaceId,
+      type: "channel_summary",
+      category,
+      title,
+      summary,
+      status: "pending",
       channelId: args.channelId,
-      eisenhowerQuadrant: args.eisenhowerQuadrant,
-      bullets: args.bullets,
-      messageCount: args.messageCount,
-      periodStart: args.periodStart,
-      periodEnd: args.periodEnd,
-      isRead: false,
-      isArchived: false,
+      createdAt: Date.now(),
     });
   },
 });
@@ -582,17 +601,23 @@ export const writeEmailSummary = internalMutation({
     periodEnd: v.number(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("inboxSummaries", {
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) return;
+
+    const title = args.bullets[0]?.text ?? "Email summary";
+    const summary = args.bullets.slice(1).map((b) => b.text).join(". ");
+    const category = QUADRANT_TO_CATEGORY[args.eisenhowerQuadrant] ?? "skip";
+
+    await ctx.db.insert("inboxItems", {
       userId: args.userId,
+      workspaceId: channel.workspaceId,
+      type: "email_summary",
+      category,
+      title,
+      summary,
+      status: "pending",
       channelId: args.channelId,
-      eisenhowerQuadrant: args.eisenhowerQuadrant,
-      bullets: args.bullets,
-      messageCount: args.messageCount,
-      periodStart: args.periodStart,
-      periodEnd: args.periodEnd,
-      isRead: false,
-      isArchived: false,
-      actionItems: [],
+      createdAt: Date.now(),
     });
   },
 });

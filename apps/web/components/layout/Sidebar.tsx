@@ -135,7 +135,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
 
   const allWorkspaces = useQuery(api.workspaces.listForUser, isAuthenticated ? {} : "skip");
   const channels = useQuery(api.channels.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
-  const inboxUnread = useQuery(api.inboxSummaries.unreadCount, isAuthenticated ? {} : "skip");
+  const inboxUnread = useQuery(api.inboxItems.unreadCount, isAuthenticated ? {} : "skip");
   const emailUnread = useQuery(api.emails.unreadCount, isAuthenticated ? {} : "skip");
   const dmConversations = useQuery(api.directConversations.list, isAuthenticated ? {} : "skip");
   const user = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
