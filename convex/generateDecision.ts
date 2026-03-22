@@ -99,15 +99,27 @@ export const getGenerationContext = internalQuery({
       }),
     );
 
-    // Get existing pending inbox items to avoid duplicates
-    const existingItems = await ctx.db
+    // Get all recent inbox items (pending + archived) to avoid duplicates
+    const pendingItems = await ctx.db
       .query("inboxItems")
       .withIndex("by_user_status", (q) =>
         q.eq("userId", args.userId).eq("status", "pending"),
       )
+      .take(30);
+
+    const archivedItems = await ctx.db
+      .query("inboxItems")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", args.userId).eq("status", "archived"),
+      )
+      .order("desc")
       .take(20);
 
-    const existingTitles = existingItems.map((item) => item.title);
+    const allRecentItems = [...pendingItems, ...archivedItems];
+    const existingDecisions = allRecentItems.map((item) => ({
+      title: item.title,
+      summary: item.summary,
+    }));
 
     return {
       channels: channelData,
@@ -118,7 +130,7 @@ export const getGenerationContext = internalQuery({
         title?: string;
         department?: string;
       }>,
-      existingTitles,
+      existingDecisions,
     };
   },
 });
@@ -212,10 +224,12 @@ ${membersContext || "(No members found)"}
 ## Knowledge graph context
 ${knowledgeFacts || "(No knowledge graph data available)"}
 
-## Already in inbox (avoid duplicates)
-${context.existingTitles.length > 0 ? context.existingTitles.map((t) => `- ${t}`).join("\n") : "(Empty inbox)"}
+## Existing decisions (DO NOT repeat these — generate something completely different)
+${context.existingDecisions.length > 0 ? context.existingDecisions.map((d) => `- ${d.title}: ${d.summary.slice(0, 80)}`).join("\n") : "(No existing decisions)"}
 
 Generate a decision item as JSON. The decision must be grounded in the real data above — do not fabricate people, PRs, or events that don't exist. If there's limited data, focus on what's actually there (e.g. summarizing channel discussion into an actionable question).
+
+IMPORTANT: The decision MUST be different from the existing decisions listed above. Do NOT repeat the same topic, question, or scenario. Find a new angle, different people, or a different aspect of the workspace activity.
 
 The "type" must be one of: pr_review, ticket_triage, question_answer, blocked_unblock, fact_verify, cross_team_ack, channel_summary
 The "category" must be one of: do (urgent+important), decide (important), delegate (urgent but not important), skip (FYI)

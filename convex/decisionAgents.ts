@@ -295,60 +295,94 @@ async function handleCoordinate(
 ): Promise<string> {
   const results: string[] = [];
 
+  // 0. Get the mrPING bot user — needed for both ticket and conversation
+  const botUser = await ctx.runQuery(internal.bot.getBotUser, {
+    workspaceId: decision.workspaceId,
+  });
+
   // 1. Create a Linear ticket for tracking
+  let ticketUrl: string | null = null;
+  let ticketIdentifier: string | null = null;
   try {
     const ticketResult = await callCivicNexusTool("create_issue", {
       title: decision.title,
       description: [
         `**Decision:** ${decision.title}`,
         "",
-        `**Context:** ${decision.summary}`,
+        decision.summary,
         "",
-        decision.outcome?.comment ? `**Decision comment:** ${decision.outcome.comment}` : "",
+        decision.outcome?.comment ? `> ${decision.outcome.comment}` : "",
         "",
-        `**People involved:**`,
-        ...(decision.orgTrace ?? []).map(
-          (p) => `- ${p.name} (${p.role})`,
-        ),
+        "**Stakeholders:**",
+        ...(decision.orgTrace ?? []).map((p) => `- ${p.name} (${p.role})`),
         "",
-        `*Created by mrPING from inbox decision.*`,
+        "*Created by mrPING from inbox decision.*",
       ]
         .filter(Boolean)
         .join("\n"),
       priority: decision.type === "blocked_unblock" ? 1 : 2,
     });
-    results.push(`Linear ticket created: ${ticketResult}`);
+
+    // Parse ticket result for URL/identifier
+    try {
+      const parsed = JSON.parse(ticketResult);
+      ticketUrl = parsed.url ?? null;
+      ticketIdentifier = parsed.identifier ?? parsed.id ?? null;
+    } catch {
+      // Try to extract URL from plain text
+      const urlMatch = ticketResult.match(/https:\/\/linear\.app\/[^\s]+/);
+      if (urlMatch) ticketUrl = urlMatch[0];
+      const idMatch = ticketResult.match(/[A-Z]+-\d+/);
+      if (idMatch) ticketIdentifier = idMatch[0];
+    }
+
+    results.push(`Linear ticket created: ${ticketIdentifier ?? ticketResult}`);
     await closeCivicNexusClient();
+
+    // Attach ticket link to the decision item
+    if (ticketUrl) {
+      await ctx.runMutation(internal.decisionAgents.addDecisionLink, {
+        decisionId: decision._id,
+        title: ticketIdentifier ? `${ticketIdentifier} — Linear` : "Linear ticket",
+        url: ticketUrl,
+        type: "other",
+      });
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     results.push(`Linear ticket creation failed: ${msg}`);
     try { await closeCivicNexusClient(); } catch { /* ignore */ }
   }
 
-  // 2. Collect participant userIds from orgTrace
+  // 2. Collect participant userIds from orgTrace with risk descriptions
   const participantIds: string[] = [];
-  const riskDescriptions: Map<string, string> = new Map();
+  const riskMap: Array<{ name: string; risk: string }> = [];
 
   for (const person of decision.orgTrace ?? []) {
     if (person.userId) {
       participantIds.push(person.userId);
-      // Map role to risk description
-      const roleDesc =
+      const risk =
         person.role === "author"
-          ? "Raised this issue — owns the context"
+          ? "owns the context"
           : person.role === "assignee"
-            ? "Responsible for execution — delivery risk"
+            ? "delivery risk"
             : person.role === "mentioned"
-              ? "Referenced in discussion — may be impacted"
-              : "Subject matter expert — consult for risk assessment";
-      riskDescriptions.set(person.name, roleDesc);
+              ? "may be impacted"
+              : "consult for risk assessment";
+      riskMap.push({ name: person.name, risk });
     }
   }
 
   // Add decision owner if not already included
+  const ownerUser = await ctx.runQuery(internal.decisionAgents.getUser, {
+    userId: decision.userId,
+  });
   const ownerIncluded = participantIds.includes(decision.userId as string);
   if (!ownerIncluded) {
     participantIds.push(decision.userId as string);
+    if (ownerUser) {
+      riskMap.push({ name: ownerUser.name, risk: "decision owner — tracking" });
+    }
   }
 
   if (participantIds.length === 0) {
@@ -356,51 +390,44 @@ async function handleCoordinate(
     return results.join("\n");
   }
 
-  // 3. Get the mrPING bot user to add as agent member
-  const botUser = await ctx.runQuery(internal.bot.getBotUser, {
-    workspaceId: decision.workspaceId,
-  });
-
-  // 4. Create group AI-aided conversation
+  // 3. Create group AI-aided conversation with mrPING
   const agentMemberIds = botUser ? [botUser._id] : [];
 
   const conversationId = await ctx.runMutation(
     internal.decisionAgents.createGroupConversation,
     {
       workspaceId: decision.workspaceId,
-      createdBy: decision.userId,
+      createdBy: botUser?._id ?? decision.userId,
       name: decision.title,
       memberIds: participantIds,
       agentMemberIds,
     },
   );
 
-  // 5. Post initial bot message tagging each person with their risk
-  const tagLines = (decision.orgTrace ?? [])
-    .filter((p) => p.userId)
-    .map((p) => `• **${p.name}** — ${riskDescriptions.get(p.name) ?? p.role}`);
+  // 4. Post intro message as mrPING with @mentions and proper formatting
+  const ticketLine = ticketUrl
+    ? `**Tracking:** [${ticketIdentifier ?? "Linear ticket"}](${ticketUrl})`
+    : ticketIdentifier
+      ? `**Tracking:** ${ticketIdentifier}`
+      : null;
 
-  // Add owner tracking line
-  const ownerUser = await ctx.runQuery(internal.decisionAgents.getUser, {
-    userId: decision.userId,
-  });
-  if (ownerUser && !ownerIncluded) {
-    tagLines.push(`• **${ownerUser.name}** — Decision owner (tracking)`);
-  }
+  const stakeholderLines = riskMap
+    .map((p) => `- @${p.name} — ${p.risk}`)
+    .join("\n");
 
   const introMessage = [
-    `📋 **${decision.title}**`,
+    `**${decision.title}**`,
     "",
     decision.summary,
     "",
-    decision.outcome?.comment ? `**Decision:** ${decision.outcome.comment}` : "",
+    ticketLine,
     "",
     "**Stakeholders & risk areas:**",
-    ...tagLines,
+    stakeholderLines,
     "",
-    "I'll help coordinate next steps. What should we tackle first?",
+    `What should we tackle first?`,
   ]
-    .filter(Boolean)
+    .filter((line) => line !== null)
     .join("\n");
 
   if (botUser) {
@@ -475,6 +502,23 @@ export const sendGroupMessage = internalMutation({
       body: args.body,
       type: "bot",
       isEdited: false,
+    });
+  },
+});
+
+export const addDecisionLink = internalMutation({
+  args: {
+    decisionId: v.id("inboxItems"),
+    title: v.string(),
+    url: v.string(),
+    type: v.union(v.literal("doc"), v.literal("sheet"), v.literal("video"), v.literal("pr"), v.literal("other")),
+  },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.decisionId);
+    if (!item) return;
+    const existingLinks = item.links ?? [];
+    await ctx.db.patch(args.decisionId, {
+      links: [...existingLinks, { title: args.title, url: args.url, type: args.type }],
     });
   },
 });

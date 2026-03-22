@@ -256,11 +256,14 @@ export function InboxModal({
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div className={focusMode
-        ? "fixed left-0 right-0 top-12 bottom-0 z-50 flex flex-col bg-background"
-        : "fixed right-0 top-12 bottom-0 z-50 flex w-[540px] flex-col bg-background border-l border-subtle shadow-2xl"
-      }>
+      {/* Panel — stop propagation so clicks don't reach the backdrop */}
+      <div
+        className={focusMode
+          ? "fixed left-0 right-0 top-12 bottom-0 z-50 flex flex-col bg-background"
+          : "fixed right-0 top-12 bottom-0 z-50 flex w-[540px] flex-col bg-background border-l border-subtle shadow-2xl"
+        }
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* ── HEADER ── */}
         <div className="flex shrink-0 items-center justify-between border-b border-subtle px-5 py-2.5">
