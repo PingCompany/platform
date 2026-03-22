@@ -10,66 +10,74 @@ export type DecisionType =
   | "blocked_unblock"
   | "fact_verify"
   | "cross_team_ack"
-  | "channel_summary";
-
-interface DecisionActionsProps {
-  type: DecisionType;
-  onAction: (action: string, comment?: string) => void;
-}
+  | "channel_summary"
+  | "email_summary";
 
 interface ActionDef {
   label: string;
+  actionKey?: string;
   primary?: boolean;
   needsComment?: boolean;
 }
 
-const actionsByType: Record<DecisionType, ActionDef[]> = {
+interface DecisionActionsProps {
+  type: DecisionType;
+  recommendedActions?: ActionDef[];
+  onAction: (action: string, comment?: string) => void;
+}
+
+const fallbackActionsByType: Record<DecisionType, ActionDef[]> = {
   pr_review: [
-    { label: "Approve", primary: true },
-    { label: "Request Changes", needsComment: true },
-    { label: "Delegate", needsComment: true },
+    { label: "Approve", actionKey: "approve", primary: true },
+    { label: "Request Changes", actionKey: "request_changes", needsComment: true },
+    { label: "Delegate", actionKey: "delegate", needsComment: true },
   ],
   question_answer: [
-    { label: "Reply", primary: true },
-    { label: "Delegate", needsComment: true },
-    { label: "Dismiss" },
+    { label: "Reply", actionKey: "reply", primary: true },
+    { label: "Delegate", actionKey: "delegate", needsComment: true },
+    { label: "Dismiss", actionKey: "dismiss" },
   ],
   blocked_unblock: [
-    { label: "Investigate", primary: true },
-    { label: "Reassign" },
-    { label: "Snooze" },
+    { label: "Investigate", actionKey: "investigate", primary: true },
+    { label: "Reassign", actionKey: "reassign" },
+    { label: "Snooze", actionKey: "snooze" },
   ],
   ticket_triage: [
-    { label: "Accept", primary: true },
-    { label: "Reject", needsComment: true },
-    { label: "Delegate", needsComment: true },
+    { label: "Accept", actionKey: "accept", primary: true },
+    { label: "Reject", actionKey: "reject", needsComment: true },
+    { label: "Delegate", actionKey: "delegate", needsComment: true },
   ],
   fact_verify: [
-    { label: "Confirm", primary: true },
-    { label: "Dispute" },
-    { label: "Investigate" },
+    { label: "Confirm", actionKey: "confirm", primary: true },
+    { label: "Dispute", actionKey: "dispute" },
+    { label: "Investigate", actionKey: "investigate" },
   ],
   cross_team_ack: [
-    { label: "Acknowledge", primary: true },
-    { label: "Follow Up" },
+    { label: "Acknowledge", actionKey: "acknowledge", primary: true },
+    { label: "Follow Up", actionKey: "follow_up" },
   ],
   channel_summary: [
-    { label: "Mark Read", primary: true },
-    { label: "Investigate" },
+    { label: "Mark Read", actionKey: "mark_read", primary: true },
+    { label: "Investigate", actionKey: "investigate" },
+  ],
+  email_summary: [
+    { label: "Mark Read", actionKey: "mark_read", primary: true },
+    { label: "Reply", actionKey: "reply" },
   ],
 };
 
-export function DecisionActions({ type, onAction }: DecisionActionsProps) {
+export function DecisionActions({ type, recommendedActions, onAction }: DecisionActionsProps) {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [comment, setComment] = useState("");
-  const actions = actionsByType[type];
+  const actions = recommendedActions ?? fallbackActionsByType[type];
 
   function handleClick(action: ActionDef) {
+    const key = action.actionKey ?? action.label;
     if (action.needsComment) {
-      setPendingAction(action.label);
+      setPendingAction(key);
       setComment("");
     } else {
-      onAction(action.label);
+      onAction(key);
     }
   }
 
@@ -86,7 +94,7 @@ export function DecisionActions({ type, onAction }: DecisionActionsProps) {
       <div className="flex items-center gap-1.5">
         {actions.map((action) => (
           <button
-            key={action.label}
+            key={action.actionKey ?? action.label}
             onClick={() => handleClick(action)}
             className={cn(
               "flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
@@ -105,7 +113,7 @@ export function DecisionActions({ type, onAction }: DecisionActionsProps) {
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            placeholder={`Add reasoning for "${pendingAction}"...`}
+            placeholder={`Add reasoning...`}
             className="min-h-[60px] w-full resize-none rounded border border-subtle bg-surface-2 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ping-purple"
           />
           <div className="flex items-center gap-1.5">

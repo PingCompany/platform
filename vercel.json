@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx convex codegen && pnpm run build",
+  "buildCommand": "npx convex codegen && pnpm turbo run build --filter=@ping/web",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
   "installCommand": "pnpm install",

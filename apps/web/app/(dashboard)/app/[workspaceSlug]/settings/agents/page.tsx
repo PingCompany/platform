@@ -1,73 +1,141 @@
 "use client";
 
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { AgentCard, AgentConfigDialog, type Agent } from "@/components/bot/AgentCard";
+import { useState, useEffect } from "react";
+import { Plus, Loader2, Shield } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { AgentCard, AgentConfigDialog, type Agent, type AgentSaveData } from "@/components/bot/AgentCard";
+import { AgentTokenDialog } from "@/components/bot/AgentTokenDialog";
 import { useToast } from "@/components/ui/toast-provider";
-
-const MOCK_AGENTS: Agent[] = [
-  {
-    id: "1",
-    name: "KnowledgeBot",
-    description: "Answers questions about your team's codebase, past decisions, and historical context. Queries GitHub, Linear, and chat history with citations.",
-    status: "active",
-    scopes: ["general", "engineering", "product"],
-    queryCount: 47,
-    color: "#5E6AD2",
-  },
-  {
-    id: "2",
-    name: "SupportRouterBot",
-    description: "Automatically triages incoming support messages, routes to the right team member, and drafts initial responses based on past resolution patterns.",
-    status: "active",
-    scopes: ["general", "product"],
-    queryCount: 12,
-    color: "#22C55E",
-  },
-  {
-    id: "3",
-    name: "SprintCoach",
-    description: "Monitors sprint health, flags blocked tickets, pings assignees on overdue items, and generates weekly summaries for planning meetings.",
-    status: "inactive",
-    scopes: ["engineering", "product"],
-    queryCount: 0,
-    color: "#F59E0B",
-  },
-];
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState(MOCK_AGENTS);
+  const { role } = useWorkspace();
+
+  if (role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to manage agents.
+      </div>
+    );
+  }
+
+  return <AgentsPageContent />;
+}
+
+function AgentsPageContent() {
+  const { workspaceId } = useWorkspace();
+  const agents = useQuery(api.agents.list, { workspaceId });
+  const createAgent = useMutation(api.agents.create);
+  const updateAgent = useMutation(api.agents.update);
+  const removeAgent = useMutation(api.agents.remove);
+  const generateTokenMutation = useMutation(api.agents.generateToken);
+  const provisionManaged = useMutation(api.managedAgents.provision);
+
   const [configuring, setConfiguring] = useState<Agent | null>(null);
   const [creating, setCreating] = useState(false);
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleToggle = (id: string, status: "active" | "inactive") => {
-    setAgents((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
-    );
-    toast(status === "active" ? "Agent enabled" : "Agent disabled", "success");
+  // Auto-provision managed agents if none exist
+  const hasManaged = agents?.some((a) => a.isManaged);
+  const [provisioned, setProvisioned] = useState(false);
+  useEffect(() => {
+    if (agents && !hasManaged && !provisioned) {
+      setProvisioned(true);
+      provisionManaged({ workspaceId }).catch(() => {});
+    }
+  }, [agents, hasManaged, provisioned, provisionManaged, workspaceId]);
+
+  const handleToggle = async (id: Id<"agents">, status: "active" | "inactive") => {
+    try {
+      await updateAgent({ agentId: id, workspaceId, status });
+      toast(status === "active" ? "Agent enabled" : "Agent disabled", "success");
+    } catch {
+      toast("Failed to update agent", "error");
+    }
   };
 
-  const handleSave = (updated: Agent) => {
-    setAgents((prev) => {
-      const exists = prev.find((a) => a.id === updated.id);
-      if (exists) {
-        return prev.map((a) => (a.id === updated.id ? updated : a));
+  const handleSave = async (data: AgentSaveData) => {
+    try {
+      if (configuring) {
+        await updateAgent({
+          agentId: configuring._id,
+          workspaceId,
+          name: data.name,
+          description: data.description,
+          systemPrompt: data.systemPrompt,
+          color: data.color,
+          model: data.model,
+          scope: data.scope,
+          tools: data.tools,
+          restrictions: data.restrictions,
+          triggers: data.triggers,
+          jobs: data.jobs,
+        });
+        toast("Agent updated", "success");
+      } else {
+        await createAgent({
+          workspaceId,
+          name: data.name,
+          description: data.description || undefined,
+          systemPrompt: data.systemPrompt,
+          color: data.color,
+          model: data.model,
+          scope: data.scope ?? "workspace",
+          tools: data.tools,
+          restrictions: data.restrictions,
+          triggers: data.triggers,
+          jobs: data.jobs,
+        });
+        toast("Agent created", "success");
       }
-      return [...prev, updated];
-    });
-    toast(configuring ? "Agent updated" : "Agent created", "success");
+    } catch {
+      toast("Failed to save agent", "error");
+    }
   };
+
+  const handleGenerateToken = async (id: Id<"agents">) => {
+    try {
+      const token = await generateTokenMutation({ agentId: id, workspaceId });
+      setGeneratedToken(token);
+    } catch {
+      toast("Failed to generate token", "error");
+    }
+  };
+
+  const handleDelete = async (id: Id<"agents">) => {
+    try {
+      await removeAgent({ agentId: id, workspaceId });
+      setConfiguring(null);
+      toast("Agent deleted", "success");
+    } catch {
+      toast("Failed to delete agent", "error");
+    }
+  };
+
+  if (agents === undefined) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
+      </div>
+    );
+  }
+
+  const visibleAgents = agents.filter((a) => a.status !== "revoked");
+  const managedAgents = visibleAgents.filter((a) => a.isManaged);
+  const customAgents = visibleAgents.filter((a) => !a.isManaged);
+  const activeCount = agents.filter((a) => a.status === "active").length;
 
   return (
-    <div className="mx-auto max-w-4xl animate-fade-in px-6 py-6">
+    <div className="mx-auto max-w-5xl animate-fade-in px-6 py-6">
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-md font-semibold text-foreground">Agents</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {agents.filter((a) => a.status === "active").length} active ·{" "}
-            {agents.length} total agents in this workspace
+            {activeCount} active · {visibleAgents.length} total agent{visibleAgents.length !== 1 ? "s" : ""} in this workspace
           </p>
         </div>
         <button
@@ -79,14 +147,40 @@ export default function AgentsPage() {
         </button>
       </div>
 
-      {/* Grid */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {agents.map((agent) => (
+      {/* Platform Agents */}
+      {managedAgents.length > 0 && (
+        <div className="mb-6">
+          <div className="mb-2 flex items-center gap-1.5">
+            <Shield className="h-3.5 w-3.5 text-violet-400" />
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Platform Agents</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {managedAgents.map((agent) => (
+              <AgentCard
+                key={agent._id}
+                agent={agent}
+                isManaged
+                onConfigure={(id) =>
+                  setConfiguring(agents.find((a) => a._id === id) ?? null)
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Custom Agents */}
+      <div className="mb-2 flex items-center gap-1.5">
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Custom Agents</h2>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {customAgents.map((agent) => (
           <AgentCard
-            key={agent.id}
+            key={agent._id}
             agent={agent}
-            onToggle={handleToggle}
-            onConfigure={(id) => setConfiguring(agents.find((a) => a.id === id) ?? null)}
+            onConfigure={(id) =>
+              setConfiguring(agents.find((a) => a._id === id) ?? null)
+            }
           />
         ))}
 
@@ -96,11 +190,11 @@ export default function AgentsPage() {
           className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-foreground/10 bg-transparent py-10 text-center transition-colors hover:border-foreground/20 hover:bg-surface-2"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-foreground/15">
-            <Plus className="h-4 w-4 text-foreground/30" />
+            <Plus className="h-4 w-4 text-foreground/50" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Create agent</p>
-            <p className="text-2xs text-foreground/25">Custom AI for your workflow</p>
+            <p className="text-2xs text-foreground/45">Custom AI for your workflow</p>
           </div>
         </button>
       </div>
@@ -112,6 +206,9 @@ export default function AgentsPage() {
         open={!!configuring}
         onClose={() => setConfiguring(null)}
         onSave={handleSave}
+        onToggle={handleToggle}
+        onGenerateToken={handleGenerateToken}
+        onDelete={configuring?.isManaged ? undefined : handleDelete}
       />
 
       {/* Create dialog */}
@@ -121,6 +218,13 @@ export default function AgentsPage() {
         open={creating}
         onClose={() => setCreating(false)}
         onSave={handleSave}
+      />
+
+      {/* Token dialog */}
+      <AgentTokenDialog
+        token={generatedToken}
+        open={!!generatedToken}
+        onClose={() => setGeneratedToken(null)}
       />
     </div>
   );

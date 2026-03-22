@@ -1,4 +1,4 @@
-import { query, action } from "./_generated/server";
+import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { requireUser } from "./auth";
 
@@ -60,6 +60,128 @@ export const unreadCount = query({
   },
 });
 
+export const list = query({
+  args: {
+    quadrant: v.optional(
+      v.union(
+        v.literal("urgent-important"),
+        v.literal("important"),
+        v.literal("urgent"),
+        v.literal("fyi"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (args.quadrant) {
+      return ctx.db
+        .query("emails")
+        .withIndex("by_user_quadrant", (q) =>
+          q.eq("userId", user._id).eq("eisenhowerQuadrant", args.quadrant!),
+        )
+        .filter((q) => q.eq(q.field("isArchived"), false))
+        .take(50);
+    }
+    return ctx.db
+      .query("emails")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .take(50);
+  },
+});
+
+export const search = query({
+  args: { query: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const lowerQuery = args.query.toLowerCase();
+    const emails = await ctx.db
+      .query("emails")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .take(200);
+    return emails.filter(
+      (e) =>
+        e.subject.toLowerCase().includes(lowerQuery) ||
+        e.from.toLowerCase().includes(lowerQuery) ||
+        e.snippet?.toLowerCase().includes(lowerQuery),
+    );
+  },
+});
+
+export const listByThread = query({
+  args: { threadId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    return ctx.db
+      .query("emails")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .filter((q) => q.eq(q.field("userId"), user._id))
+      .collect();
+  },
+});
+
+export const markRead = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) throw new Error("Not found");
+    await ctx.db.patch(args.emailId, { isRead: true });
+  },
+});
+
+export const archive = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) throw new Error("Not found");
+    await ctx.db.patch(args.emailId, { isArchived: true });
+  },
+});
+
+export const markUnread = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) throw new Error("Not found");
+    await ctx.db.patch(args.emailId, { isRead: false });
+  },
+});
+
+export const toggleStar = mutation({
+  args: { emailId: v.id("emails") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const email = await ctx.db.get(args.emailId);
+    if (!email || email.userId !== user._id) throw new Error("Not found");
+    await ctx.db.patch(args.emailId, { isStarred: !email.isStarred });
+  },
+});
+
+export const listAccounts = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    return ctx.db
+      .query("emailAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+  },
+});
+
+export const disconnectAccount = mutation({
+  args: { accountId: v.id("emailAccounts") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const account = await ctx.db.get(args.accountId);
+    if (!account || account.userId !== user._id) throw new Error("Not found");
+    await ctx.db.patch(args.accountId, { isActive: false });
+  },
+});
+
 // ─── Semantic search (8LI-129) ────────────────────────────────────────────────
 
 export const semanticSearch = action({
@@ -76,7 +198,7 @@ export const semanticSearch = action({
 
     // We need the user ID to scope the search. Look up via the subject.
     // Actions cannot read the DB directly, so we use the Graphiti group_id pattern.
-    const groupId = `email:${identity.subject}`;
+    const groupId = `email-${identity.subject}`;
 
     const searchResponse = await fetch(`${graphitiUrl}/search`, {
       method: "POST",

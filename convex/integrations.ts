@@ -1,4 +1,5 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireAuth, requireUser } from "./auth";
 
@@ -31,8 +32,9 @@ function buildIntegrationMessageBody(
   }
 
   const priority = (metadata?.priority as string) ?? "";
+  const identifier = (metadata?.identifier as string) ?? "";
   const parts = [
-    `**[Linear ticket ${action}]** [${title}](${url})`,
+    `**[Linear ticket ${action}]** [${identifier ? `${identifier} ` : ""}${title}](${url})`,
     `Author: ${author} | Status: ${status}${priority ? ` | Priority: ${priority}` : ""}`,
     description ? `> ${description}` : null,
   ];
@@ -60,6 +62,21 @@ export const findWorkspaceByLinearOrgId = internalQuery({
     }
 
     // Fallback: return the first workspace (single-workspace deployments).
+    return workspaces[0] ?? null;
+  },
+});
+
+export const findWorkspaceByGithubOrg = internalQuery({
+  args: { orgLogin: v.string() },
+  handler: async (ctx, args) => {
+    const workspaces = await ctx.db.query("workspaces").collect();
+    for (const ws of workspaces) {
+      const integrations = ws.integrations as { githubOrgLogin?: string } | undefined;
+      if (integrations?.githubOrgLogin === args.orgLogin) {
+        return ws;
+      }
+    }
+    // Fallback: first workspace (single-workspace deployments)
     return workspaces[0] ?? null;
   },
 });
@@ -142,7 +159,31 @@ export const upsert = internalMutation({
           continue;
         }
 
-        await ctx.db.insert("messages", {
+        // For updates, find and edit the existing message instead of creating a new one
+        if (isUpdate) {
+          const existingMessages = await ctx.db
+            .query("messages")
+            .withIndex("by_channel", (q) => q.eq("channelId", rule.channelId))
+            .order("desc")
+            .take(100);
+
+          const existingMsg = existingMessages.find(
+            (m) => m.type === "integration" && m.integrationObjectId === objectId,
+          );
+
+          if (existingMsg) {
+            const history = (existingMsg.integrationHistory as Array<{ body: string; timestamp: number }>) ?? [];
+            history.push({ body: existingMsg.body, timestamp: existingMsg._creationTime });
+            await ctx.db.patch(existingMsg._id, {
+              body,
+              isEdited: true,
+              integrationHistory: history,
+            });
+            continue;
+          }
+        }
+
+        const messageId = await ctx.db.insert("messages", {
           channelId: rule.channelId,
           authorId: botUserId,
           body,
@@ -150,8 +191,18 @@ export const upsert = internalMutation({
           integrationObjectId: objectId,
           isEdited: false,
         });
+
+        // Ingest integration message into knowledge graph
+        await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+          messageId,
+        });
       }
     }
+
+    // Ingest the integration object itself into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processIntegrationObject, {
+      objectId,
+    });
 
     return objectId;
   },

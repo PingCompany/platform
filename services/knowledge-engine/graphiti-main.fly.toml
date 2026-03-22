@@ -1,0 +1,35 @@
+app = "graphiti-main"
+org = "pingcompany"
+primary_region = "arn"
+
+[build]
+  dockerfile = "Dockerfile.graphiti"
+
+[env]
+  NEO4J_PORT = "7687"
+
+# Set these secrets via: fly secrets set --app graphiti-main
+#   NEO4J_URI        — Neo4j Aura main URI (neo4j+s://...)
+#   NEO4J_USER       — Neo4j Aura username
+#   NEO4J_PASSWORD   — Neo4j Aura password
+#   NEO4J_DATABASE   — Neo4j database name (default: "neo4j")
+#   OPENAI_API_KEY   — OpenAI API key for embeddings
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = "stop"
+  min_machines_running = 1
+  max_machines_running = 1
+
+[[http_service.checks]]
+  grace_period = "15s"
+  interval = "30s"
+  method = "GET"
+  path = "/healthcheck"
+  timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

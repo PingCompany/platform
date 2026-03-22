@@ -1,38 +1,25 @@
-import { query, mutation, internalAction, internalQuery, internalMutation } from "./_generated/server";
+import { internalAction, internalQuery, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { requireUser } from "./auth";
 
-// ─── Public queries / mutations ───────────────────────────────────────────────
+// ─── Alert type → inbox item type mapping ────────────────────────────────────
 
-export const listPending = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await requireUser(ctx);
+const ALERT_TYPE_TO_ITEM_TYPE: Record<string, string> = {
+  fact_check: "fact_verify",
+  cross_team_sync: "cross_team_ack",
+  unanswered_question: "question_answer",
+  pr_review_nudge: "pr_review",
+  blocked_task: "blocked_unblock",
+  incident_route: "ticket_triage",
+};
 
-    const alerts = await ctx.db
-      .query("proactiveAlerts")
-      .withIndex("by_user_status", (q) =>
-        q.eq("userId", user._id).eq("status", "pending"),
-      )
-      .take(10);
-
-    return alerts.filter((alert) => alert.expiresAt > Date.now());
-  },
-});
-
-export const dismiss = mutation({
-  args: { alertId: v.id("proactiveAlerts") },
-  handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
-    const alert = await ctx.db.get(args.alertId);
-    if (!alert || alert.userId !== user._id) {
-      throw new Error("Not found");
-    }
-    await ctx.db.patch(args.alertId, { status: "dismissed" });
-  },
-});
+function alertToCategory(alertType: string, priority: string): "do" | "decide" | "delegate" | "skip" {
+  if (priority === "high") return "do";
+  if (alertType === "cross_team_sync" || alertType === "fact_check") return "skip";
+  if (priority === "medium") return "decide";
+  return "skip";
+}
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -108,7 +95,7 @@ export const getChannelMembers = internalQuery({
   },
 });
 
-export const countRecentAlerts = internalQuery({
+export const countRecentItems = internalQuery({
   args: {
     channelId: v.id("channels"),
     type: v.string(),
@@ -118,8 +105,8 @@ export const countRecentAlerts = internalQuery({
     const channel = await ctx.db.get(args.channelId);
     if (!channel) return 0;
 
-    const alerts = await ctx.db
-      .query("proactiveAlerts")
+    const items = await ctx.db
+      .query("inboxItems")
       .withIndex("by_workspace_type", (q) =>
         q.eq("workspaceId", channel.workspaceId).eq("type", args.type as any),
       )
@@ -130,46 +117,7 @@ export const countRecentAlerts = internalQuery({
         ),
       )
       .take(100);
-    return alerts.length;
-  },
-});
-
-export const createAlert = internalMutation({
-  args: {
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    type: v.union(
-      v.literal("unanswered_question"),
-      v.literal("pr_review_nudge"),
-      v.literal("incident_route"),
-      v.literal("blocked_task"),
-      v.literal("fact_check"),
-      v.literal("cross_team_sync"),
-    ),
-    channelId: v.id("channels"),
-    sourceChannelId: v.optional(v.id("channels")),
-    title: v.string(),
-    body: v.string(),
-    sourceMessageId: v.optional(v.id("messages")),
-    suggestedAction: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    await ctx.db.insert("proactiveAlerts", {
-      userId: args.userId,
-      workspaceId: args.workspaceId,
-      type: args.type,
-      channelId: args.channelId,
-      sourceChannelId: args.sourceChannelId,
-      title: args.title,
-      body: args.body,
-      sourceMessageId: args.sourceMessageId,
-      suggestedAction: args.suggestedAction,
-      priority: "high",
-      status: "pending",
-      expiresAt: now + 24 * 60 * 60 * 1000,
-      createdAt: now,
-    });
+    return items.length;
   },
 });
 
@@ -180,12 +128,16 @@ export const insertBotMessage = internalMutation({
     body: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       channelId: args.channelId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
       isEdited: false,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+      messageId,
     });
   },
 });
@@ -193,7 +145,6 @@ export const insertBotMessage = internalMutation({
 export const getWorkspaceBotUser = internalQuery({
   args: { workspaceId: v.id("workspaces") },
   handler: async (ctx, args) => {
-    // Find the first admin user as the bot author fallback
     const membership = await ctx.db
       .query("workspaceMembers")
       .withIndex("by_workspace", (q) => q.eq("workspaceId", args.workspaceId))
@@ -204,7 +155,7 @@ export const getWorkspaceBotUser = internalQuery({
   },
 });
 
-// ─── Fact-checking agent (8LI-94) ────────────────────────────────────────────
+// ─── Fact-checking agent ────────────────────────────────────────────
 
 async function detectFactualClaims(
   messages: Array<{ body: string; authorName: string; messageId: string }>,
@@ -256,7 +207,6 @@ async function checkClaimAgainstKnowledge(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { contradiction: null, confidence: 0 };
 
-  // Search the Graphiti knowledge graph for facts related to this claim
   const searchResponse = await fetch(`${graphitiUrl}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -277,7 +227,6 @@ async function checkClaimAgainstKnowledge(
     .map((f, i) => `[${i}] ${f.fact}${f.invalid_at ? " [superseded]" : ""}`)
     .join("\n");
 
-  // Ask GPT whether any retrieved fact contradicts the claim
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -320,7 +269,7 @@ confidence should be 0.0–1.0 reflecting how clearly the facts contradict the c
 export const scanForFactChecks = internalAction({
   args: {},
   handler: async (ctx) => {
-    const since = Date.now() - 10 * 60 * 1000; // last 10 min
+    const since = Date.now() - 10 * 60 * 1000;
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const MAX_PER_CHANNEL_PER_HOUR = 2;
 
@@ -329,7 +278,6 @@ export const scanForFactChecks = internalAction({
       limit: 20,
     });
 
-    // Group by channel
     const byChannel = new Map<
       string,
       Array<{ body: string; authorName: string; messageId: string; channelId: Id<"channels">; channelName: string; workspaceId: Id<"workspaces"> }>
@@ -351,10 +299,9 @@ export const scanForFactChecks = internalAction({
     for (const [, channelMessages] of byChannel) {
       const { channelId, workspaceId } = channelMessages[0];
 
-      // Guard: max 2 fact-checks per channel per hour
-      const recentCount = await ctx.runQuery(internal.proactiveAlerts.countRecentAlerts, {
+      const recentCount = await ctx.runQuery(internal.proactiveAlerts.countRecentItems, {
         channelId,
-        type: "fact_check",
+        type: "fact_verify",
         since: hourAgo,
       });
       if (recentCount >= MAX_PER_CHANNEL_PER_HOUR) continue;
@@ -375,34 +322,33 @@ export const scanForFactChecks = internalAction({
         });
         if (!botUser) continue;
 
-        // Post bot message in channel
         await ctx.runMutation(internal.proactiveAlerts.insertBotMessage, {
           channelId,
           authorId: botUser._id,
           body: `Worth noting: ${contradiction}`,
         });
 
-        // Create alert for each channel member
         for (const member of members) {
-          await ctx.runMutation(internal.proactiveAlerts.createAlert, {
+          await ctx.runMutation(internal.inboxItems.insertItem, {
             userId: member._id,
             workspaceId,
-            type: "fact_check",
-            channelId,
+            type: "fact_verify",
+            category: "skip",
             title: "Fact check",
-            body: `A claim was made that may contradict known information: "${claim}"`,
+            summary: `A claim was made that may contradict known information: "${claim}"`,
+            pingWillDo: "Review the context in this channel",
             sourceMessageId: channelMessages[messageIndex]?.messageId as Id<"messages"> | undefined,
-            suggestedAction: "Review the context in this channel",
+            channelId,
           });
         }
 
-        break; // one fact-check per channel per scan to stay within rate limit
+        break;
       }
     }
   },
 });
 
-// ─── Cross-team context syncing agent (8LI-95) ───────────────────────────────
+// ─── Cross-team context syncing agent ───────────────────────────────
 
 interface CrossTeamMatch {
   summary: string;
@@ -458,7 +404,7 @@ Return empty array if nothing is cross-team relevant.`,
 export const scanCrossTeamSync = internalAction({
   args: {},
   handler: async (ctx) => {
-    const since = Date.now() - 15 * 60 * 1000; // last 15 min
+    const since = Date.now() - 15 * 60 * 1000;
     const hourAgo = Date.now() - 60 * 60 * 1000;
     const MAX_PER_CHANNEL_PER_HOUR = 3;
 
@@ -469,7 +415,6 @@ export const scanCrossTeamSync = internalAction({
 
     if (messages.length === 0) return;
 
-    // Build per-channel message lists
     const channelMap = new Map<
       string,
       { channelId: Id<"channels">; channelName: string; workspaceId: Id<"workspaces">; messages: string[] }
@@ -506,10 +451,9 @@ export const scanCrossTeamSync = internalAction({
         const targetChannel = channels[targetIdx];
         if (!targetChannel) continue;
 
-        // Guard: max 3 cross-team syncs per target channel per hour
-        const recentCount = await ctx.runQuery(internal.proactiveAlerts.countRecentAlerts, {
+        const recentCount = await ctx.runQuery(internal.proactiveAlerts.countRecentItems, {
           channelId: targetChannel.channelId,
-          type: "cross_team_sync",
+          type: "cross_team_ack",
           since: hourAgo,
         });
         if (recentCount >= MAX_PER_CHANNEL_PER_HOUR) continue;
@@ -524,24 +468,22 @@ export const scanCrossTeamSync = internalAction({
         });
         if (!botUser) continue;
 
-        // Post system message in target channel
         await ctx.runMutation(internal.proactiveAlerts.insertBotMessage, {
           channelId: targetChannel.channelId,
           authorId: botUser._id,
           body: `FYI from #${sourceChannel.channelName}: ${match.summary}`,
         });
 
-        // Create alert for each target channel member
         for (const member of members) {
-          await ctx.runMutation(internal.proactiveAlerts.createAlert, {
+          await ctx.runMutation(internal.inboxItems.insertItem, {
             userId: member._id,
             workspaceId: targetChannel.workspaceId,
-            type: "cross_team_sync",
-            channelId: targetChannel.channelId,
-            sourceChannelId: sourceChannel.channelId,
+            type: "cross_team_ack",
+            category: "skip",
             title: `Update from #${sourceChannel.channelName}`,
-            body: match.summary,
-            suggestedAction: `Check #${sourceChannel.channelName} for details`,
+            summary: match.summary,
+            pingWillDo: `Check #${sourceChannel.channelName} for details`,
+            channelId: targetChannel.channelId,
           });
         }
       }

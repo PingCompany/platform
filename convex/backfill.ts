@@ -117,7 +117,6 @@ export const backfillMessages = internalAction({
               role: msg.authorName,
               timestamp: new Date(msg.createdAt).toISOString(),
               source_description: `channel:${msg.channelName}`,
-              uuid: msg._id,
               name: `${msg.authorName} in #${msg.channelName}`,
             },
           ],
@@ -189,7 +188,7 @@ export const backfillDirectMessages = internalAction({
         }
       }
 
-      const groupId = `dm:${msg.conversationId}`;
+      const groupId = `dm-${msg.conversationId}`;
 
       const response = await fetch(`${graphitiUrl}/messages`, {
         method: "POST",
@@ -203,7 +202,6 @@ export const backfillDirectMessages = internalAction({
               role: msg.authorName,
               timestamp: new Date(msg.createdAt).toISOString(),
               source_description: `dm:${msg.conversationName}`,
-              uuid: msg._id,
               name: `${msg.authorName} in ${msg.conversationName}`,
             },
           ],

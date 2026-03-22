@@ -317,15 +317,16 @@ export const checkReminders = internalAction({
         });
         if (!channel) continue;
 
-        // Create a proactive alert for the reminder
-        await ctx.runMutation(internal.proactiveAlerts.createAlert, {
+        // Create an inbox item for the reminder
+        await ctx.runMutation(internal.inboxItems.insertItem, {
           userId: email.userId,
           workspaceId: workspace.workspaceId,
-          type: "blocked_task",
+          type: "email_summary",
+          category: "do",
           channelId: channel.channelId,
           title: `Email reminder: ${email.subject}`,
-          body: email.agentSummary ?? `Follow up on email from ${email.from}`,
-          suggestedAction: email.suggestedAction ?? "Follow up on this email",
+          summary: email.agentSummary ?? `Follow up on email from ${email.from}`,
+          pingWillDo: email.suggestedAction ?? "Follow up on this email",
         });
 
         // Clear the reminder so we don't fire again

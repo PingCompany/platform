@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { TrendingUp, Clock, Zap, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 const PERIODS = ["7d", "30d", "90d"] as const;
 type Period = (typeof PERIODS)[number];
@@ -14,7 +15,7 @@ const KPI_DATA: Record<Period, { queries: number; queryDelta: number; hoursSaved
 };
 
 const AGENT_LEADERBOARD = [
-  { name: "KnowledgeBot",   queries: 847, pct: 100, color: "#5E6AD2" },
+  { name: "mrPING",          queries: 847, pct: 100, color: "#5E6AD2" },
   { name: "SupportRouter",  queries: 312, pct: 37,  color: "#22C55E" },
   { name: "SprintCoach",    queries: 88,  pct: 10,  color: "#F59E0B" },
 ];
@@ -39,8 +40,8 @@ function KpiCard({ icon: Icon, label, value, delta, sub }: KpiCardProps) {
     <div className="rounded border border-subtle bg-surface-1 px-4 py-3">
       <div className="flex items-center justify-between pb-1.5">
         <div className="flex items-center gap-1.5">
-          <Icon className="h-3.5 w-3.5 text-foreground/30" />
-          <span className="text-2xs font-medium uppercase tracking-widest text-foreground/30">{label}</span>
+          <Icon className="h-3.5 w-3.5 text-foreground/50" />
+          <span className="text-2xs font-medium uppercase tracking-widest text-foreground/50">{label}</span>
         </div>
         {delta && (
           <span className="text-2xs font-medium text-status-online">↑ {delta}%</span>
@@ -53,8 +54,17 @@ function KpiCard({ icon: Icon, label, value, delta, sub }: KpiCardProps) {
 }
 
 export default function AnalyticsPage() {
+  const { role } = useWorkspace();
   const [period, setPeriod] = useState<Period>("30d");
   const kpi = KPI_DATA[period];
+
+  if (role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to view analytics.
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl animate-fade-in px-6 py-6">
@@ -115,7 +125,7 @@ export default function AnalyticsPage() {
         {/* Agent leaderboard */}
         <div className="rounded border border-subtle bg-surface-1 p-4">
           <div className="mb-4 flex items-center gap-2">
-            <Bot className="h-3.5 w-3.5 text-foreground/30" />
+            <Bot className="h-3.5 w-3.5 text-foreground/50" />
             <span className="text-xs font-medium text-foreground">Agent Leaderboard</span>
           </div>
 
@@ -124,7 +134,7 @@ export default function AnalyticsPage() {
               <div key={agent.name}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-4 text-right text-2xs text-foreground/25">#{i + 1}</span>
+                    <span className="w-4 text-right text-2xs text-foreground/45">#{i + 1}</span>
                     <span className="text-xs text-foreground">{agent.name}</span>
                   </div>
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">
@@ -145,7 +155,7 @@ export default function AnalyticsPage() {
         {/* Token usage breakdown */}
         <div className="rounded border border-subtle bg-surface-1 p-4">
           <div className="mb-4 flex items-center gap-2">
-            <TrendingUp className="h-3.5 w-3.5 text-foreground/30" />
+            <TrendingUp className="h-3.5 w-3.5 text-foreground/50" />
             <span className="text-xs font-medium text-foreground">Token Breakdown</span>
           </div>
 
@@ -175,7 +185,7 @@ export default function AnalyticsPage() {
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">
                     {segment.tokens.toLocaleString()}
                   </span>
-                  <span className="w-8 text-right font-mono text-2xs text-foreground/30">
+                  <span className="w-8 text-right font-mono text-2xs text-foreground/50">
                     {segment.pct}%
                   </span>
                 </div>

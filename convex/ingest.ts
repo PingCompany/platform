@@ -26,6 +26,7 @@ export const getMessage = internalQuery({
       authorId: message.authorId,
       authorName: author?.name ?? "Unknown",
       createdAt: message._creationTime,
+      type: message.type,
     };
   },
 });
@@ -72,6 +73,7 @@ export const getDirectMessage = internalQuery({
       authorId: message.authorId,
       authorName: author?.name ?? "Unknown",
       createdAt: message._creationTime,
+      type: message.type,
     };
   },
 });
@@ -113,6 +115,7 @@ export const processMessage = internalAction({
     const graphitiUrl =
       process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
     const retryCount = args.retryCount ?? 0;
+    console.log("[ingest] processMessage started:", args.messageId, "graphitiUrl:", graphitiUrl);
 
     const message = await ctx.runQuery(internal.ingest.getMessage, {
       messageId: args.messageId,
@@ -142,11 +145,10 @@ export const processMessage = internalAction({
         messages: [
           {
             content,
-            role_type: "user",
+            role_type: message.type === "bot" ? "assistant" : "user",
             role: message.authorName,
             timestamp: new Date(message.createdAt).toISOString(),
-            source_description: `channel:${message.channelName}`,
-            uuid: message._id,
+            source_description: `channel - ${message.channelName}`,
             name: `${message.authorName} in #${message.channelName}`,
           },
         ],
@@ -200,6 +202,7 @@ export const processDirectMessage = internalAction({
     const graphitiUrl =
       process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
     const retryCount = args.retryCount ?? 0;
+    console.log("[ingest] processDirectMessage started:", args.messageId, "graphitiUrl:", graphitiUrl);
 
     const message = await ctx.runQuery(internal.ingest.getDirectMessage, {
       messageId: args.messageId,
@@ -221,7 +224,7 @@ export const processDirectMessage = internalAction({
       }
     }
 
-    const groupId = `dm:${message.conversationId}`;
+    const groupId = `dm-${message.conversationId}`;
 
     const response = await fetch(`${graphitiUrl}/messages`, {
       method: "POST",
@@ -231,11 +234,10 @@ export const processDirectMessage = internalAction({
         messages: [
           {
             content,
-            role_type: "user",
+            role_type: message.type === "bot" ? "assistant" : "user",
             role: message.authorName,
             timestamp: new Date(message.createdAt).toISOString(),
-            source_description: `dm:${message.conversationName}`,
-            uuid: message._id,
+            source_description: `dm - ${message.conversationName}`,
             name: `${message.authorName} in ${message.conversationName}`,
           },
         ],
@@ -274,5 +276,236 @@ export const processDirectMessage = internalAction({
     });
 
     console.log("[ingest] Ingested DM:", args.messageId);
+  },
+});
+
+// ── Integration object ingestion ──────────────────────────────────
+
+export const getIntegrationObject = internalQuery({
+  args: { objectId: v.id("integrationObjects") },
+  handler: async (ctx, args) => {
+    const obj = await ctx.db.get(args.objectId);
+    if (!obj) return null;
+    return {
+      _id: obj._id,
+      workspaceId: obj.workspaceId,
+      type: obj.type,
+      externalId: obj.externalId,
+      title: obj.title,
+      status: obj.status,
+      url: obj.url,
+      author: obj.author,
+      metadata: obj.metadata as Record<string, unknown> | undefined,
+      lastSyncedAt: obj.lastSyncedAt,
+    };
+  },
+});
+
+export const patchIntegrationObjectEpisodeId = internalMutation({
+  args: {
+    objectId: v.id("integrationObjects"),
+    graphitiEpisodeId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.objectId, {
+      graphitiEpisodeId: args.graphitiEpisodeId,
+    });
+  },
+});
+
+export const processIntegrationObject = internalAction({
+  args: {
+    objectId: v.id("integrationObjects"),
+    retryCount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const graphitiUrl =
+      process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
+    const retryCount = args.retryCount ?? 0;
+
+    const obj = await ctx.runQuery(internal.ingest.getIntegrationObject, {
+      objectId: args.objectId,
+    });
+    if (!obj) {
+      console.warn("[ingest] Integration object not found:", args.objectId);
+      return;
+    }
+
+    // Build rich content from integration metadata
+    const meta = obj.metadata ?? {};
+    const parts: string[] = [];
+
+    if (obj.type === "github_pr") {
+      const repo = (meta.repo as string) ?? "";
+      const prNumber = (meta.number as number) ?? "";
+      parts.push(`[GitHub PR] #${prNumber} ${obj.title}`);
+      if (repo) parts.push(`Repository: ${repo}`);
+      parts.push(`Author: ${obj.author} | Status: ${obj.status}`);
+      if (meta.description) parts.push(`Description: ${(meta.description as string).slice(0, 500)}`);
+    } else {
+      const identifier = (meta.identifier as string) ?? "";
+      const priority = (meta.priority as string) ?? "";
+      parts.push(`[Linear Ticket] ${identifier} ${obj.title}`);
+      parts.push(`Author: ${obj.author} | Status: ${obj.status}${priority ? ` | Priority: ${priority}` : ""}`);
+      if (meta.description) parts.push(`Description: ${(meta.description as string).slice(0, 500)}`);
+    }
+
+    const content = parts.join("\n");
+
+    const response = await fetch(`${graphitiUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        group_id: `integrations-${obj.workspaceId}`,
+        messages: [
+          {
+            content,
+            role_type: "user",
+            role: obj.author,
+            timestamp: new Date(obj.lastSyncedAt).toISOString(),
+            source_description: `integration - ${obj.type}`,
+            name: `${obj.type} - ${obj.externalId}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      if (
+        (response.status === 429 || response.status === 503) &&
+        retryCount < MAX_RETRIES
+      ) {
+        console.warn(
+          `[ingest] Graphiti unavailable (${response.status}), retry ${retryCount + 1}/${MAX_RETRIES}`,
+        );
+        await ctx.scheduler.runAfter(
+          RETRY_DELAY_MS,
+          internal.ingest.processIntegrationObject,
+          { objectId: args.objectId, retryCount: retryCount + 1 },
+        );
+        return;
+      }
+      console.error(
+        `[ingest] Graphiti integration ingest failed: ${response.status} ${body}`,
+      );
+      return;
+    }
+
+    await ctx.runMutation(internal.ingest.patchIntegrationObjectEpisodeId, {
+      objectId: args.objectId,
+      graphitiEpisodeId: obj._id,
+    });
+
+    console.log("[ingest] Ingested integration object:", args.objectId);
+  },
+});
+
+// ── Inbox item ingestion ────────────────────────────────────────────
+
+export const getInboxItem = internalQuery({
+  args: { itemId: v.id("inboxItems") },
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(args.itemId);
+    if (!item) return null;
+    const user = await ctx.db.get(item.userId);
+    return {
+      _id: item._id,
+      workspaceId: item.workspaceId,
+      type: item.type,
+      title: item.title,
+      summary: item.summary,
+      category: item.category,
+      status: item.status,
+      userName: user?.name ?? "Unknown",
+      outcome: item.outcome,
+      createdAt: item.createdAt,
+    };
+  },
+});
+
+export const patchInboxItemEpisodeId = internalMutation({
+  args: {
+    itemId: v.id("inboxItems"),
+    graphitiEpisodeId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.itemId, {
+      graphitiEpisodeId: args.graphitiEpisodeId,
+    });
+  },
+});
+
+export const processInboxItem = internalAction({
+  args: {
+    itemId: v.id("inboxItems"),
+    retryCount: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const graphitiUrl =
+      process.env.GRAPHITI_API_URL ?? "http://localhost:8000";
+    const retryCount = args.retryCount ?? 0;
+
+    const item = await ctx.runQuery(internal.ingest.getInboxItem, {
+      itemId: args.itemId,
+    });
+    if (!item) {
+      console.warn("[ingest] Inbox item not found:", args.itemId);
+      return;
+    }
+
+    let content: string;
+    if (item.outcome) {
+      content = `Decision made [${item.type}]: ${item.title}. Action: ${item.outcome.action}.${item.outcome.comment ? ` Comment: ${item.outcome.comment}` : ""} (Category: ${item.category})`;
+    } else {
+      content = `Inbox item [${item.type}]: ${item.title}. ${item.summary} (Category: ${item.category})`;
+    }
+
+    const response = await fetch(`${graphitiUrl}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        group_id: `inbox-${item.workspaceId}`,
+        messages: [
+          {
+            content,
+            role_type: "user",
+            role: item.userName,
+            timestamp: new Date(item.createdAt).toISOString(),
+            source_description: `inbox - ${item.type}`,
+            name: `${item.userName} inbox - ${item.type}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      if (
+        (response.status === 429 || response.status === 503) &&
+        retryCount < MAX_RETRIES
+      ) {
+        console.warn(
+          `[ingest] Graphiti unavailable (${response.status}), retry ${retryCount + 1}/${MAX_RETRIES}`,
+        );
+        await ctx.scheduler.runAfter(
+          RETRY_DELAY_MS,
+          internal.ingest.processInboxItem,
+          { itemId: args.itemId, retryCount: retryCount + 1 },
+        );
+        return;
+      }
+      console.error(
+        `[ingest] Graphiti inbox item ingest failed: ${response.status} ${body}`,
+      );
+      return;
+    }
+
+    await ctx.runMutation(internal.ingest.patchInboxItemEpisodeId, {
+      itemId: args.itemId,
+      graphitiEpisodeId: item._id,
+    });
+
+    console.log("[ingest] Ingested inbox item:", args.itemId);
   },
 });

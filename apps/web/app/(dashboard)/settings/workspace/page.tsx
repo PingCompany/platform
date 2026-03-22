@@ -36,6 +36,14 @@ export default function WorkspaceSettingsPage() {
     );
   }
 
+  if (wsCtx.role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to view workspace settings.
+      </div>
+    );
+  }
+
   return <WorkspaceSettingsContent />;
 }
 

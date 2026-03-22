@@ -317,6 +317,83 @@ export class Neo4jClient {
     }
   }
 
+  /**
+   * Get graph data for visualization: all entity nodes and their relationships.
+   */
+  async getGraphData(limit = 200): Promise<{
+    nodes: Array<{ uuid: string; name: string; summary?: string; group_id?: string; labels: string[]; edgeCount: number }>;
+    edges: Array<{ source: string; target: string; relationship: string; fact?: string; created_at?: string }>;
+    stats: { entityCount: number; edgeCount: number; episodeCount: number };
+  }> {
+    const session = this.session();
+    try {
+      // Get entity nodes with edge counts (only counting Entity-to-Entity edges)
+      const nodesResult = await session.run(
+        `
+        MATCH (n:Entity)
+        OPTIONAL MATCH (n)-[r:RELATES_TO]-(:Entity)
+        WITH n, count(r) AS edgeCount
+        ORDER BY edgeCount DESC
+        LIMIT $limit
+        RETURN n.uuid AS uuid, n.name AS name, n.summary AS summary,
+               n.group_id AS group_id, labels(n) AS labels, edgeCount
+        `,
+        { limit: neo4j.int(limit) },
+      );
+
+      const nodeUuids = nodesResult.records.map((r: Neo4jRecord) => r.get("uuid") as string);
+
+      // Get all RELATES_TO edges between visible nodes (both directions)
+      const edgesResult = nodeUuids.length > 0
+        ? await session.run(
+            `
+            MATCH (a:Entity)-[r:RELATES_TO]->(b:Entity)
+            WHERE a.uuid IN $uuids AND b.uuid IN $uuids
+            RETURN DISTINCT a.uuid AS source, b.uuid AS target,
+                   type(r) AS relationship, r.fact AS fact,
+                   r.created_at AS created_at
+            `,
+            { uuids: nodeUuids },
+          )
+        : { records: [] };
+
+      // Stats: count only Entity nodes and RELATES_TO edges
+      const statsResult = await session.run(`
+        MATCH (n:Entity) WITH count(n) AS entityCount
+        OPTIONAL MATCH (:Entity)-[r:RELATES_TO]->(:Entity)
+        WITH entityCount, count(r) AS edgeCount
+        OPTIONAL MATCH (e:Episodic) WITH entityCount, edgeCount, count(e) AS episodeCount
+        RETURN entityCount, edgeCount, episodeCount
+      `);
+      const statsRecord = statsResult.records[0];
+
+      return {
+        nodes: nodesResult.records.map((r: Neo4jRecord) => ({
+          uuid: r.get("uuid") as string,
+          name: r.get("name") as string,
+          summary: r.get("summary") as string | undefined,
+          group_id: r.get("group_id") as string | undefined,
+          labels: r.get("labels") as string[],
+          edgeCount: (r.get("edgeCount") as Integer)?.toNumber() ?? 0,
+        })),
+        edges: (edgesResult.records as Neo4jRecord[]).map((r: Neo4jRecord) => ({
+          source: r.get("source") as string,
+          target: r.get("target") as string,
+          relationship: r.get("relationship") as string,
+          fact: r.get("fact") as string | undefined,
+          created_at: r.get("created_at")?.toString(),
+        })),
+        stats: {
+          entityCount: (statsRecord?.get("entityCount") as Integer)?.toNumber() ?? 0,
+          edgeCount: (statsRecord?.get("edgeCount") as Integer)?.toNumber() ?? 0,
+          episodeCount: (statsRecord?.get("episodeCount") as Integer)?.toNumber() ?? 0,
+        },
+      };
+    } finally {
+      await session.close();
+    }
+  }
+
   private nodeToEntity(node: { properties: Record<string, unknown>; labels: string[] }): EntityNode {
     return {
       uuid: String(node.properties.uuid ?? ""),

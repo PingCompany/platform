@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { useToast } from "@/components/ui/toast-provider";
@@ -12,10 +13,13 @@ import { TopBarProvider } from "./TopBarContext";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { KeyboardShortcutsDialog } from "./KeyboardShortcutsDialog";
 import { ThemeToggle } from "./ThemeToggle";
-import { SIDEBAR_WIDTH, THREAD_PANEL_WIDTH } from "@/lib/constants";
+import { PanelLeftOpen } from "lucide-react";
+import { SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX, TOPBAR_HEIGHT, THREAD_PANEL_WIDTH } from "@/lib/constants";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
 import { ThreadPanelProvider, useThreadPanel } from "@/hooks/useThreadPanel";
+import { SidebarContext } from "@/hooks/useSidebar";
 import { ThreadPanel } from "@/components/channel/ThreadPanel";
+import { WorkspaceContext } from "@/components/workspace/WorkspaceProvider";
 
 function isEditableTarget(e: KeyboardEvent): boolean {
   const tag = (e.target as HTMLElement)?.tagName;
@@ -27,8 +31,10 @@ function isEditableTarget(e: KeyboardEvent): boolean {
 export function DashboardShell({ children }: { children: ReactNode }) {
   usePresenceHeartbeat();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_WIDTH_DEFAULT);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const isResizingRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
   const pendingKeyRef = useRef<string | null>(null);
@@ -44,7 +50,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const workspaceId = workspace?._id as Id<"workspaces"> | undefined;
   const channels = useQuery(api.channels.list, isAuthenticated && workspaceId ? { workspaceId } : "skip");
   const dmConversations = useQuery(api.directConversations.list, isAuthenticated ? {} : "skip");
-  const inboxUnread = useQuery(api.inboxSummaries.unreadCount, isAuthenticated ? {} : "skip");
+  const inboxUnread = useQuery(api.inboxItems.unreadCount, isAuthenticated ? {} : "skip");
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
   const markChannelRead = useMutation(api.channels.markRead);
   const markDMRead = useMutation(api.directConversations.markRead);
@@ -63,11 +69,14 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     }
     if (channels) {
       for (const ch of channels) {
+        if (!ch.isMember) continue;
         items.push({ path: `${workspacePrefix}/channel/${ch._id}`, unread: ch.unreadCount ?? 0 });
       }
     }
     return items;
   }, [workspacePrefix, channels, dmConversations, inboxUnread]);
+
+  const isSettingsRoute = pathname.includes("/settings/");
 
   // Resolve channel/DM names from already-loaded data to avoid flashing raw IDs
   const resolvedTitle = useMemo(() => {
@@ -92,6 +101,30 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
     return titleFromPath(pathname);
   }, [pathname, channels, dmConversations, currentUser]);
+
+  // Extract channel/DM names for breadcrumbs
+  const channelName = useMemo(() => {
+    const p = pathname.replace(/^\/app\/[^/]+/, "");
+    const channelMatch = p.match(/^\/channel\/(.+)$/);
+    if (channelMatch && channels) {
+      const ch = channels.find((c) => c._id === channelMatch[1]);
+      return ch?.name ?? null;
+    }
+    return null;
+  }, [pathname, channels]);
+
+  const conversationName = useMemo(() => {
+    const p = pathname.replace(/^\/app\/[^/]+/, "");
+    const dmMatch = p.match(/^\/dm\/(.+)$/);
+    if (dmMatch && dmConversations && currentUser) {
+      const conv = dmConversations.find((c) => c._id === dmMatch[1]);
+      if (conv) {
+        const otherMembers = conv.members.filter((m) => m.userId !== currentUser._id);
+        return conv.name || otherMembers.map((m) => m.name).join(", ") || "Direct Message";
+      }
+    }
+    return null;
+  }, [pathname, dmConversations, currentUser]);
 
   useEffect(() => {
     const channelUnread = channels?.reduce((sum, ch) => sum + (ch.unreadCount ?? 0), 0) ?? 0;
@@ -121,6 +154,31 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       chordTimerRef.current = null;
     }
   }, []);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const newWidth = Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, startWidth + ev.clientX - startX));
+      setSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      isResizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [sidebarWidth]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -224,45 +282,97 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, [toggleSidebar, clearChord, router, workspacePrefix, pathname, navItems, channels, markChannelRead, markDMRead, toast]);
 
   return (
+    <SidebarContext.Provider value={{ sidebarOpen, setSidebarOpen }}>
     <ThreadPanelProvider>
       <TopBarProvider>
-        <div className="flex h-screen overflow-hidden bg-background">
-          {/* Mobile overlay */}
-          {sidebarOpen && (
-            <div
-              className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
-
-          {/* Sidebar */}
-          <aside
-            className={`fixed z-30 h-full transition-transform duration-200 ease-out md:relative md:z-0 ${
-              sidebarOpen
-                ? "translate-x-0"
-                : "-translate-x-full md:-translate-x-full"
-            }`}
-            style={{ width: SIDEBAR_WIDTH }}
+        <div className="flex h-screen flex-col overflow-hidden bg-background">
+          {/* Skip link for keyboard users */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-ping-purple focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:shadow-lg"
           >
-            <Sidebar
-              onOpenSearch={openSearch}
-              onOpenShortcuts={openShortcuts}
-            />
-          </aside>
+            Skip to content
+          </a>
 
-          {/* Main + Thread panel wrapper */}
-          <div className="flex flex-1 overflow-hidden">
-            <div className="flex flex-1 flex-col overflow-hidden transition-all duration-200">
-              <TopBar
-                onToggleSidebar={toggleSidebar}
-                onOpenSearch={openSearch}
-                trailing={<ThemeToggle />}
-                title={resolvedTitle}
+          {/* TopBar — full width, always on top */}
+          <TopBar
+            onToggleSidebar={toggleSidebar}
+            onOpenSearch={openSearch}
+            trailing={<ThemeToggle />}
+            workspaceName={workspace?.name}
+            channelName={channelName}
+            conversationName={conversationName}
+          />
+
+          {/* Below topbar: sidebar + content */}
+          <div className="flex min-w-0 flex-1 overflow-hidden">
+            {/* Mobile overlay */}
+            {sidebarOpen && (
+              <div
+                className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
+                onClick={() => setSidebarOpen(false)}
               />
-              <main className="flex-1 overflow-auto scrollbar-thin">{children}</main>
+            )}
+
+            {/* Sidebar wrapper — width animates to 0 when closed */}
+            <div
+              className="hidden md:block shrink-0 overflow-hidden transition-[width] duration-200 ease-out"
+              style={{ width: sidebarOpen ? sidebarWidth : 0 }}
+            >
+              <aside className="h-full relative" style={{ width: sidebarWidth }} role="navigation" aria-label="Sidebar">
+                <Sidebar
+                  isSettingsRoute={isSettingsRoute}
+                  onOpenShortcuts={openShortcuts}
+                  onCollapse={toggleSidebar}
+                />
+                {/* Right-edge inset shadow for depth */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-border" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-4 shadow-[inset_-8px_0_12px_-8px_rgba(94,106,210,0.1)] dark:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.3)]" />
+              </aside>
             </div>
-            <ThreadPanelSlot />
+
+            {/* Resize handle (desktop only) */}
+            {sidebarOpen && (
+              <div
+                className="hidden md:flex shrink-0 w-0 cursor-col-resize items-center justify-center relative z-10 after:absolute after:inset-y-0 after:-left-1 after:w-2 after:transition-colors hover:after:bg-ping-purple/20 active:after:bg-ping-purple/30"
+                onMouseDown={handleResizeStart}
+                onDoubleClick={() => setSidebarWidth(SIDEBAR_WIDTH_DEFAULT)}
+              />
+            )}
+
+            {/* Mobile sidebar — slides in as overlay */}
+            <aside
+              role="navigation"
+              aria-label="Sidebar"
+              className={`fixed top-[--topbar-h] z-30 h-[calc(100vh-var(--topbar-h))] transition-transform duration-200 ease-out md:hidden ${
+                sidebarOpen ? "translate-x-0" : "-translate-x-full"
+              }`}
+              style={{ width: sidebarWidth, "--topbar-h": `${TOPBAR_HEIGHT}px` } as React.CSSProperties}
+            >
+              <Sidebar
+                isSettingsRoute={isSettingsRoute}
+                onOpenShortcuts={openShortcuts}
+              />
+            </aside>
+
+            {/* Main content + Thread panel */}
+            <div className="flex min-w-0 flex-1 overflow-hidden">
+              <main id="main-content" className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+              <ThreadPanelSlot />
+            </div>
           </div>
+
+          {/* Show sidebar button (bottom-left, visible when sidebar is hidden on desktop) */}
+          {!sidebarOpen && (
+            <button
+              onClick={toggleSidebar}
+              aria-label="Show sidebar (⌘B)"
+              className="fixed bottom-4 left-4 z-30 hidden md:flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 border border-subtle text-muted-foreground shadow-sm transition-colors hover:bg-surface-3 hover:text-foreground"
+              title="Show sidebar (⌘B)"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Modals */}
           <CommandPalette
@@ -277,11 +387,23 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </div>
       </TopBarProvider>
     </ThreadPanelProvider>
+    </SidebarContext.Provider>
   );
 }
 
 function ThreadPanelSlot() {
   const { openThread, closeThreadPanel } = useThreadPanel();
+  const workspaceCtxValue = useMemo(() => {
+    if (!openThread?.workspaceId) return null;
+    return {
+      workspaceId: openThread.workspaceId as Id<"workspaces">,
+      workspaceSlug: "",
+      workspaceName: "",
+      role: "member" as const,
+      isSubdomain: false,
+      buildPath: (path: string) => path,
+    };
+  }, [openThread?.workspaceId]);
 
   // Escape — close thread panel (when no modal is open)
   useEffect(() => {
@@ -301,20 +423,48 @@ function ThreadPanelSlot() {
     return () => window.removeEventListener("keydown", handleEsc);
   }, [openThread, closeThreadPanel]);
 
-  if (!openThread) return null;
-
-  return (
+  const threadContent = openThread ? (
     <>
       {/* Mobile overlay */}
-      <div
+      <motion.div
+        key="thread-overlay"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
         onClick={closeThreadPanel}
       />
-      <aside
-        className="fixed inset-0 z-50 bg-background md:relative md:z-0 md:border-l md:border-subtle"
-        style={{ width: undefined }}
+
+      {/* Mobile: full-screen slide from right */}
+      <motion.aside
+        key="thread-mobile"
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed inset-0 z-50 bg-background md:hidden"
       >
-        <div className="h-full md:hidden">
+        <ThreadPanel
+          parentMessageId={openThread.parentMessageId}
+          messageTable={openThread.messageTable}
+          channelId={openThread.channelId}
+          conversationId={openThread.conversationId}
+          contextName={openThread.contextName}
+          onClose={closeThreadPanel}
+        />
+      </motion.aside>
+
+      {/* Desktop: width animation so conversation resizes smoothly */}
+      <motion.div
+        key="thread-desktop"
+        initial={{ width: 0 }}
+        animate={{ width: THREAD_PANEL_WIDTH }}
+        exit={{ width: 0 }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="hidden h-full overflow-hidden border-l border-subtle md:block"
+      >
+        <div className="h-full" style={{ width: THREAD_PANEL_WIDTH }}>
           <ThreadPanel
             parentMessageId={openThread.parentMessageId}
             messageTable={openThread.messageTable}
@@ -324,20 +474,19 @@ function ThreadPanelSlot() {
             onClose={closeThreadPanel}
           />
         </div>
-        <div
-          className="hidden h-full md:block"
-          style={{ width: THREAD_PANEL_WIDTH }}
-        >
-          <ThreadPanel
-            parentMessageId={openThread.parentMessageId}
-            messageTable={openThread.messageTable}
-            channelId={openThread.channelId}
-            conversationId={openThread.conversationId}
-            contextName={openThread.contextName}
-            onClose={closeThreadPanel}
-          />
-        </div>
-      </aside>
+      </motion.div>
     </>
+  ) : null;
+
+  return (
+    <AnimatePresence>
+      {threadContent && (
+        workspaceCtxValue ? (
+          <WorkspaceContext.Provider value={workspaceCtxValue}>
+            {threadContent}
+          </WorkspaceContext.Provider>
+        ) : threadContent
+      )}
+    </AnimatePresence>
   );
 }

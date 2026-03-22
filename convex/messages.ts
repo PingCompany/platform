@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { requireUser } from "./auth";
+import { requireUser, requireChannelMember } from "./auth";
 
 export const send = mutation({
   args: {
@@ -10,6 +10,7 @@ export const send = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const messageId = await ctx.db.insert("messages", {
       channelId: args.channelId,
@@ -24,22 +25,45 @@ export const send = mutation({
       messageId,
     });
 
+    // Dispatch to agents (@mention or channel-trigger)
+    await ctx.scheduler.runAfter(0, internal.agentRunner.dispatchChannelMention, {
+      channelId: args.channelId,
+      messageId,
+      body: args.body,
+      authorId: user._id,
+    });
+
     // Update sender's lastReadAt and reset their unreadCount,
     // then increment unreadCount for all other channel members.
+    // Also track @mention counts.
     const allMembers = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
       .collect();
 
-    for (const member of allMembers) {
+    // Resolve member names for mention detection
+    const memberUsers = await Promise.all(
+      allMembers.map(async (m) => {
+        const u = await ctx.db.get(m.userId);
+        return { membership: m, userName: u?.name ?? "" };
+      }),
+    );
+
+    const bodyLower = args.body.toLowerCase();
+
+    for (const { membership: member, userName } of memberUsers) {
       if (member.userId === user._id) {
         await ctx.db.patch(member._id, {
           lastReadAt: Date.now(),
           unreadCount: 0,
+          unreadMentionCount: 0,
         });
       } else {
+        // Check if this member is @mentioned
+        const isMentioned = userName && bodyLower.includes(`@${userName.toLowerCase()}`);
         await ctx.db.patch(member._id, {
           unreadCount: (member.unreadCount ?? 0) + 1,
+          ...(isMentioned ? { unreadMentionCount: (member.unreadMentionCount ?? 0) + 1 } : {}),
         });
       }
     }
@@ -172,10 +196,36 @@ export const listByChannel = query({
             .map((u) => ({ _id: u._id, name: u.name, avatarUrl: u.avatarUrl }));
         }
 
+        // Resolve integration object metadata for integration messages
+        let integrationObject: {
+          identifier?: string;
+          type?: string;
+          title?: string;
+          status?: string;
+          url?: string;
+          author?: string;
+          metadata?: Record<string, unknown>;
+        } | undefined;
+        if (msg.type === "integration" && msg.integrationObjectId) {
+          const obj = await ctx.db.get(msg.integrationObjectId);
+          if (obj) {
+            integrationObject = {
+              identifier: (obj.metadata as Record<string, unknown>)?.identifier as string | undefined,
+              type: obj.type,
+              title: obj.title,
+              status: obj.status,
+              url: obj.url,
+              author: obj.author,
+              metadata: obj.metadata as Record<string, unknown>,
+            };
+          }
+        }
+
         return {
           ...msg,
           author: author ? { name: author.name, avatarUrl: author.avatarUrl } : null,
           threadParticipants,
+          integrationObject,
         };
       }),
     );

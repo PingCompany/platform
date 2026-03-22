@@ -6,7 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "npx tsx src/index.ts",
-    "dev": "npx tsx watch src/index.ts",
+    "dev": "npx tsx watch src/dev.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

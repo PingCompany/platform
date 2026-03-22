@@ -30,7 +30,7 @@ function sanitizeHtml(html: string): string {
     'src=""',
   );
   // Remove iframe, object, embed tags
-  clean = clean.replace(/<(iframe|object|embed|form)\b[^>]*>.*?<\/\1>/gis, "");
+  clean = clean.replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1>/gi, "");
   clean = clean.replace(/<(iframe|object|embed|form)\b[^>]*\/?\s*>/gi, "");
   return clean;
 }
@@ -113,11 +113,9 @@ export default function EmailThreadPage({ params }: Props) {
       {/* Thread emails */}
       <div className="divide-y divide-subtle">
         {threadEmails.map((email) => {
-          const senderName = email.from.name || email.from.email;
+          const senderName = email.from;
           const senderInitial = senderName[0]?.toUpperCase() ?? "?";
-          const recipients = email.to
-            .map((r) => r.name || r.email)
-            .join(", ");
+          const recipients = email.to.join(", ");
 
           return (
             <div key={email._id} className="px-4 py-4">
@@ -141,7 +139,7 @@ export default function EmailThreadPage({ params }: Props) {
                       <>
                         {" "}
                         · CC:{" "}
-                        {email.cc.map((r) => r.name || r.email).join(", ")}
+                        {email.cc.join(", ")}
                       </>
                     )}
                   </p>

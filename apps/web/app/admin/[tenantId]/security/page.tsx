@@ -23,12 +23,12 @@ interface AuditEntry {
 }
 
 const MOCK_AUDIT: AuditEntry[] = [
-  { id: "1", timestamp: "2026-03-20 14:32:11", agent: "KnowledgeBot",  action: "READ",   resource: "#private-salary",    status: "denied" },
-  { id: "2", timestamp: "2026-03-20 14:32:09", agent: "KnowledgeBot",  action: "READ",   resource: "#private-salary",    status: "denied" },
-  { id: "3", timestamp: "2026-03-20 14:32:05", agent: "KnowledgeBot",  action: "READ",   resource: "#private-salary",    status: "flagged" },
+  { id: "1", timestamp: "2026-03-20 14:32:11", agent: "mrPING",  action: "READ",   resource: "#private-salary",    status: "denied" },
+  { id: "2", timestamp: "2026-03-20 14:32:09", agent: "mrPING",  action: "READ",   resource: "#private-salary",    status: "denied" },
+  { id: "3", timestamp: "2026-03-20 14:32:05", agent: "mrPING",  action: "READ",   resource: "#private-salary",    status: "flagged" },
   { id: "4", timestamp: "2026-03-20 14:31:22", agent: "SupportRouter", action: "READ",   resource: "#engineering",       status: "allowed" },
-  { id: "5", timestamp: "2026-03-20 14:30:55", agent: "KnowledgeBot",  action: "SEARCH", resource: "vector-store:main",  status: "allowed" },
-  { id: "6", timestamp: "2026-03-20 14:29:12", agent: "KnowledgeBot",  action: "READ",   resource: "#product",           status: "allowed" },
+  { id: "5", timestamp: "2026-03-20 14:30:55", agent: "mrPING",  action: "SEARCH", resource: "vector-store:main",  status: "allowed" },
+  { id: "6", timestamp: "2026-03-20 14:29:12", agent: "mrPING",  action: "READ",   resource: "#product",           status: "allowed" },
   { id: "7", timestamp: "2026-03-20 14:28:43", agent: "SupportRouter", action: "WRITE",  resource: "#general",           status: "allowed" },
   { id: "8", timestamp: "2026-03-20 14:28:01", agent: "SprintCoach",   action: "READ",   resource: "linear:all-tickets", status: "denied" },
 ];
@@ -61,9 +61,9 @@ export default function SecurityPage({ params }: Props) {
           <ArrowLeft className="h-3 w-3" />
           Backoffice
         </Link>
-        <span className="text-2xs text-foreground/20">›</span>
+        <span className="text-2xs text-foreground/40">›</span>
         <span className="text-2xs text-muted-foreground capitalize">{tenantId}</span>
-        <span className="text-2xs text-foreground/20">›</span>
+        <span className="text-2xs text-foreground/40">›</span>
         <span className="text-2xs text-foreground">Security</span>
       </div>
 
@@ -71,7 +71,7 @@ export default function SecurityPage({ params }: Props) {
       <div className="mb-6 flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-foreground/30" />
+            <Shield className="h-4 w-4 text-foreground/50" />
             <h1 className="text-md font-semibold text-foreground">AI Security Panel</h1>
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground capitalize">
@@ -107,7 +107,7 @@ export default function SecurityPage({ params }: Props) {
           <div className="flex-1">
             <p className="text-xs font-semibold text-foreground">Anomaly Detected</p>
             <p className="mt-0.5 text-2xs text-muted-foreground">
-              KnowledgeBot attempted to access <code className="font-mono text-foreground/70">#private-salary</code> 3 times in 2 minutes — access denied by scope policy. Possible prompt injection attempt.
+              mrPING attempted to access <code className="font-mono text-foreground/70">#private-salary</code> 3 times in 2 minutes — access denied by scope policy. Possible prompt injection attempt.
             </p>
           </div>
           <span className="shrink-0 rounded border border-status-danger/30 bg-status-danger/10 px-1.5 py-0.5 text-2xs font-medium text-status-danger">
@@ -128,7 +128,7 @@ export default function SecurityPage({ params }: Props) {
       {/* Audit ledger */}
       <div className="overflow-hidden rounded border border-subtle">
         <div className="flex items-center justify-between border-b border-subtle bg-surface-1 px-4 py-2">
-          <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+          <span className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
             Immutable Audit Ledger
           </span>
           <div className="flex items-center gap-1.5">
@@ -139,7 +139,7 @@ export default function SecurityPage({ params }: Props) {
 
         <div className="grid grid-cols-[140px_1fr_80px_1fr_70px] gap-3 border-b border-subtle bg-surface-1/50 px-4 py-2">
           {["Timestamp", "Agent", "Action", "Resource", "Status"].map((h) => (
-            <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+            <span key={h} className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
               {h}
             </span>
           ))}
@@ -156,7 +156,7 @@ export default function SecurityPage({ params }: Props) {
                 (entry.status === "denied" || entry.status === "flagged") && "bg-surface-2"
               )}
             >
-              <span className="font-mono text-2xs text-foreground/30">{entry.timestamp}</span>
+              <span className="font-mono text-2xs text-foreground/50">{entry.timestamp}</span>
               <span className="text-xs font-medium text-foreground">{entry.agent}</span>
               <span className="font-mono text-2xs text-muted-foreground">{entry.action}</span>
               <span className="font-mono text-2xs text-muted-foreground truncate">{entry.resource}</span>
@@ -174,7 +174,7 @@ export default function SecurityPage({ params }: Props) {
         })}
       </div>
 
-      <p className="mt-3 text-2xs text-foreground/20">
+      <p className="mt-3 text-2xs text-foreground/40">
         All entries are cryptographically immutable · Powered by Civic Nexus
       </p>
 

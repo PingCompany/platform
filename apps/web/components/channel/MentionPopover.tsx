@@ -1,38 +1,29 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useContext } from "react";
 import { useQuery, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWorkspace } from "@/hooks/useWorkspace";
+import { WorkspaceContext } from "@/components/workspace/WorkspaceProvider";
 
 export interface MentionUser {
   id: string;
   name: string;
   role: string;
   isBot?: boolean;
+  isAgent?: boolean;
+  agentColor?: string;
+  isManagedAgent?: boolean;
 }
 
 interface MentionPopoverProps {
-  /** The search query typed after @ */
   query: string;
-  /** Whether the popover is visible */
   isOpen: boolean;
-  /** Position of the popover (relative to the composer) */
   position: { top: number; left: number };
-  /** Called when a user is selected */
   onSelect: (user: MentionUser) => void;
-  /** Called when the popover should be dismissed */
   onDismiss: () => void;
 }
-
-const KNOWLEDGE_BOT: MentionUser = {
-  id: "knowledge-bot",
-  name: "KnowledgeBot",
-  role: "bot",
-  isBot: true,
-};
 
 export function MentionPopover({
   query,
@@ -42,17 +33,14 @@ export function MentionPopover({
   onDismiss,
 }: MentionPopoverProps) {
   const { isAuthenticated } = useConvexAuth();
-  const { workspaceId } = useWorkspace();
+  const workspaceCtx = useContext(WorkspaceContext);
+  const workspaceId = workspaceCtx?.workspaceId;
   const allUsers = useQuery(api.users.listAll, isAuthenticated && workspaceId ? { workspaceId } : "skip");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Build filtered list: KnowledgeBot first, then workspace users
   const filteredUsers: MentionUser[] = (() => {
     const lowerQuery = query.toLowerCase();
-
-    const botMatches =
-      !lowerQuery || "knowledgebot".includes(lowerQuery) || "bot".includes(lowerQuery);
 
     const workspaceUsers: MentionUser[] = (allUsers ?? [])
       .filter(
@@ -64,27 +52,32 @@ export function MentionPopover({
         id: u._id,
         name: u.name,
         role: u.role,
+        isBot: !!u.isAgent,
+        isAgent: !!u.isAgent,
+        agentColor: u.agentColor ?? undefined,
+        isManagedAgent: !!u.isManagedAgent,
       }));
 
-    const result: MentionUser[] = [];
-    if (botMatches) result.push(KNOWLEDGE_BOT);
-    result.push(...workspaceUsers);
-    return result;
+    // Sort: managed agents first, then custom agents, then users alphabetically
+    return workspaceUsers.sort((a, b) => {
+      if (a.isManagedAgent && !b.isManagedAgent) return -1;
+      if (!a.isManagedAgent && b.isManagedAgent) return 1;
+      if (a.isAgent && !b.isAgent) return -1;
+      if (!a.isAgent && b.isAgent) return 1;
+      return a.name.localeCompare(b.name);
+    });
   })();
 
-  // Reset selected index when query or list changes
   useEffect(() => {
     setSelectedIndex(0);
   }, [query, filteredUsers.length]);
 
-  // Scroll selected item into view
   useEffect(() => {
     if (!listRef.current) return;
     const items = listRef.current.querySelectorAll("[data-mention-item]");
     items[selectedIndex]?.scrollIntoView({ block: "nearest" });
   }, [selectedIndex]);
 
-  // Keyboard handler — attached to window so it captures events from the textarea
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -92,12 +85,14 @@ export function MentionPopover({
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
+          e.stopPropagation();
           setSelectedIndex((prev) =>
             prev < filteredUsers.length - 1 ? prev + 1 : 0
           );
           break;
         case "ArrowUp":
           e.preventDefault();
+          e.stopPropagation();
           setSelectedIndex((prev) =>
             prev > 0 ? prev - 1 : filteredUsers.length - 1
           );
@@ -106,11 +101,13 @@ export function MentionPopover({
         case "Tab":
           if (filteredUsers.length > 0) {
             e.preventDefault();
+            e.stopPropagation();
             onSelect(filteredUsers[selectedIndex]);
           }
           break;
         case "Escape":
           e.preventDefault();
+          e.stopPropagation();
           onDismiss();
           break;
       }
@@ -134,7 +131,7 @@ export function MentionPopover({
       }}
     >
       <div className="px-2 py-1.5 border-b border-subtle">
-        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
+        <span className="text-2xs font-medium uppercase tracking-widest text-foreground/45">
           Mention someone
         </span>
       </div>
@@ -155,10 +152,12 @@ export function MentionPopover({
                 : "text-foreground/80 hover:bg-surface-3"
             )}
           >
-            {/* Avatar */}
-            {user.isBot ? (
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ping-purple/20">
-                <Bot className="h-3 w-3 text-ping-purple" />
+            {user.isAgent ? (
+              <div
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: `${user.agentColor ?? "#5E6AD2"}20` }}
+              >
+                <Bot className="h-3 w-3" style={{ color: user.agentColor ?? "#5E6AD2" }} />
               </div>
             ) : (
               <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-2xs font-medium text-foreground">
@@ -166,13 +165,11 @@ export function MentionPopover({
               </div>
             )}
 
-            {/* Name */}
             <span className="flex-1 truncate">{user.name}</span>
 
-            {/* Role badge */}
-            {user.isBot ? (
+            {user.isAgent ? (
               <span className="rounded border border-ping-purple/30 bg-ping-purple/10 px-1 py-px text-2xs text-ping-purple">
-                AI
+                Agent
               </span>
             ) : user.role === "admin" ? (
               <span className="rounded border border-foreground/10 bg-foreground/5 px-1 py-px text-2xs text-foreground/40">

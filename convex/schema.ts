@@ -75,6 +75,7 @@ export default defineSchema({
     createdBy: v.id("users"),
     isDefault: v.boolean(),
     isArchived: v.boolean(),
+    isPrivate: v.optional(v.boolean()),
     type: v.optional(v.union(v.literal("public"), v.literal("dm"), v.literal("group"))),
   })
     .index("by_workspace", ["workspaceId"])
@@ -85,6 +86,8 @@ export default defineSchema({
     userId: v.id("users"),
     lastReadAt: v.optional(v.number()),
     unreadCount: v.optional(v.number()),
+    unreadMentionCount: v.optional(v.number()),
+    isStarred: v.optional(v.boolean()),
   })
     .index("by_channel", ["channelId"])
     .index("by_user", ["userId"])
@@ -113,6 +116,11 @@ export default defineSchema({
     mentions: v.optional(v.array(v.string())),
     graphitiEpisodeId: v.optional(v.string()),
     isEdited: v.boolean(),
+    // Integration update history (previous states when message is edited by webhook)
+    integrationHistory: v.optional(v.array(v.object({
+      body: v.string(),
+      timestamp: v.number(),
+    }))),
     // Thread fields
     threadId: v.optional(v.id("messages")),
     alsoSentToChannel: v.optional(v.boolean()),
@@ -145,46 +153,113 @@ export default defineSchema({
     .index("by_workspace_type", ["workspaceId", "type"])
     .index("by_external_id", ["externalId"]),
 
-  inboxSummaries: defineTable({
+  inboxItems: defineTable({
     userId: v.id("users"),
-    channelId: v.id("channels"),
-    eisenhowerQuadrant: v.union(
-      v.literal("urgent-important"),
-      v.literal("important"),
-      v.literal("urgent"),
-      v.literal("fyi"),
+    workspaceId: v.id("workspaces"),
+    type: v.union(
+      v.literal("pr_review"),
+      v.literal("ticket_triage"),
+      v.literal("question_answer"),
+      v.literal("blocked_unblock"),
+      v.literal("fact_verify"),
+      v.literal("cross_team_ack"),
+      v.literal("channel_summary"),
+      v.literal("email_summary"),
     ),
-    bullets: v.array(
-      v.object({
-        text: v.string(),
-        priority: v.union(
-          v.literal("urgent-important"),
-          v.literal("important"),
-          v.literal("urgent"),
-          v.literal("fyi"),
-        ),
-        relatedMessageIds: v.array(v.id("messages")),
-      }),
+    category: v.union(
+      v.literal("do"),
+      v.literal("decide"),
+      v.literal("delegate"),
+      v.literal("skip"),
     ),
-    messageCount: v.number(),
-    periodStart: v.number(),
-    periodEnd: v.number(),
-    isRead: v.boolean(),
-    isArchived: v.boolean(),
-    actionItems: v.optional(
+    title: v.string(),
+    summary: v.string(),
+    context: v.optional(v.string()),
+    pingWillDo: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("snoozed"),
+      v.literal("archived"),
+    ),
+    channelId: v.optional(v.id("channels")),
+    sourceMessageId: v.optional(v.id("messages")),
+    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
+    orgTrace: v.optional(
       v.array(
         v.object({
-          text: v.string(),
-          assignee: v.optional(v.string()),
-          relatedIntegrationObjectId: v.optional(v.id("integrationObjects")),
+          userId: v.optional(v.id("users")),
+          name: v.string(),
+          role: v.union(
+            v.literal("author"),
+            v.literal("assignee"),
+            v.literal("mentioned"),
+            v.literal("to_consult"),
+          ),
+          avatarUrl: v.optional(v.string()),
         }),
       ),
     ),
+    recommendedActions: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          actionKey: v.string(),
+          primary: v.optional(v.boolean()),
+          needsComment: v.optional(v.boolean()),
+        }),
+      ),
+    ),
+    nextSteps: v.optional(
+      v.array(
+        v.object({
+          actionKey: v.string(),
+          label: v.string(),
+          automated: v.boolean(),
+        }),
+      ),
+    ),
+    links: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          url: v.string(),
+          type: v.union(
+            v.literal("doc"),
+            v.literal("sheet"),
+            v.literal("video"),
+            v.literal("pr"),
+            v.literal("other"),
+          ),
+        }),
+      ),
+    ),
+    relatedItemIds: v.optional(v.array(v.id("inboxItems"))),
+    outcome: v.optional(
+      v.object({
+        action: v.string(),
+        comment: v.optional(v.string()),
+        delegatedTo: v.optional(v.id("users")),
+        decidedAt: v.number(),
+      }),
+    ),
+    agentExecutionStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("running"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+    ),
+    agentExecutionResult: v.optional(v.string()),
+    delegatedTo: v.optional(v.id("users")),
+    snoozedUntil: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+    graphitiEpisodeId: v.optional(v.string()),
   })
-    .index("by_user", ["userId"])
-    .index("by_user_read", ["userId", "isRead"])
-    .index("by_user_channel", ["userId", "channelId"])
-    .index("by_channel_period", ["channelId", "periodEnd"]),
+    .index("by_user_status", ["userId", "status"])
+    .index("by_user_category", ["userId", "category"])
+    .index("by_workspace_type", ["workspaceId", "type"]),
 
   drafts: defineTable({
     userId: v.id("users"),
@@ -205,41 +280,6 @@ export default defineSchema({
     .index("by_user_channel", ["userId", "channelId"])
     .index("by_user_status", ["userId", "status"]),
 
-  proactiveAlerts: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    type: v.union(
-      v.literal("unanswered_question"),
-      v.literal("pr_review_nudge"),
-      v.literal("incident_route"),
-      v.literal("blocked_task"),
-      v.literal("fact_check"),
-      v.literal("cross_team_sync"),
-    ),
-    channelId: v.id("channels"),
-    sourceChannelId: v.optional(v.id("channels")),
-    title: v.string(),
-    body: v.string(),
-    sourceMessageId: v.optional(v.id("messages")),
-    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
-    suggestedAction: v.string(),
-    priority: v.union(
-      v.literal("high"),
-      v.literal("medium"),
-      v.literal("low"),
-    ),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("acted"),
-      v.literal("dismissed"),
-      v.literal("expired"),
-    ),
-    expiresAt: v.number(),
-    createdAt: v.number(),
-  })
-    .index("by_user_status", ["userId", "status"])
-    .index("by_user_type", ["userId", "type"])
-    .index("by_workspace_type", ["workspaceId", "type"]),
 
   sessions: defineTable({
     userId: v.id("users"),
@@ -260,6 +300,8 @@ export default defineSchema({
     name: v.optional(v.string()),
     createdBy: v.id("users"),
     isArchived: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
   })
     .index("by_workspace", ["workspaceId"]),
 
@@ -427,64 +469,6 @@ export default defineSchema({
       filterFields: ["userId"],
     }),
 
-  decisions: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.id("workspaces"),
-    type: v.union(
-      v.literal("pr_review"),
-      v.literal("ticket_triage"),
-      v.literal("question_answer"),
-      v.literal("blocked_unblock"),
-      v.literal("fact_verify"),
-      v.literal("cross_team_ack"),
-      v.literal("channel_summary"),
-    ),
-    title: v.string(),
-    summary: v.string(),
-    eisenhowerQuadrant: v.union(
-      v.literal("urgent-important"),
-      v.literal("important"),
-      v.literal("urgent"),
-      v.literal("fyi"),
-    ),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("decided"),
-      v.literal("delegated"),
-      v.literal("snoozed"),
-      v.literal("expired"),
-    ),
-    sourceAlertId: v.optional(v.id("proactiveAlerts")),
-    sourceSummaryId: v.optional(v.id("inboxSummaries")),
-    sourceIntegrationObjectId: v.optional(v.id("integrationObjects")),
-    sourceMessageId: v.optional(v.id("messages")),
-    channelId: v.optional(v.id("channels")),
-    outcome: v.optional(
-      v.object({
-        action: v.string(),
-        comment: v.optional(v.string()),
-        delegatedTo: v.optional(v.id("users")),
-        decidedAt: v.number(),
-      }),
-    ),
-    agentExecutionStatus: v.optional(
-      v.union(
-        v.literal("pending"),
-        v.literal("running"),
-        v.literal("completed"),
-        v.literal("failed"),
-      ),
-    ),
-    agentExecutionResult: v.optional(v.string()),
-    delegatedTo: v.optional(v.id("users")),
-    snoozedUntil: v.optional(v.number()),
-    expiresAt: v.optional(v.number()),
-    createdAt: v.number(),
-  })
-    .index("by_user_status", ["userId", "status"])
-    .index("by_user_quadrant", ["userId", "eisenhowerQuadrant"])
-    .index("by_source_alert", ["sourceAlertId"])
-    .index("by_source_summary", ["sourceSummaryId"]),
 
   emailSenderRules: defineTable({
     userId: v.id("users"),
@@ -550,6 +534,13 @@ export default defineSchema({
     description: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     color: v.optional(v.string()),
+    model: v.optional(v.string()),
+    scope: v.union(v.literal("workspace"), v.literal("private")),
+    // Preconfigured capabilities
+    tools: v.optional(v.array(v.string())),
+    restrictions: v.optional(v.array(v.string())),
+    triggers: v.optional(v.array(v.string())),
+    jobs: v.optional(v.array(v.string())),
     status: v.union(
       v.literal("active"),
       v.literal("inactive"),
@@ -557,8 +548,15 @@ export default defineSchema({
     ),
     lastActiveAt: v.optional(v.number()),
     createdBy: v.id("users"),
+    // Links agent to its user record so it can participate in channels/DMs
+    agentUserId: v.optional(v.id("users")),
+    // Managed agents are platform-defined and cannot be deleted by users
+    isManaged: v.optional(v.boolean()),
+    managedSlug: v.optional(v.string()),
   })
-    .index("by_workspace", ["workspaceId"]),
+    .index("by_workspace", ["workspaceId"])
+    .index("by_agent_user", ["agentUserId"])
+    .index("by_managed_slug", ["managedSlug"]),
 
   agentApiTokens: defineTable({
     agentId: v.id("agents"),
@@ -609,4 +607,19 @@ export default defineSchema({
     .index("by_workspace", ["workspaceId"])
     .index("by_workspace_type", ["workspaceId", "integrationType"])
     .index("by_channel_type_target", ["channelId", "integrationType", "externalTarget"]),
+
+  quickChats: defineTable({
+    workspaceId: v.id("workspaces"),
+    userId: v.id("users"),
+    query: v.string(),
+    response: v.optional(v.string()),
+    agentId: v.optional(v.id("agents")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("done"),
+      v.literal("error"),
+    ),
+    promotedToConversationId: v.optional(v.id("directConversations")),
+  })
+    .index("by_user", ["userId"]),
 });

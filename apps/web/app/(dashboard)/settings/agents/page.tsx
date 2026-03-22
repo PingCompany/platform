@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Plus } from "lucide-react";
-import { AgentCard, AgentConfigDialog } from "@/components/bot/AgentCard";
+import { AgentCard, AgentConfigDialog, type AgentSaveData } from "@/components/bot/AgentCard";
 import type { Agent } from "@/components/bot/AgentCard";
 import { AgentTokenDialog } from "@/components/bot/AgentTokenDialog";
 import { AgentApiInfo } from "@/components/bot/AgentApiInfo";
@@ -13,6 +13,20 @@ import { useToast } from "@/components/ui/toast-provider";
 import { useWorkspace } from "@/hooks/useWorkspace";
 
 export default function AgentsPage() {
+  const { role } = useWorkspace();
+
+  if (role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to manage agents.
+      </div>
+    );
+  }
+
+  return <AgentsPageContent />;
+}
+
+function AgentsPageContent() {
   const { workspaceId } = useWorkspace();
   const agents = useQuery(api.agents.list, { workspaceId });
   const createAgent = useMutation(api.agents.create);
@@ -55,21 +69,7 @@ export default function AgentsPage() {
     }
   };
 
-  const handleToggle = async (id: Id<"agents">, newStatus: "active" | "inactive") => {
-    try {
-      await updateAgent({ agentId: id, workspaceId, status: newStatus });
-      toast(`Agent ${newStatus === "active" ? "enabled" : "disabled"}`, "success");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to update agent", "error");
-    }
-  };
-
-  const handleSave = async (data: {
-    name: string;
-    description: string;
-    systemPrompt: string;
-    color: string;
-  }) => {
+  const handleSave = async (data: AgentSaveData) => {
     try {
       if (configMode === "create") {
         await createAgent({
@@ -78,6 +78,12 @@ export default function AgentsPage() {
           description: data.description,
           systemPrompt: data.systemPrompt,
           color: data.color,
+          model: data.model,
+          scope: data.scope ?? "workspace",
+          tools: data.tools,
+          restrictions: data.restrictions,
+          triggers: data.triggers,
+          jobs: data.jobs,
         });
         toast("Agent created", "success");
       } else if (selectedAgent) {
@@ -88,29 +94,17 @@ export default function AgentsPage() {
           description: data.description,
           systemPrompt: data.systemPrompt,
           color: data.color,
+          model: data.model,
+          scope: data.scope,
+          tools: data.tools,
+          restrictions: data.restrictions,
+          triggers: data.triggers,
+          jobs: data.jobs,
         });
         toast("Agent updated", "success");
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Failed to save agent", "error");
-    }
-  };
-
-  const handleGenerateToken = async (id: Id<"agents">) => {
-    const agent = agents.find((a) => a._id === id);
-    if (!agent) return;
-
-    try {
-      const token = await generateTokenMutation({
-        agentId: id,
-        workspaceId,
-        label: `Token for ${agent.name}`,
-      });
-      setGeneratedToken(token);
-      setTokenAgentName(agent.name);
-      setTokenDialogOpen(true);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Failed to generate token", "error");
     }
   };
 
@@ -126,9 +120,7 @@ export default function AgentsPage() {
           <AgentCard
             key={agent._id}
             agent={agent}
-            onToggle={handleToggle}
             onConfigure={handleConfigure}
-            onGenerateToken={handleGenerateToken}
           />
         ))}
 

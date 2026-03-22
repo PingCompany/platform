@@ -33,6 +33,12 @@ interface RelatedDecision {
   decidedAt: number;
 }
 
+interface OrgTracePerson {
+  name: string;
+  role: "author" | "assignee" | "mentioned";
+  avatarUrl?: string;
+}
+
 interface DecisionContextProps {
   decisionId: string;
   isExpanded: boolean;
@@ -41,6 +47,7 @@ interface DecisionContextProps {
   sourceMessages?: SourceMessage[];
   integrationObjects?: IntegrationObject[];
   relatedDecisions?: RelatedDecision[];
+  orgTrace?: OrgTracePerson[];
 }
 
 const priorityBadgeColor: Record<string, string> = {
@@ -66,6 +73,21 @@ const outcomeBadgeColor: Record<string, string> = {
 const toggleButtonClass =
   "flex items-center gap-1 text-2xs text-muted-foreground transition-colors hover:text-foreground";
 
+const ROLE_LABEL: Record<string, string> = {
+  author: "wrote",
+  assignee: "assigned",
+  mentioned: "mentioned",
+};
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
 export function DecisionContext({
   decisionId,
   isExpanded,
@@ -74,6 +96,7 @@ export function DecisionContext({
   sourceMessages,
   integrationObjects,
   relatedDecisions,
+  orgTrace,
 }: DecisionContextProps) {
   const [level, setLevel] = useState(1);
 
@@ -91,6 +114,24 @@ export function DecisionContext({
     >
       {summary && (
         <p className="mb-2 text-xs text-muted-foreground">{summary}</p>
+      )}
+
+      {orgTrace && orgTrace.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {orgTrace.map((p, i) => (
+            <span
+              key={i}
+              className="flex items-center gap-1 rounded-full bg-surface-3 px-2 py-0.5"
+              title={`${p.name} — ${ROLE_LABEL[p.role] ?? p.role}`}
+            >
+              <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/10 text-[8px] font-medium text-foreground/70">
+                {initials(p.name)}
+              </span>
+              <span className="text-2xs text-foreground/70">{p.name}</span>
+              <span className="text-2xs text-foreground/50">{ROLE_LABEL[p.role] ?? p.role}</span>
+            </span>
+          ))}
+        </div>
       )}
 
       {bullets && bullets.length > 0 && (

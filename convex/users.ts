@@ -1,4 +1,5 @@
 import { query, mutation, internalQuery, MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { requireAuth, requireUser } from "./auth";
@@ -109,6 +110,13 @@ async function provisionNewUser(
     userId,
   });
 
+  // Provision managed agents (mrPING etc.)
+  await ctx.scheduler.runAfter(
+    0,
+    internal.managedAgents.ensureManagedAgents,
+    { workspaceId },
+  );
+
   return { userId, workspaceId, workspaceName: `${args.name}'s Workspace` };
 }
 
@@ -196,6 +204,13 @@ export const listAll = query({
       wsMembers.map(async (m) => {
         const u = await ctx.db.get(m.userId);
         if (!u) return null;
+
+        // Check if this user is an agent's user record
+        const agentRecord = await ctx.db
+          .query("agents")
+          .withIndex("by_agent_user", (q) => q.eq("agentUserId", u._id))
+          .first();
+
         return {
           _id: u._id,
           name: u.name,
@@ -203,6 +218,10 @@ export const listAll = query({
           avatarUrl: u.avatarUrl,
           role: m.role,
           status: u.status,
+          isAgent: !!agentRecord,
+          agentId: agentRecord?._id,
+          agentColor: agentRecord?.color,
+          isManagedAgent: agentRecord?.isManaged ?? false,
         };
       }),
     );
@@ -223,9 +242,52 @@ export const getByWorkosId = query({
   },
 });
 
+export const getProfile = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireUser(ctx);
+
+    const user = await ctx.db.get(args.userId);
+    if (!user || user.status === "deactivated") return null;
+
+    return {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      title: user.title,
+      department: user.department,
+      bio: user.bio,
+      expertise: user.expertise,
+      workContext: user.workContext,
+      statusMessage: user.statusMessage,
+      statusEmoji: user.statusEmoji,
+      presenceStatus: user.presenceStatus,
+      lastSeenAt: user.lastSeenAt,
+      communicationPrefs: user.communicationPrefs,
+    };
+  },
+});
+
 export const updateProfile = mutation({
   args: {
     name: v.optional(v.string()),
+    title: v.optional(v.string()),
+    department: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    expertise: v.optional(v.array(v.string())),
+    workContext: v.optional(v.string()),
+    statusMessage: v.optional(v.string()),
+    statusEmoji: v.optional(v.string()),
+    communicationPrefs: v.optional(
+      v.object({
+        timezone: v.optional(v.string()),
+        preferredHours: v.optional(v.string()),
+        responseTimeGoal: v.optional(v.string()),
+      }),
+    ),
     notificationPrefs: v.optional(
       v.object({
         inboxNotifications: v.boolean(),
@@ -238,6 +300,14 @@ export const updateProfile = mutation({
 
     const updates: Record<string, unknown> = { lastSeenAt: Date.now() };
     if (args.name !== undefined) updates.name = args.name;
+    if (args.title !== undefined) updates.title = args.title;
+    if (args.department !== undefined) updates.department = args.department;
+    if (args.bio !== undefined) updates.bio = args.bio;
+    if (args.expertise !== undefined) updates.expertise = args.expertise;
+    if (args.workContext !== undefined) updates.workContext = args.workContext;
+    if (args.statusMessage !== undefined) updates.statusMessage = args.statusMessage;
+    if (args.statusEmoji !== undefined) updates.statusEmoji = args.statusEmoji;
+    if (args.communicationPrefs !== undefined) updates.communicationPrefs = args.communicationPrefs;
     if (args.notificationPrefs !== undefined) updates.notificationPrefs = args.notificationPrefs;
 
     await ctx.db.patch(user._id, updates);

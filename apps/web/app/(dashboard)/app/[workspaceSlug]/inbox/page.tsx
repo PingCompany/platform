@@ -1,310 +1,555 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { InboxCard, type InboxItem, type EisenhowerQuadrant, QUADRANT_ORDER } from "@/components/inbox/InboxCard";
-import { DecisionCard, type DecisionItem } from "@/components/inbox/DecisionCard";
-import { DecisionContext } from "@/components/inbox/DecisionContext";
+import { DecisionCard, type InboxItemData, type OrgTracePerson } from "@/components/inbox/DecisionCard";
+import { InboxModal, type ModalItem } from "@/components/inbox/InboxModal";
 import { DraftReminderCard } from "@/components/inbox/DraftReminderCard";
-import { UnansweredQuestionCard } from "@/components/inbox/UnansweredQuestionCard";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { type InboxCategory, type PriorityLevel, CATEGORY_ORDER, CATEGORY_TO_PRIORITY } from "@/components/inbox/InboxCard";
+import { CheckCircle2, Loader2, FlaskConical, Sparkles, ChevronDown, Check, Archive } from "lucide-react";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { cn } from "@/lib/utils";
 
-const SECTION_LABELS: Record<EisenhowerQuadrant, string> = {
-  "urgent-important": "Do Now",
-  "important":        "Schedule",
-  "urgent":           "Delegate",
-  "fyi":              "Eliminate",
+// ── Section labels ──
+const SECTION_LABELS: Record<InboxCategory, string> = {
+  do: "Do",
+  decide: "Decide",
+  delegate: "Delegate",
+  skip: "Skip",
 };
 
+// ── Quadrant pill config ──
+const CATEGORY_PILL_CONFIG: Record<
+  InboxCategory,
+  { label: string; bg: string; text: string; activeBg: string; activeText: string; border: string; dot: string }
+> = {
+  do: {
+    label: "Do",
+    bg: "bg-priority-urgent/8", text: "text-priority-urgent/60",
+    activeBg: "bg-priority-urgent/15", activeText: "text-priority-urgent",
+    border: "border-priority-urgent/30", dot: "bg-priority-urgent",
+  },
+  decide: {
+    label: "Decide",
+    bg: "bg-priority-important/8", text: "text-priority-important/60",
+    activeBg: "bg-priority-important/15", activeText: "text-priority-important",
+    border: "border-priority-important/30", dot: "bg-priority-important",
+  },
+  delegate: {
+    label: "Delegate",
+    bg: "bg-blue-500/8", text: "text-blue-400/60",
+    activeBg: "bg-blue-500/15", activeText: "text-blue-400",
+    border: "border-blue-500/30", dot: "bg-blue-400",
+  },
+  skip: {
+    label: "Skip",
+    bg: "bg-foreground/4", text: "text-foreground/45",
+    activeBg: "bg-foreground/8", activeText: "text-foreground/40",
+    border: "border-foreground/15", dot: "bg-foreground/20",
+  },
+};
+
+// ── Priority dropdown config ──
+const PRIORITY_ORDER: PriorityLevel[] = ["urgent", "high", "medium", "low"];
+
+const PRIORITY_CONFIG: Record<
+  PriorityLevel,
+  { label: string; bg: string; text: string; activeBg: string; activeText: string; border: string; dot: string }
+> = {
+  urgent: {
+    label: "Urgent", bg: "bg-priority-urgent/8", text: "text-priority-urgent/60",
+    activeBg: "bg-priority-urgent/15", activeText: "text-priority-urgent",
+    border: "border-priority-urgent/30", dot: "bg-priority-urgent",
+  },
+  high: {
+    label: "High", bg: "bg-priority-important/8", text: "text-priority-important/60",
+    activeBg: "bg-priority-important/15", activeText: "text-priority-important",
+    border: "border-priority-important/30", dot: "bg-priority-important",
+  },
+  medium: {
+    label: "Medium", bg: "bg-blue-500/8", text: "text-blue-400/60",
+    activeBg: "bg-blue-500/15", activeText: "text-blue-400",
+    border: "border-blue-500/30", dot: "bg-blue-400",
+  },
+  low: {
+    label: "Low", bg: "bg-foreground/4", text: "text-foreground/25",
+    activeBg: "bg-foreground/8", activeText: "text-foreground/40",
+    border: "border-foreground/15", dot: "bg-foreground/20",
+  },
+};
+
+function itemToModalItem(d: InboxItemData): ModalItem {
+  return {
+    id: d.id,
+    kind: "decision",
+    title: d.title,
+    summary: d.summary,
+    priority: d.priority,
+    channelName: d.channelName,
+    createdAt: d.createdAt,
+    category: d.category,
+    decisionType: d.type,
+    orgTrace: d.orgTrace,
+    nextSteps: d.nextSteps,
+    recommendedActions: d.recommendedActions,
+    links: d.links,
+    relatedItemIds: d.relatedItemIds,
+    agentExecutionStatus: d.agentExecutionStatus,
+    pingWillDo: d.pingWillDo,
+  };
+}
+
 export default function InboxPage() {
-  const router = useRouter();
   const { buildPath } = useWorkspace();
-
   const { isAuthenticated } = useConvexAuth();
-  const summaries = useQuery(api.inboxSummaries.list, isAuthenticated ? {} : "skip");
+  const inboxItems = useQuery(api.inboxItems.list, isAuthenticated ? {} : "skip");
   const drafts = useQuery(api.drafts.listActive, isAuthenticated ? {} : "skip");
-  const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
-  const decisions = useQuery(api.decisions.list, isAuthenticated ? {} : "skip");
-  const markReadMutation = useMutation(api.inboxSummaries.markRead);
-  const archiveMutation = useMutation(api.inboxSummaries.archive);
-  const dismissAlertMutation = useMutation(api.proactiveAlerts.dismiss);
-  const decideMutation = useMutation(api.decisions.decide);
-  const snoozeMutation = useMutation(api.decisions.snooze);
+  const actMutation = useMutation(api.inboxItems.act);
+  const archiveMutation = useMutation(api.inboxItems.archive);
+  const snoozeMutation = useMutation(api.inboxItems.snooze);
+  const seedMutation = useMutation(api.seed.seedDecisions);
+  const generateMutation = useMutation(api.generateDecision.generateDecision);
+  const clearMutation = useMutation(api.seed.clearSeedDecisions);
 
-  const unansweredQuestions = useMemo(
-    () => (alerts ?? []).filter((a) => a.type === "unanswered_question"),
-    [alerts],
-  );
+  const [openItem, setOpenItem] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  const [showArchive, setShowArchive] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const prevItemCount = useRef<number | null>(null);
 
-  const items: InboxItem[] = useMemo(() => {
-    if (!summaries) return [];
-    return summaries.map((s) => ({
-      id: s._id,
-      priority: (s.eisenhowerQuadrant ?? "fyi") as EisenhowerQuadrant,
-      channel: s.channelName,
-      author: "PING",
-      authorInitials: "P",
-      summary: s.bullets[0]?.text ?? "New activity",
-      context: s.bullets
-        .slice(1)
-        .map((b) => b.text)
-        .join(". "),
-      timestamp: new Date(s.periodEnd),
-      actions: [
-        {
-          label: "View Channel",
-          primary: true,
-          onClick: () => router.push(buildPath(`/channel/${s.channelId}`)),
-        },
-        ...(s.actionItems ?? []).map((ai) => ({
-          label: ai.text,
-          onClick: () => {
-            if (ai.integrationUrl) {
-              window.open(ai.integrationUrl, "_blank");
-            } else {
-              router.push(buildPath(`/channel/${s.channelId}`));
-            }
-            markReadMutation({ summaryId: s._id });
-          },
-        })),
-      ],
-      isRead: s.isRead,
-    }));
-  }, [summaries, router, markReadMutation, buildPath]);
+  // Track when new items arrive to stop the generating spinner
+  useEffect(() => {
+    if (!isGenerating) {
+      prevItemCount.current = null;
+      return;
+    }
+    const currentCount = inboxItems?.length ?? 0;
+    if (prevItemCount.current === null) {
+      prevItemCount.current = currentCount;
+    } else if (currentCount > prevItemCount.current) {
+      setIsGenerating(false);
+      prevItemCount.current = null;
+    }
+  }, [isGenerating, inboxItems?.length]);
 
-  const decisionItems: DecisionItem[] = useMemo(() => {
-    if (!decisions) return [];
-    return decisions.map((d) => ({
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    generateMutation({});
+  };
+
+  // Filters
+  const [selectedCategories, setSelectedCategories] = useState<Set<InboxCategory>>(new Set());
+  const [selectedPriorities, setSelectedPriorities] = useState<Set<PriorityLevel>>(new Set());
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [dropdownOpen]);
+
+  const toggleCategory = (c: InboxCategory) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(c)) next.delete(c); else next.add(c);
+      return next;
+    });
+  };
+
+  const togglePriority = (p: PriorityLevel) => {
+    setSelectedPriorities((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p); else next.add(p);
+      return next;
+    });
+  };
+
+  const items: InboxItemData[] = useMemo(() => {
+    if (!inboxItems) return [];
+    return inboxItems.map((d) => ({
       id: d._id,
       type: d.type,
       title: d.title,
       summary: d.summary,
-      eisenhowerQuadrant: d.eisenhowerQuadrant,
+      category: d.category as InboxCategory,
+      priority: CATEGORY_TO_PRIORITY[d.category as InboxCategory],
       status: d.status,
       channelName: d.channelName ?? "unknown",
+      pingWillDo: d.pingWillDo ?? undefined,
       createdAt: new Date(d.createdAt),
       agentExecutionStatus: d.agentExecutionStatus ?? undefined,
       agentExecutionResult: d.agentExecutionResult ?? undefined,
+      orgTrace: (d.orgTrace ?? []) as OrgTracePerson[],
+      nextSteps: (d.nextSteps ?? []) as InboxItemData["nextSteps"],
+      recommendedActions: (d.recommendedActions ?? []) as InboxItemData["recommendedActions"],
+      links: (d.links ?? []) as InboxItemData["links"],
+      relatedItemIds: d.relatedItemIds as string[] | undefined,
     }));
-  }, [decisions]);
+  }, [inboxItems]);
 
-  const handleMarkRead = (id: string) => {
-    markReadMutation({ summaryId: id as Id<"inboxSummaries"> });
-  };
+  // Counts per category (unfiltered) for pills
+  const categoryCounts = useMemo(() => {
+    const counts: Record<InboxCategory, number> = { do: 0, decide: 0, delegate: 0, skip: 0 };
+    for (const d of items) counts[d.category]++;
+    return counts;
+  }, [items]);
 
-  const handleArchive = (id: string) => {
-    archiveMutation({ summaryId: id as Id<"inboxSummaries"> });
-  };
+  // Counts per priority (unfiltered) for dropdown
+  const priorityCounts = useMemo(() => {
+    const counts: Record<PriorityLevel, number> = { urgent: 0, high: 0, medium: 0, low: 0 };
+    for (const d of items) counts[d.priority]++;
+    return counts;
+  }, [items]);
 
-  const handleDismissAlert = (alertId: string) => {
-    dismissAlertMutation({ alertId: alertId as Id<"proactiveAlerts"> });
-  };
-
-  const handleDecisionAction = (id: string, action: string, comment?: string) => {
-    if (action === "Snooze") {
-      snoozeMutation({
-        decisionId: id as Id<"decisions">,
-        snoozeUntil: Date.now() + 60 * 60 * 1000,
-      });
+  const handleAction = (id: string, action: string, comment?: string) => {
+    if (action === "Snooze" || action === "snooze") {
+      snoozeMutation({ itemId: id as Id<"inboxItems">, snoozeUntil: Date.now() + 60 * 60 * 1000 });
     } else {
-      decideMutation({
-        decisionId: id as Id<"decisions">,
-        action,
-        comment,
-      });
+      actMutation({ itemId: id as Id<"inboxItems">, action, comment });
     }
   };
 
-  const isLoading = summaries === undefined || drafts === undefined || decisions === undefined;
+  const handleArchive = (id: string) => {
+    archiveMutation({ itemId: id as Id<"inboxItems"> });
+  };
 
+  const isLoading = inboxItems === undefined || drafts === undefined;
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
+      </div>
+    );
+  }
+
+  const totalCount = items.length + (drafts?.length ?? 0);
+  if (totalCount === 0 && !showArchive) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in px-8 text-center">
+        <CheckCircle2 className="h-10 w-10 text-foreground/50" />
+        <h2 className="text-sm font-medium text-foreground">Inbox is empty</h2>
+        <p className="max-w-xs text-xs text-muted-foreground leading-relaxed">
+          Items appear here as your team communicates in channels.
+          Send messages in a channel — AI summaries and decisions generate every 5–15 minutes.
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {isGenerating ? "Generating…" : "Generate decision"}
+          </button>
+          <button
+            onClick={() => seedMutation({})}
+            className="flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            Load demo data
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Sort by category order then time desc
+  const sorted = [...items].sort((a, b) => {
+    const cDiff = CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
+    return cDiff !== 0 ? cDiff : b.createdAt.getTime() - a.createdAt.getTime();
+  });
+
+  // Apply filters
+  const activeCategoryFilter = selectedCategories.size > 0;
+  const activePriorityFilter = selectedPriorities.size > 0;
+  const activeFilter = activeCategoryFilter || activePriorityFilter;
+
+  const filtered = sorted.filter((d) => {
+    if (activeCategoryFilter && !selectedCategories.has(d.category)) return false;
+    if (activePriorityFilter && !selectedPriorities.has(d.priority)) return false;
+    return true;
+  });
+
+  // Find modal item
+  const openModalItem: ModalItem | null = (() => {
+    if (!openItem) return null;
+    const d = sorted.find((i) => i.id === openItem);
+    return d ? itemToModalItem(d) : null;
+  })();
+
+  return (
+    <div className="animate-fade-in">
+
+      {/* ── Sticky header ── */}
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-subtle bg-background px-3 py-2">
+
+        {/* Category filter pills + Priority dropdown */}
+        <div className="flex items-center gap-1">
+          {CATEGORY_ORDER.map((c) => {
+            const cfg = CATEGORY_PILL_CONFIG[c];
+            const count = categoryCounts[c];
+            const isActive = selectedCategories.has(c);
+            const anyActive = activeCategoryFilter;
+            return (
+              <button
+                key={c}
+                onClick={() => toggleCategory(c)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded border px-2 py-0.5 text-2xs font-medium transition-all",
+                  isActive
+                    ? [cfg.activeBg, cfg.activeText, cfg.border]
+                    : anyActive
+                      ? "border-transparent text-foreground/40 hover:text-foreground/40"
+                      : [cfg.bg, cfg.text, "border-transparent hover:border-white/10"],
+                )}
+              >
+                <span className={cn("h-1.5 w-1.5 rounded-full", isActive ? cfg.dot : "bg-foreground/20")} />
+                {cfg.label}
+                <span className={cn("tabular-nums", isActive ? "opacity-70" : "opacity-50")}>{count}</span>
+              </button>
+            );
+          })}
+
+          {/* Priority dropdown */}
+          <div className="relative ml-1" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen((o) => !o)}
+              className={cn(
+                "flex items-center gap-1 rounded border px-2 py-0.5 text-2xs font-medium transition-colors",
+                dropdownOpen
+                  ? "border-white/15 bg-surface-2 text-foreground"
+                  : activePriorityFilter
+                    ? "border-white/10 bg-surface-2/50 text-muted-foreground hover:bg-surface-2"
+                    : "border-transparent text-foreground/40 hover:bg-surface-2 hover:text-muted-foreground",
+              )}
+            >
+              Priority
+              {activePriorityFilter && (
+                <span className="flex h-1.5 w-1.5 rounded-full bg-ping-purple" />
+              )}
+              <ChevronDown className={cn("h-3 w-3 transition-transform", dropdownOpen && "rotate-180")} />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute left-0 top-full z-30 mt-1 min-w-[148px] rounded-md border border-subtle bg-background shadow-lg">
+                {PRIORITY_ORDER.map((p) => {
+                  const cfg = PRIORITY_CONFIG[p];
+                  const isChecked = selectedPriorities.has(p);
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => togglePriority(p)}
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-xs transition-colors hover:bg-surface-2"
+                    >
+                      <span
+                        className={cn(
+                          "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border transition-colors",
+                          isChecked ? [cfg.activeBg, "border-transparent"] : "border-white/15",
+                        )}
+                      >
+                        {isChecked && <Check className={cn("h-2.5 w-2.5", cfg.activeText)} />}
+                      </span>
+                      <span className={cn("flex h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} />
+                      <span className={cn("flex-1 text-left", isChecked ? "text-foreground" : "text-muted-foreground")}>
+                        {cfg.label}
+                      </span>
+                      <span className="tabular-nums text-foreground/45">{priorityCounts[p]}</span>
+                    </button>
+                  );
+                })}
+                {activePriorityFilter && (
+                  <div className="border-t border-subtle px-3 py-1.5">
+                    <button
+                      onClick={() => { setSelectedPriorities(new Set()); setDropdownOpen(false); }}
+                      className="text-2xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Archive toggle */}
+          <button
+            onClick={() => setShowArchive((s) => !s)}
+            className={cn(
+              "ml-2 flex items-center gap-1 rounded border px-2 py-0.5 text-2xs font-medium transition-colors",
+              showArchive
+                ? "border-white/15 bg-surface-2 text-foreground"
+                : "border-transparent text-foreground/20 hover:bg-surface-2 hover:text-muted-foreground",
+            )}
+          >
+            <Archive className="h-3 w-3" />
+            Archive
+          </button>
+        </div>
+
+        {/* Demo controls */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            title="Generate decision from real data"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-muted-foreground disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            {isGenerating ? "generating…" : "generate"}
+          </button>
+          <button
+            onClick={() => seedMutation({})}
+            title="Load demo data"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-muted-foreground"
+          >
+            <FlaskConical className="h-3 w-3" />
+            demo
+          </button>
+          <button
+            onClick={() => clearMutation({})}
+            title="Clear all items"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-red-400"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {showArchive ? (
+        <ArchiveView />
+      ) : (
+        <>
+          {/* ── Draft reminders (not filtered) ── */}
+          {!activeFilter && drafts.length > 0 && (
+            <div>
+              <SectionHeader label="Drafts" count={drafts.length} />
+              {drafts.map((draft) => (
+                <DraftReminderCard
+                  key={draft._id}
+                  draftId={draft._id}
+                  channelId={draft.channelId}
+                  channelName={draft.channelName}
+                  body={draft.body}
+                  suggestedCompletion={draft.suggestedCompletion}
+                  updatedAt={new Date(draft.updatedAt)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ── Per-category sections ── */}
+          {CATEGORY_ORDER.map((category) => {
+            const sectionItems = filtered.filter((d) => d.category === category);
+            if (sectionItems.length === 0) return null;
+            return (
+              <div key={category}>
+                <SectionHeader label={SECTION_LABELS[category]} count={sectionItems.length} />
+                {sectionItems.map((item) => (
+                  <DecisionCard
+                    key={item.id}
+                    item={item}
+                    onAction={handleAction}
+                    onArchive={handleArchive}
+                    onOpen={() => { setOpenItem(item.id); setFocusMode(false); }}
+                    onFocus={() => { setOpenItem(item.id); setFocusMode(true); }}
+                  />
+                ))}
+              </div>
+            );
+          })}
+
+          {/* Empty state when filter returns nothing */}
+          {activeFilter && filtered.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+              <p className="text-sm text-muted-foreground">No items match the selected filter</p>
+              <button
+                onClick={() => { setSelectedCategories(new Set()); setSelectedPriorities(new Set()); }}
+                className="text-xs text-foreground/40 underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Unified inbox modal */}
+      {openModalItem && (
+        <InboxModal
+          item={openModalItem}
+          onAction={handleAction}
+          onClose={() => setOpenItem(null)}
+          focusMode={focusMode}
+          onToggleFocusMode={() => setFocusMode((f) => !f)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SectionHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <div className="sticky top-[37px] z-10 flex items-center gap-2 border-b border-subtle bg-background/95 px-4 py-2.5 backdrop-blur-sm">
+      <span className="text-xs font-semibold uppercase tracking-wider text-foreground/50">{label}</span>
+      <span className="text-2xs tabular-nums text-foreground/50">{count}</span>
+    </div>
+  );
+}
+
+function ArchiveView() {
+  const { isAuthenticated } = useConvexAuth();
+  const archived = useQuery(
+    api.inboxItems.listArchived,
+    isAuthenticated ? { paginationOpts: { numItems: 50, cursor: null } } : "skip",
+  );
+
+  if (!archived) {
+    return (
+      <div className="flex items-center justify-center py-16">
         <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
       </div>
     );
   }
 
-  const totalCount = items.length + (drafts?.length ?? 0) + unansweredQuestions.length + decisionItems.length;
-
-  if (totalCount === 0) {
+  if (archived.page.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 animate-fade-in">
-        <CheckCircle2 className="h-10 w-10 text-foreground/15" />
-        <h2 className="text-sm font-medium text-foreground">You&apos;re all caught up</h2>
-        <p className="text-xs text-muted-foreground">
-          New summaries and action items will appear here
-        </p>
+      <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+        <Archive className="h-8 w-8 text-foreground/15" />
+        <p className="text-sm text-muted-foreground">No archived items yet</p>
       </div>
     );
   }
 
-  // Sort summaries: Q1 -> Q2 -> Q3 -> Q4, then by timestamp desc within each group
-  const sortedItems = [...items].sort((a, b) => {
-    const qDiff = QUADRANT_ORDER.indexOf(a.priority) - QUADRANT_ORDER.indexOf(b.priority);
-    if (qDiff !== 0) return qDiff;
-    return b.timestamp.getTime() - a.timestamp.getTime();
-  });
-
-  // Sort decisions by quadrant then creation time
-  const sortedDecisions = [...decisionItems].sort((a, b) => {
-    const qDiff = QUADRANT_ORDER.indexOf(a.eisenhowerQuadrant) - QUADRANT_ORDER.indexOf(b.eisenhowerQuadrant);
-    if (qDiff !== 0) return qDiff;
-    return b.createdAt.getTime() - a.createdAt.getTime();
-  });
-
   return (
-    <div className="animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-4 py-2">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
-            {totalCount} item{totalCount !== 1 ? "s" : ""}
-          </span>
-          <span className="text-2xs text-foreground/20">·</span>
-          <span className="text-2xs text-muted-foreground">Eisenhower Matrix</span>
-        </div>
-      </div>
-
-      {/* Draft reminders (above quadrant sections) */}
-      {drafts.length > 0 && (
-        <div>
-          <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-            <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
-              Unsent Drafts
-            </span>
-          </div>
-          {drafts.map((draft) => (
-            <DraftReminderCard
-              key={draft._id}
-              draftId={draft._id}
-              channelId={draft.channelId}
-              channelName={draft.channelName}
-              body={draft.body}
-              suggestedCompletion={draft.suggestedCompletion}
-              updatedAt={new Date(draft.updatedAt)}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Unanswered questions */}
-      {unansweredQuestions.length > 0 && (
-        <div>
-          <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-            <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
-              Needs Your Answer
-            </span>
-          </div>
-          {unansweredQuestions.map((alert) => (
-            <UnansweredQuestionCard
-              key={alert._id}
-              alertId={alert._id}
-              channelId={alert.channelId}
-              channelName={"channel"}
-              title={alert.title}
-              body={alert.body}
-              suggestedAction={alert.suggestedAction}
-              createdAt={new Date(alert.createdAt)}
-              onDismiss={handleDismissAlert}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Decisions — using DecisionCard + DecisionContext components */}
-      {sortedDecisions.length > 0 && (
-        <div>
-          <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-            <span className="text-2xs font-medium uppercase tracking-widest text-white/25">
-              Decisions
-            </span>
-          </div>
-          {sortedDecisions.map((decision) => (
-            <DecisionCard
-              key={decision.id}
-              item={decision}
-              onAction={handleDecisionAction}
-            >
-              <DecisionContextLoader decisionId={decision.id as Id<"decisions">} />
-            </DecisionCard>
-          ))}
-        </div>
-      )}
-
-      {/* Eisenhower quadrant sections */}
-      {QUADRANT_ORDER.map((quadrant) => {
-        const sectionItems = sortedItems.filter((item) => item.priority === quadrant);
-        if (sectionItems.length === 0) return null;
-
-        return (
-          <div key={quadrant}>
-            <div className="sticky top-0 z-10 border-b border-subtle bg-background/90 backdrop-blur-sm px-4 py-1.5">
-              <span className="text-2xs font-medium uppercase tracking-widest text-foreground/25">
-                {SECTION_LABELS[quadrant]}
+    <div>
+      <SectionHeader label="Archive" count={archived.page.length} />
+      {archived.page.map((item) => (
+        <div
+          key={item._id}
+          className="flex items-start gap-3 border-b border-subtle px-4 py-3 opacity-60"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-foreground">{item.title}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{item.summary}</p>
+            {item.outcome && (
+              <span className="mt-1 inline-block rounded bg-ping-purple/15 px-1.5 py-px text-2xs text-ping-purple/80">
+                {item.outcome.action}
               </span>
-            </div>
-            {sectionItems.map((item) => (
-              <InboxCard
-                key={item.id}
-                item={item}
-                onMarkRead={handleMarkRead}
-                onArchive={handleArchive}
-              />
-            ))}
+            )}
           </div>
-        );
-      })}
+          <span className="shrink-0 text-2xs text-muted-foreground">
+            {new Date(item.createdAt).toLocaleDateString()}
+          </span>
+        </div>
+      ))}
     </div>
-  );
-}
-
-/**
- * Loads context data for a decision via the getContext query.
- * Rendered inside DecisionCard's children slot (expanded view).
- */
-function DecisionContextLoader({ decisionId }: { decisionId: Id<"decisions"> }) {
-  const context = useQuery(api.decisions.getContext, { decisionId });
-
-  if (!context) {
-    return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-white/20" />
-      </div>
-    );
-  }
-
-  return (
-    <DecisionContext
-      decisionId={decisionId}
-      isExpanded={true}
-      summary={context.decision.summary}
-      sourceMessages={context.relatedMessages.map((m) => ({
-        body: m.body,
-        authorName: m.authorName,
-        createdAt: m.createdAt,
-      }))}
-      integrationObjects={
-        context.sourceIntegrationObject
-          ? [
-              {
-                type: context.sourceIntegrationObject.type,
-                title: context.sourceIntegrationObject.title,
-                status: context.sourceIntegrationObject.status,
-                url: context.sourceIntegrationObject.url,
-              },
-            ]
-          : undefined
-      }
-      relatedDecisions={context.relatedPastDecisions.map((d) => ({
-        title: d.title,
-        outcome: d.outcome?.action ?? "unknown",
-        decidedAt: d.outcome?.decidedAt ?? d.createdAt,
-      }))}
-    />
   );
 }

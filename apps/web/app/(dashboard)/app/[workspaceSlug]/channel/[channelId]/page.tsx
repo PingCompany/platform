@@ -1,15 +1,20 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { MessageList, type Message } from "@/components/channel/MessageList";
+import { ChannelTopBar } from "@/components/channel/ChannelTopBar";
 import { AlertBanner } from "@/components/proactive/AlertBanner";
-import { useTopBar } from "@/hooks/useTopBar";
+import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 import { useChannelTyping } from "@/hooks/useTyping";
 import { useThreadPanel } from "@/hooks/useThreadPanel";
 import { useReactions } from "@/hooks/useReactions";
+import { useToast } from "@/components/ui/toast-provider";
+import { useWorkspace } from "@/hooks/useWorkspace";
+import { useRouter } from "next/navigation";
 
 function getInitials(name: string): string {
   return name
@@ -27,47 +32,58 @@ interface Props {
 export default function ChannelPage({ params }: Props) {
   const { channelId } = use(params);
   const typedChannelId = channelId as Id<"channels">;
+  const searchParams = useSearchParams();
+  const highlightMessageId = searchParams.get("msg");
 
   const { isAuthenticated } = useConvexAuth();
   const channel = useQuery(api.channels.get, isAuthenticated ? { channelId: typedChannelId } : "skip");
+  const isMember = channel?.isMember ?? false;
   const results = useQuery(
     api.messages.listByChannel,
     isAuthenticated ? { channelId: typedChannelId } : "skip",
   );
+  const joinChannel = useMutation(api.channels.join);
   const sendMessage = useMutation(api.messages.send);
   const editMessage = useMutation(api.messages.edit);
   const deleteMessage = useMutation(api.messages.remove);
   const markRead = useMutation(api.channels.markRead);
   const memberCount = useQuery(api.channels.memberCount, isAuthenticated ? { channelId: typedChannelId } : "skip");
-  const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
-  const dismissAlert = useMutation(api.proactiveAlerts.dismiss);
-  const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId);
+  const channelMembers = useQuery(api.channels.listMembers, isAuthenticated ? { channelId: typedChannelId } : "skip");
+  const alerts = useQuery(api.inboxItems.list, isAuthenticated ? {} : "skip");
+  const dismissAlert = useMutation(api.inboxItems.archive);
+  const leaveChannel = useMutation(api.channels.leave);
+  const toggleStar = useMutation(api.channels.toggleStar);
+  const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId, isMember);
   const { openThreadPanel, closeThreadPanel } = useThreadPanel();
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
-
-  const { setSubtitle } = useTopBar();
+  const { toast } = useToast();
+  const router = useRouter();
+  const { buildPath, workspaceId } = useWorkspace();
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !isMember) return;
     markRead({ channelId: typedChannelId });
-  }, [isAuthenticated, markRead, typedChannelId]);
+  }, [isAuthenticated, isMember, markRead, typedChannelId]);
 
   // Close thread panel when navigating to a different channel
   useEffect(() => {
     closeThreadPanel();
   }, [channelId, closeThreadPanel]);
 
-  // Inject member count into TopBar
-  useEffect(() => {
-    if (memberCount !== undefined) {
-      setSubtitle(
-        <span className="rounded bg-surface-3 px-1.5 py-px text-2xs text-muted-foreground">
-          {memberCount} member{memberCount !== 1 ? "s" : ""}
-        </span>,
-      );
-    }
-    return () => setSubtitle(null);
-  }, [memberCount, setSubtitle]);
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    toast("Link copied", "success");
+  }, [toast]);
+
+  const handleLeave = useCallback(async () => {
+    await leaveChannel({ channelId: typedChannelId });
+    toast("Left channel", "success");
+    router.push(buildPath("/channels"));
+  }, [leaveChannel, typedChannelId, toast, router, buildPath]);
+
+  const handleToggleStar = useCallback(() => {
+    toggleStar({ channelId: typedChannelId });
+  }, [toggleStar, typedChannelId]);
 
   const messages: Message[] = useMemo(() => {
     if (!results) return [];
@@ -84,13 +100,17 @@ export default function ChannelPage({ params }: Props) {
         label: c.sourceTitle ?? c.text,
         url: c.sourceUrl,
       })),
-      botName: msg.type === "bot" ? "KnowledgeBot" : undefined,
+      botName: msg.type === "bot" ? "mrPING" : undefined,
       threadReplyCount: msg.threadReplyCount,
       threadLastReplyAt: msg.threadLastReplyAt,
       threadParticipants: msg.threadParticipants,
       threadId: msg.threadId,
       alsoSentToChannel: msg.alsoSentToChannel,
       isEdited: msg.isEdited,
+      integrationObjectId: msg.integrationObjectId,
+      integrationHistory: msg.integrationHistory as Array<{ body: string; timestamp: number }> | undefined,
+      integrationObject: msg.integrationObject,
+      messageType: msg.type,
     }));
   }, [results]);
 
@@ -123,40 +143,99 @@ export default function ChannelPage({ params }: Props) {
         messageTable: "messages",
         channelId,
         contextName: channel?.name ?? channelId,
+        workspaceId,
       });
     },
-    [openThreadPanel, channelId, channel?.name],
+    [openThreadPanel, channelId, channel?.name, workspaceId],
   );
+
+  const handleJoinChannel = useCallback(() => {
+    joinChannel({ channelId: typedChannelId });
+  }, [joinChannel, typedChannelId]);
 
   const firstAlert = alerts?.[0];
 
+  const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);
+
+  const handleClickAuthor = useCallback((authorId: string) => {
+    setProfileUserId(authorId as Id<"users">);
+  }, []);
+
+  const handleClickMention = useCallback((name: string) => {
+    // Find user by name from channel members
+    const member = channelMembers?.find(
+      (m) => m.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (member) {
+      setProfileUserId(member._id as Id<"users">);
+    }
+  }, [channelMembers]);
+
   return (
     <div className="relative flex h-full flex-col">
+      {channel && channelMembers && (
+        <ChannelTopBar
+          name={channel.name}
+          description={channel.description}
+          members={channelMembers}
+          memberCount={memberCount ?? channelMembers.length}
+          isStarred={channel.isStarred ?? false}
+          isPrivate={channel.isPrivate ?? false}
+          onToggleStar={handleToggleStar}
+          onCopyLink={handleCopyLink}
+          onLeave={handleLeave}
+        />
+      )}
       <MessageList
         channelName={channel?.name ?? channelId}
         messages={messages}
-        onSend={handleSend}
+        onSend={isMember ? handleSend : undefined}
         isLoading={results === undefined}
         typingUsers={typingUsers}
-        onTyping={onTyping}
+        onTyping={isMember ? onTyping : undefined}
         onOpenThread={handleOpenThread}
-        onToggleReaction={toggleReaction}
+        onToggleReaction={isMember ? toggleReaction : undefined}
         currentUserId={currentUser?._id}
         reactionsByMessage={reactionsByMessage}
-        onEditMessage={handleEditMessage}
-        onDeleteMessage={handleDeleteMessage}
+        onEditMessage={isMember ? handleEditMessage : undefined}
+        onDeleteMessage={isMember ? handleDeleteMessage : undefined}
+        onClickAuthor={handleClickAuthor}
+        onClickMention={handleClickMention}
+        highlightMessageId={highlightMessageId}
       />
+
+      {!isMember && channel && (
+        <div className="border-t border-subtle bg-surface-1 px-6 py-4">
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              You&apos;re previewing <span className="font-medium text-foreground">#{channel.name}</span>
+            </span>
+            <button
+              onClick={handleJoinChannel}
+              className="rounded-md bg-ping-purple px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ping-purple/90"
+            >
+              Join Channel
+            </button>
+          </div>
+        </div>
+      )}
 
       {firstAlert && (
         <AlertBanner
           title={firstAlert.title}
-          description={firstAlert.body}
+          description={firstAlert.summary}
           actions={[
-            { label: firstAlert.suggestedAction, primary: true },
+            { label: firstAlert.pingWillDo ?? "View", primary: true },
           ]}
-          onDismiss={() => dismissAlert({ alertId: firstAlert._id })}
+          onDismiss={() => dismissAlert({ itemId: firstAlert._id })}
         />
       )}
+
+      <UserProfileDialog
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+      />
     </div>
   );
 }

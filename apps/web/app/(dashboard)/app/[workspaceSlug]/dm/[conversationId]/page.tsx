@@ -1,14 +1,18 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo } from "react";
+import { use, useState, useCallback, useEffect, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, usePaginatedQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
 import { MessageList, type Message } from "@/components/channel/MessageList";
-import { GroupChatHeader } from "@/components/channel/GroupChatHeader";
+import { ConversationTopBar } from "@/components/channel/ConversationTopBar";
+import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 import { Loader2 } from "lucide-react";
 import { useDMTyping } from "@/hooks/useTyping";
 import { useThreadPanel } from "@/hooks/useThreadPanel";
+import { useToast } from "@/components/ui/toast-provider";
+import { useWorkspace } from "@/hooks/useWorkspace";
 
 function getInitials(name: string): string {
   return name
@@ -26,6 +30,8 @@ interface Props {
 export default function DMPage({ params }: Props) {
   const { conversationId } = use(params);
   const typedId = conversationId as Id<"directConversations">;
+  const searchParams = useSearchParams();
+  const highlightMessageId = searchParams.get("msg");
 
   const conversation = useQuery(api.directConversations.get, {
     conversationId: typedId,
@@ -39,9 +45,14 @@ export default function DMPage({ params }: Props) {
   const editMessage = useMutation(api.directMessages.edit);
   const deleteMessage = useMutation(api.directMessages.remove);
   const markRead = useMutation(api.directConversations.markRead);
+  const archiveConversation = useMutation(api.directConversations.archive);
+  const removeConversation = useMutation(api.directConversations.remove);
   const currentUser = useQuery(api.users.getMe);
   const { typingUsers, onTyping, onSendClear } = useDMTyping(typedId);
   const { openThreadPanel, closeThreadPanel } = useThreadPanel();
+  const { toast } = useToast();
+  const router = useRouter();
+  const { buildPath, workspaceId } = useWorkspace();
 
   // Mark as read on mount
   useEffect(() => {
@@ -70,7 +81,6 @@ export default function DMPage({ params }: Props) {
       threadId: msg.threadId,
       alsoSentToChannel: msg.alsoSentToConversation,
       isEdited: msg.isEdited,
-      attachments: msg.attachments,
     }));
   }, [results]);
 
@@ -109,25 +119,65 @@ export default function DMPage({ params }: Props) {
         messageTable: "directMessages",
         conversationId,
         contextName: displayName,
+        workspaceId,
       });
     },
-    [openThreadPanel, conversationId, displayName],
+    [openThreadPanel, conversationId, displayName, workspaceId],
   );
+
+  const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);
+
+  const handleClickAuthor = useCallback((authorId: string) => {
+    setProfileUserId(authorId as Id<"users">);
+  }, []);
+
+  const handleClickMention = useCallback((name: string) => {
+    const member = conversation?.members.find(
+      (m) => m.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (member) {
+      setProfileUserId(member.userId as Id<"users">);
+    }
+  }, [conversation?.members]);
+
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    toast("Link copied", "success");
+  }, [toast]);
+
+  const handleArchive = useCallback(async () => {
+    await archiveConversation({ conversationId: typedId });
+    toast("Conversation archived", "success");
+    router.push(buildPath("/dms"));
+  }, [archiveConversation, typedId, toast, router, buildPath]);
+
+  const handleDeleteConversation = useCallback(async () => {
+    await removeConversation({ conversationId: typedId });
+    toast("Conversation deleted", "success");
+    router.push(buildPath("/dms"));
+  }, [removeConversation, typedId, toast, router, buildPath]);
 
   if (status === "LoadingFirstPage") {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
       </div>
     );
   }
 
-  const isGroup = conversation?.kind === "group" || conversation?.kind === "agent_group";
+  const convKind = (conversation?.kind ?? "1to1") as "1to1" | "group" | "agent_1to1" | "agent_group";
 
   return (
     <div className="relative flex h-full flex-col">
-      {isGroup && otherMembers.length > 0 && (
-        <GroupChatHeader members={otherMembers} name={displayName} />
+      {conversation && (
+        <ConversationTopBar
+          name={displayName}
+          members={otherMembers}
+          kind={convKind}
+          onCopyId={handleCopyLink}
+          onArchive={handleArchive}
+          onDelete={handleDeleteConversation}
+        />
       )}
       <MessageList
         channelName={displayName}
@@ -140,6 +190,15 @@ export default function DMPage({ params }: Props) {
         currentUserId={currentUser?._id}
         onEditMessage={handleEditMessage}
         onDeleteMessage={handleDeleteMessage}
+        onClickAuthor={handleClickAuthor}
+        onClickMention={handleClickMention}
+        highlightMessageId={highlightMessageId}
+      />
+
+      <UserProfileDialog
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
       />
     </div>
   );

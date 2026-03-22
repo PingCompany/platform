@@ -81,7 +81,7 @@ export function AlertBanner({
           </div>
           <button
             onClick={onDismiss}
-            className="shrink-0 rounded p-0.5 text-foreground/30 hover:bg-surface-3 hover:text-foreground"
+            className="shrink-0 rounded p-0.5 text-foreground/50 hover:bg-surface-3 hover:text-foreground"
           >
             <X className="h-3 w-3" />
           </button>

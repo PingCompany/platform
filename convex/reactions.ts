@@ -1,7 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-import { requireUser, requireChannelMember } from "./auth";
+import { requireUser, requirePublicChannelOrMember } from "./auth";
 
 function groupReactionsByEmoji<T extends { emoji: string }>(reactions: T[]) {
   const grouped = new Map<string, T[]>();
@@ -66,7 +66,7 @@ export const getByMessage = query({
 
     const message = await ctx.db.get(args.messageId);
     if (!message) return [];
-    await requireChannelMember(ctx, message.channelId, user._id);
+    await requirePublicChannelOrMember(ctx, message.channelId, user._id);
 
     const reactions = await ctx.db
       .query("reactions")
@@ -111,7 +111,7 @@ export const getByMessages = query({
       if (msg) channelIds.add(msg.channelId);
     }
     for (const channelId of channelIds) {
-      await requireChannelMember(ctx, channelId, user._id);
+      await requirePublicChannelOrMember(ctx, channelId, user._id);
     }
 
     const result: Record<

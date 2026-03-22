@@ -49,6 +49,7 @@ export const create = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     workspaceId: v.id("workspaces"),
+    isPrivate: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
@@ -68,6 +69,7 @@ export const create = mutation({
       createdBy: user._id,
       isDefault: false,
       isArchived: false,
+      isPrivate: args.isPrivate ?? false,
       type: "public",
     });
 
@@ -109,6 +111,8 @@ export const list = query({
             ...channel,
             isMember: !!membership,
             unreadCount: membership?.unreadCount ?? 0,
+            unreadMentionCount: membership?.unreadMentionCount ?? 0,
+            isStarred: membership?.isStarred ?? false,
           };
         }),
     );
@@ -125,8 +129,15 @@ export const get = query({
     if (!channel) throw new Error("Channel not found");
     if (channel.type === "dm" || channel.type === "group") {
       await requireChannelMember(ctx, args.channelId, user._id);
+      return { ...channel, isMember: true, isStarred: false };
     }
-    return channel;
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", channel._id).eq("userId", user._id),
+      )
+      .unique();
+    return { ...channel, isMember: !!membership, isStarred: membership?.isStarred ?? false };
   },
 });
 
@@ -146,6 +157,7 @@ export const markRead = mutation({
       await ctx.db.patch(membership._id, {
         lastReadAt: Date.now(),
         unreadCount: 0,
+        unreadMentionCount: 0,
       });
     }
   },
@@ -359,5 +371,104 @@ export const update = mutation({
 
     const { channelId: _, ...updates } = args;
     await ctx.db.patch(args.channelId, updates);
+  },
+});
+
+export const toggleStar = mutation({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", args.channelId).eq("userId", user._id),
+      )
+      .unique();
+
+    if (!membership) throw new Error("Not a member of this channel");
+
+    await ctx.db.patch(membership._id, {
+      isStarred: !membership.isStarred,
+    });
+
+    return !membership.isStarred;
+  },
+});
+
+export const listActivity = query({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx, args.workspaceId);
+
+    // Get user's channel memberships
+    const memberships = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const channelIds = memberships.map((m) => m.channelId);
+    const starredSet = new Set(
+      memberships.filter((m) => m.isStarred).map((m) => m.channelId),
+    );
+
+    // Fetch recent messages with threads or mentions from user's channels
+    const items: Array<{
+      channelId: string;
+      channelName: string;
+      isStarred: boolean;
+      messageId: string;
+      body: string;
+      authorName: string;
+      authorId: string;
+      createdAt: number;
+      type: "thread" | "mention" | "message";
+      threadReplyCount?: number;
+    }> = [];
+
+    for (const channelId of channelIds) {
+      const channel = await ctx.db.get(channelId);
+      if (!channel || channel.isArchived || (channel.type && channel.type !== "public")) continue;
+
+      const recentMessages = await ctx.db
+        .query("messages")
+        .withIndex("by_channel", (q) => q.eq("channelId", channelId))
+        .order("desc")
+        .take(20);
+
+      for (const msg of recentMessages) {
+        const author = await ctx.db.get(msg.authorId);
+        const authorName = author?.name ?? "Unknown";
+
+        // Check if it's a thread parent
+        const isThread = (msg.threadReplyCount ?? 0) > 0;
+        // Check if user is mentioned
+        const isMention = msg.body.toLowerCase().includes(`@${user.name?.toLowerCase()}`);
+
+        if (isThread || isMention) {
+          items.push({
+            channelId: channel._id,
+            channelName: channel.name,
+            isStarred: starredSet.has(channel._id),
+            messageId: msg._id,
+            body: msg.body,
+            authorName,
+            authorId: msg.authorId,
+            createdAt: msg._creationTime,
+            type: isMention ? "mention" : "thread",
+            threadReplyCount: msg.threadReplyCount,
+          });
+        }
+      }
+    }
+
+    // Sort: starred channels first, then by creation time desc
+    items.sort((a, b) => {
+      if (a.isStarred && !b.isStarred) return -1;
+      if (!a.isStarred && b.isStarred) return 1;
+      return b.createdAt - a.createdAt;
+    });
+
+    return items.slice(0, 30);
   },
 });

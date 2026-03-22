@@ -4,11 +4,11 @@
 
 @layer base {
   :root {
-    /* Surface scale — light */
-    --surface-0: 0 0% 100%;
-    --surface-1: 0 0% 98%;
-    --surface-2: 0 0% 96%;
-    --surface-3: 0 0% 90%;
+    /* Surface scale — light (cool blue-violet tint) */
+    --surface-0: 240 20% 100%;
+    --surface-1: 237 25% 98.5%;
+    --surface-2: 237 20% 96%;
+    --surface-3: 237 14% 93%;
 
     /* shadcn token mapping — light */
     --background: 0 0% 100%;
@@ -22,7 +22,7 @@
     --secondary: 240 5% 92%;
     --secondary-foreground: 240 6% 30%;
     --muted: 240 5% 92%;
-    --muted-foreground: 240 3% 46%;
+    --muted-foreground: 237 8% 38%;
     --accent: 240 5% 92%;
     --accent-foreground: 240 10% 10%;
     --destructive: 0 72% 51%;
@@ -82,10 +82,21 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Visible focus ring for keyboard navigation only */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Suppress focus ring for mouse/touch interactions */
+  :focus:not(:focus-visible) {
+    outline: none;
   }
 
   /* Remove transition from layout-affecting properties */
@@ -146,6 +157,8 @@
 /* Tiptap rich-text editor */
 .tiptap {
   outline: none;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .tiptap p {
   margin: 0;
@@ -158,7 +171,7 @@
   float: left;
   pointer-events: none;
   height: 0;
-  color: hsl(var(--foreground) / 0.25);
+  color: hsl(var(--foreground) / 0.4);
 }
 .tiptap strong {
   font-weight: 600;
@@ -221,4 +234,13 @@
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
+}
+
+/* New message subtle highlight */
+@keyframes message-in {
+  0%   { background-color: hsl(var(--primary) / 0.08); }
+  100% { background-color: transparent; }
+}
+.animate-message-in {
+  animation: message-in 0.6s ease-out;
 }

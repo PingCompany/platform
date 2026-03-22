@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { X, MessageSquare } from "lucide-react";
+
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { Id } from "@convex/_generated/dataModel";
@@ -268,10 +269,28 @@ function ThreadPanelShell({
   onEditMessage?: (messageId: string, newBody: string) => void;
   onDeleteMessage?: (messageId: string) => void;
 }) {
+  // Track new replies for animation
+  const prevReplyCountRef = useRef(replies.length);
+  const [newReplyId, setNewReplyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const prev = prevReplyCountRef.current;
+    prevReplyCountRef.current = replies.length;
+    if (replies.length > prev && prev > 0) {
+      const last = replies[replies.length - 1];
+      if (last) {
+        setNewReplyId(last.id);
+        setTimeout(() => setNewReplyId(null), 600);
+      }
+    }
+  }, [replies.length, replies]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-subtle px-4 py-2">
+      <div
+        className="flex h-10 items-center justify-between border-b border-subtle bg-surface-1 px-4 shrink-0"
+      >
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-foreground" />
           <span className="text-sm font-semibold text-foreground">Thread</span>
@@ -321,15 +340,16 @@ function ThreadPanelShell({
             ? { ...reply, reactions: reactionsByMessage[reply.id] }
             : reply;
           return (
-            <MessageItem
-              key={reply.id}
-              message={replyWithReactions}
-              showAvatar={showAvatar}
-              onToggleReaction={onToggleReaction}
-              currentUserId={currentUserId}
-              onEditMessage={onEditMessage}
-              onDeleteMessage={onDeleteMessage}
-            />
+            <div key={reply.id} className={reply.id === newReplyId ? "animate-message-in" : undefined}>
+              <MessageItem
+                message={replyWithReactions}
+                showAvatar={showAvatar}
+                onToggleReaction={onToggleReaction}
+                currentUserId={currentUserId}
+                onEditMessage={onEditMessage}
+                onDeleteMessage={onDeleteMessage}
+              />
+            </div>
           );
         })}
         <div ref={bottomRef} />
@@ -344,17 +364,18 @@ function ThreadPanelShell({
           placeholder="Reply..."
           onSend={onSend}
           onTyping={onTyping}
-          showToolbar={false}
         />
-        <label className="mt-1.5 flex items-center gap-1.5 text-2xs text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={alsoSendTo}
-            onChange={(e) => setAlsoSendTo(e.target.checked)}
-            className="h-3 w-3 rounded border-subtle accent-ping-purple"
-          />
-          {alsoSendLabel}
-        </label>
+        <p className="mt-1 h-4 text-2xs leading-4 text-foreground/40">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={alsoSendTo}
+              onChange={(e) => setAlsoSendTo(e.target.checked)}
+              className="h-3 w-3 rounded border-subtle accent-ping-purple"
+            />
+            {alsoSendLabel}
+          </label>
+        </p>
       </div>
     </div>
   );

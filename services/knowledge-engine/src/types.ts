@@ -141,3 +141,197 @@ export interface GraphitiSearchResult {
   score?: number;
   episodes?: string[];
 }
+
+// ---------------------------------------------------------------------------
+// Bulk ingestion types (Memory Magic)
+// ---------------------------------------------------------------------------
+
+export interface BulkIngestItem {
+  content: string;
+  role_type: string;
+  role: string;
+  timestamp: string;
+  source_description: string;
+  uuid?: string;
+  name?: string;
+  group_id?: string;
+}
+
+export interface BulkIngestRequest {
+  items: BulkIngestItem[];
+  group_id?: string;
+}
+
+export interface BulkJobProgress {
+  job_id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  total: number;
+  processed: number;
+  failed: number;
+  errors: Array<{ index: number; error: string }>;
+  started_at: string;
+  completed_at?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Citation & Fact types
+// ---------------------------------------------------------------------------
+
+export interface Fact {
+  uuid?: string;
+  name: string;
+  fact: string;
+  valid_at?: string;
+  invalid_at?: string;
+  created_at?: string;
+  source_description?: string;
+  relevance_score?: number;
+  episodes?: string[];
+}
+
+export interface Citation {
+  text: string;
+  source_title: string;
+  relevance_score?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Conversation context types
+// ---------------------------------------------------------------------------
+
+export interface ConversationTurn {
+  query: string;
+  response?: string;
+  timestamp?: string;
+}
+
+export interface ConversationContext {
+  id: string;
+  turns: ConversationTurn[];
+  created_at: string;
+  last_activity: string;
+}
+
+// ---------------------------------------------------------------------------
+// Entity mapping types
+// ---------------------------------------------------------------------------
+
+export interface PersonEntity {
+  name: string;
+  emails: string[];
+  source: string;
+  external_id?: string;
+}
+
+export interface EntityMapping {
+  canonical_name: string;
+  aliases: string[];
+  emails: string[];
+  sources: Array<{ source: string; external_id?: string }>;
+  confidence: number;
+}
+
+// ---------------------------------------------------------------------------
+// GitHub history ingestion types
+// ---------------------------------------------------------------------------
+
+export interface GitHubCommit {
+  sha: string;
+  message: string;
+  author_name: string;
+  author_email?: string;
+  timestamp: string;
+  repo: string;
+}
+
+export interface GitHubPR {
+  number: number;
+  title: string;
+  body?: string;
+  author: string;
+  author_email?: string;
+  state: string;
+  created_at: string;
+  merged_at?: string;
+  closed_at?: string;
+  repo: string;
+  labels?: string[];
+}
+
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  body?: string;
+  author: string;
+  author_email?: string;
+  state: string;
+  created_at: string;
+  repo: string;
+  labels?: string[];
+}
+
+export interface GitHubReviewComment {
+  id: string;
+  body: string;
+  author: string;
+  author_email?: string;
+  pr_number: number;
+  created_at: string;
+  repo: string;
+  path?: string;
+}
+
+export interface GitHubHistoryRequest {
+  group_id?: string;
+  commits?: GitHubCommit[];
+  pull_requests?: GitHubPR[];
+  issues?: GitHubIssue[];
+  review_comments?: GitHubReviewComment[];
+}
+
+// ---------------------------------------------------------------------------
+// Linear history ingestion types
+// ---------------------------------------------------------------------------
+
+export interface LinearIssue {
+  id: string;
+  identifier: string;
+  title: string;
+  description?: string;
+  state: string;
+  priority: number;
+  team: string;
+  assignee_name?: string;
+  assignee_email?: string;
+  creator_name?: string;
+  creator_email?: string;
+  created_at: string;
+  labels?: string[];
+  cycle?: string;
+}
+
+export interface LinearComment {
+  id: string;
+  body: string;
+  author_name: string;
+  author_email?: string;
+  issue_identifier: string;
+  created_at: string;
+}
+
+export interface LinearHistoryRequest {
+  group_id?: string;
+  issues?: LinearIssue[];
+  comments?: LinearComment[];
+}
+
+// ---------------------------------------------------------------------------
+// Performance test types
+// ---------------------------------------------------------------------------
+
+export interface PerformanceResult {
+  query: string;
+  latency_ms: number;
+  episode_count: number;
+  fact_count: number;
+}

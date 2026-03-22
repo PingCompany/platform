@@ -55,13 +55,18 @@ export const insertBotMessage = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       channelId: args.channelId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
       isEdited: false,
       citations: args.citations,
+    });
+
+    // Ingest bot message into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processMessage, {
+      messageId,
     });
   },
 });
@@ -132,7 +137,7 @@ export const respond = internalAction({
         messages: [
           {
             role: "system",
-            content: `You are KnowledgeBot for the #${channelCtx.channelName} channel. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
+            content: `You are mrPING for the #${channelCtx.channelName} channel. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
           },
           {
             role: "user",
@@ -190,12 +195,17 @@ export const insertBotDirectMessage = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("directMessages", {
+    const messageId = await ctx.db.insert("directMessages", {
       conversationId: args.conversationId,
       authorId: args.authorId,
       body: args.body,
       type: "bot",
       isEdited: false,
+    });
+
+    // Ingest bot DM into knowledge graph
+    await ctx.scheduler.runAfter(0, internal.ingest.processDirectMessage, {
+      messageId,
     });
   },
 });
@@ -228,7 +238,7 @@ export const respondDM = internalAction({
     if (!botUser) return;
 
     // Build group_ids — DM-scoped by default
-    const groupIds: string[] = [`dm:${args.conversationId}`];
+    const groupIds: string[] = [`dm-${args.conversationId}`];
 
     // For agent conversations, expand search to user's channel memberships
     if (convCtx.kind === "agent_1to1" || convCtx.kind === "agent_group") {
@@ -288,7 +298,7 @@ export const respondDM = internalAction({
           messages: [
             {
               role: "system",
-              content: `You are KnowledgeBot in a direct message conversation. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
+              content: `You are mrPING in a direct message conversation. Answer questions using ONLY the provided facts from the knowledge graph. Cite facts using [n] notation. If no facts are relevant, say you don't have enough context.`,
             },
             {
               role: "user",

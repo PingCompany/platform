@@ -159,3 +159,32 @@ WorkOS handles SSO/SAML. JWT tokens (RS256) verified by Convex against WorkOS JW
 ### Testing
 
 No test framework configured yet. Test scripts are placeholder (`echo "No tests configured yet"`).
+
+## Linear Integration for Plans
+
+When you finish creating a plan (after ExitPlanMode), sync it to Linear:
+
+1. **Project**: Use `mcp__claude_ai_Linear__save_project` to create or update the project:
+   - If `~/.claude/task-meta/linear-project-cache.json` has a `project_id`, update that project
+   - If no cached project, create a new one with the plan scope as the name
+   - Always set `lead: "Rafal Wyderka"`
+   - Set `addTeams` to `["8888c9ff-9144-4d8b-b8a0-48de1dc3aa66"]` when creating
+   - Set `description` to a brief summary of the plan scope
+
+2. **Document**: Use `mcp__claude_ai_Linear__create_document` to create a plan document:
+   - `title`: "Plan: \<plan title\>"
+   - `content`: Full plan in Markdown
+   - `project`: The project name or ID
+
+3. **Issues**: For each task/work unit in the plan, use `mcp__claude_ai_Linear__save_issue`:
+   - `title`: Task title
+   - `description`: Task details in Markdown
+   - `team`: "8888c9ff-9144-4d8b-b8a0-48de1dc3aa66"
+   - `project`: Project name or ID
+   - `blockedBy`: Array of identifiers for issues that must complete first (use identifiers returned from previous save_issue calls)
+   - Create issues in dependency order (prerequisites first) so you have identifiers to reference
+
+4. **Cache update**: After creating/updating the project, update `~/.claude/task-meta/linear-project-cache.json`:
+   ```json
+   {"project_id": "<id>", "project_name": "<name>", "cached_at": <epoch>}
+   ```

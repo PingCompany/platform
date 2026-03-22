@@ -26,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/toast-provider";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/hooks/useWorkspace";
+import { UserProfileDialog } from "@/components/user/UserProfileDialog";
 
 type Role = "admin" | "member";
 type Status = "active" | "invited" | "deprovisioned";
@@ -66,6 +67,20 @@ const statusConfig: Record<Status, { dot: "online" | "pending" | "offline"; labe
 };
 
 export default function TeamPage() {
+  const { role } = useWorkspace();
+
+  if (role !== "admin") {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        You don&apos;t have permission to view team settings.
+      </div>
+    );
+  }
+
+  return <TeamPageContent />;
+}
+
+function TeamPageContent() {
   const { workspaceId } = useWorkspace();
   const rawUsers = useQuery(api.users.listAll, { workspaceId });
   const updateRoleMutation = useMutation(api.users.updateRole);
@@ -86,6 +101,7 @@ export default function TeamPage() {
 
   const [sortCol, setSortCol] = useState<"name" | "email" | "role" | "status">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [profileUserId, setProfileUserId] = useState<Id<"users"> | null>(null);
 
   const members: TeamMember[] = useMemo(() => {
     if (!rawUsers) return [];
@@ -239,10 +255,10 @@ export default function TeamPage() {
               <button
                 key={key}
                 onClick={() => toggleSort(key)}
-                className="flex items-center gap-1 text-2xs font-medium uppercase tracking-widest text-foreground/25 transition-colors hover:text-foreground/50 cursor-pointer"
+                className="flex items-center gap-1 text-2xs font-medium uppercase tracking-widest text-foreground/45 transition-colors hover:text-foreground/70 cursor-pointer"
               >
                 {label}
-                <SortIcon className={cn("h-3 w-3", sortCol === key ? "text-foreground/40" : "text-foreground/15")} />
+                <SortIcon className={cn("h-3 w-3", sortCol === key ? "text-foreground/40" : "text-foreground/50")} />
               </button>
             );
           })}
@@ -273,7 +289,13 @@ export default function TeamPage() {
                     {member.initials}
                   </AvatarFallback>
                 </Avatar>
-                <span className="truncate text-xs font-medium text-foreground">{member.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setProfileUserId(member.id as Id<"users">)}
+                  className="truncate text-xs font-medium text-foreground hover:underline cursor-pointer"
+                >
+                  {member.name}
+                </button>
               </div>
 
               <span className="truncate text-xs text-muted-foreground">{member.email}</span>
@@ -289,7 +311,7 @@ export default function TeamPage() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex h-6 w-6 items-center justify-center rounded text-foreground/25 transition-colors hover:bg-surface-3 hover:text-foreground">
+                  <button className="flex h-6 w-6 items-center justify-center rounded text-foreground/45 transition-colors hover:bg-surface-3 hover:text-foreground">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </button>
                 </DropdownMenuTrigger>
@@ -322,7 +344,7 @@ export default function TeamPage() {
         })}
       </div>
 
-      <p className="mt-3 text-2xs text-foreground/20">
+      <p className="mt-3 text-2xs text-foreground/40">
         {members.length} total members · Real-time sync via Convex
       </p>
 
@@ -456,7 +478,7 @@ export default function TeamPage() {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="colleague@company.com"
-                  className="w-full rounded border border-subtle bg-surface-3 px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/25 focus:border-foreground/20 focus:outline-none"
+                  className="w-full rounded border border-subtle bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-foreground/45 focus:border-ring focus:outline-none"
                 />
               </div>
               <div>
@@ -502,6 +524,12 @@ export default function TeamPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <UserProfileDialog
+        userId={profileUserId}
+        open={profileUserId !== null}
+        onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+      />
     </div>
   );
 }

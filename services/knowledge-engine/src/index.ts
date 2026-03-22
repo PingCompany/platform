@@ -1,19 +1,22 @@
 import express from "express";
 import pino from "pino";
-import { createEntityResolutionRouter } from "./entity-resolution";
-import { createProactiveQueriesRouter } from "./proactive-queries";
-import { Neo4jClient } from "./neo4j-client";
+import { createEntityResolutionRouter } from "./entity-resolution.js";
+import { createProactiveQueriesRouter } from "./proactive-queries.js";
+import { Neo4jClient } from "./neo4j-client.js";
 
 const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
-  transport:
-    process.env.NODE_ENV !== "production"
-      ? { target: "pino-pretty" }
-      : undefined,
 });
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
+
+// CORS for frontend
+app.use((_req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  next();
+});
 
 // Health check
 app.get("/health", (_req, res) => {
@@ -31,6 +34,18 @@ const neo4j = new Neo4jClient(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, logger);
 // Mount routers
 app.use("/entities", createEntityResolutionRouter(neo4j, GRAPHITI_URL, logger));
 app.use("/proactive", createProactiveQueriesRouter(neo4j, GRAPHITI_URL, logger));
+
+// Graph visualization endpoint — returns nodes + edges for the frontend
+app.get("/graph", async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit as string) || 200, 500);
+    const data = await neo4j.getGraphData(limit);
+    res.json(data);
+  } catch (err) {
+    logger.error({ err }, "Failed to get graph data");
+    res.status(500).json({ error: "Failed to fetch graph data" });
+  }
+});
 
 // Proxy pass-through to Graphiti for standard endpoints
 app.all("/graphiti/*", async (req, res) => {

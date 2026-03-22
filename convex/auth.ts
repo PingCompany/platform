@@ -11,7 +11,7 @@ export async function requireDMmember(
     .withIndex("by_conversation_user", (q) =>
       q.eq("conversationId", conversationId).eq("userId", userId),
     )
-    .unique();
+    .first();
   if (!membership) throw new Error("Not a member of this conversation");
   return membership;
 }
@@ -65,4 +65,30 @@ export async function requireChannelMember(
 
   if (!membership) throw new Error("Not a member of this channel");
   return membership;
+}
+
+/**
+ * For read-only operations: allows access to public channels without membership.
+ * For DM/group channels, enforces membership (throws if not a member).
+ */
+export async function requirePublicChannelOrMember(
+  ctx: QueryCtx | MutationCtx,
+  channelId: Id<"channels">,
+  userId: Id<"users">,
+): Promise<{ channel: Doc<"channels">; membership: Doc<"channelMembers"> | null }> {
+  const channel = await ctx.db.get(channelId);
+  if (!channel) throw new Error("Channel not found");
+
+  const membership = await ctx.db
+    .query("channelMembers")
+    .withIndex("by_channel_user", (q) =>
+      q.eq("channelId", channelId).eq("userId", userId),
+    )
+    .unique();
+
+  if (channel.type === "dm" || channel.type === "group") {
+    if (!membership) throw new Error("Not a member of this channel");
+  }
+
+  return { channel, membership };
 }

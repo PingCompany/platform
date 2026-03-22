@@ -31,7 +31,7 @@ export default function WorkspaceLayout({ children, params }: Props) {
   if (workspace === undefined || myWorkspaces === undefined || myWorkspaces === null) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-foreground/20" />
+        <Loader2 className="h-5 w-5 animate-spin text-foreground/40" />
       </div>
     );
   }
