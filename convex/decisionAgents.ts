@@ -66,24 +66,31 @@ export const executeDecisionAction = internalAction({
     try {
       let result: string;
 
-      switch (decision.type) {
-        case "pr_review":
-          result = await handlePRReview(ctx, decision);
-          break;
-        case "ticket_triage":
-        case "blocked_unblock":
-          result = await handleLinearTicket(ctx, decision);
-          break;
-        case "question_answer":
-          result = await postBotReply(ctx, decision, { alwaysPost: true });
-          break;
-        case "fact_verify":
-        case "cross_team_ack":
-        case "channel_summary":
-          result = await postBotReply(ctx, decision, { alwaysPost: false });
-          break;
-        default:
-          result = `No handler for decision type: ${decision.type}`;
+      // Check if the chosen action is "coordinate" — handle specially regardless of type
+      const isCoordinate = decision.outcome?.action === "coordinate";
+
+      if (isCoordinate) {
+        result = await handleCoordinate(ctx, decision);
+      } else {
+        switch (decision.type) {
+          case "pr_review":
+            result = await handlePRReview(ctx, decision);
+            break;
+          case "ticket_triage":
+          case "blocked_unblock":
+            result = await handleLinearTicket(ctx, decision);
+            break;
+          case "question_answer":
+            result = await postBotReply(ctx, decision, { alwaysPost: true });
+            break;
+          case "fact_verify":
+          case "cross_team_ack":
+          case "channel_summary":
+            result = await postBotReply(ctx, decision, { alwaysPost: false });
+            break;
+          default:
+            result = `No handler for decision type: ${decision.type}`;
+        }
       }
 
       await ctx.runMutation(internal.decisionAgents.updateExecutionStatus, {
@@ -117,6 +124,7 @@ type ActionCtx = {
 
 type DecisionDoc = {
   _id: any;
+  userId: any;
   type: string;
   outcome?: {
     action: string;
@@ -130,6 +138,16 @@ type DecisionDoc = {
   workspaceId: any;
   title: string;
   summary: string;
+  orgTrace?: Array<{
+    userId?: any;
+    name: string;
+    role: string;
+  }>;
+  nextSteps?: Array<{
+    actionKey: string;
+    label: string;
+    automated: boolean;
+  }>;
 };
 
 async function handlePRReview(
@@ -268,6 +286,205 @@ async function postBotReply(
 
   return `Decision "${action}" recorded (no channel message needed).`;
 }
+
+// ─── Coordinate handler: ticket + group conversation ────────────────────────
+
+async function handleCoordinate(
+  ctx: ActionCtx,
+  decision: DecisionDoc,
+): Promise<string> {
+  const results: string[] = [];
+
+  // 1. Create a Linear ticket for tracking
+  try {
+    const ticketResult = await callCivicNexusTool("create_issue", {
+      title: decision.title,
+      description: [
+        `**Decision:** ${decision.title}`,
+        "",
+        `**Context:** ${decision.summary}`,
+        "",
+        decision.outcome?.comment ? `**Decision comment:** ${decision.outcome.comment}` : "",
+        "",
+        `**People involved:**`,
+        ...(decision.orgTrace ?? []).map(
+          (p) => `- ${p.name} (${p.role})`,
+        ),
+        "",
+        `*Created by mrPING from inbox decision.*`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      priority: decision.type === "blocked_unblock" ? 1 : 2,
+    });
+    results.push(`Linear ticket created: ${ticketResult}`);
+    await closeCivicNexusClient();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    results.push(`Linear ticket creation failed: ${msg}`);
+    try { await closeCivicNexusClient(); } catch { /* ignore */ }
+  }
+
+  // 2. Collect participant userIds from orgTrace
+  const participantIds: string[] = [];
+  const riskDescriptions: Map<string, string> = new Map();
+
+  for (const person of decision.orgTrace ?? []) {
+    if (person.userId) {
+      participantIds.push(person.userId);
+      // Map role to risk description
+      const roleDesc =
+        person.role === "author"
+          ? "Raised this issue — owns the context"
+          : person.role === "assignee"
+            ? "Responsible for execution — delivery risk"
+            : person.role === "mentioned"
+              ? "Referenced in discussion — may be impacted"
+              : "Subject matter expert — consult for risk assessment";
+      riskDescriptions.set(person.name, roleDesc);
+    }
+  }
+
+  // Add decision owner if not already included
+  const ownerIncluded = participantIds.includes(decision.userId as string);
+  if (!ownerIncluded) {
+    participantIds.push(decision.userId as string);
+  }
+
+  if (participantIds.length === 0) {
+    results.push("No participants with user IDs found; skipped conversation creation.");
+    return results.join("\n");
+  }
+
+  // 3. Get the mrPING bot user to add as agent member
+  const botUser = await ctx.runQuery(internal.bot.getBotUser, {
+    workspaceId: decision.workspaceId,
+  });
+
+  // 4. Create group AI-aided conversation
+  const agentMemberIds = botUser ? [botUser._id] : [];
+
+  const conversationId = await ctx.runMutation(
+    internal.decisionAgents.createGroupConversation,
+    {
+      workspaceId: decision.workspaceId,
+      createdBy: decision.userId,
+      name: decision.title,
+      memberIds: participantIds,
+      agentMemberIds,
+    },
+  );
+
+  // 5. Post initial bot message tagging each person with their risk
+  const tagLines = (decision.orgTrace ?? [])
+    .filter((p) => p.userId)
+    .map((p) => `• **${p.name}** — ${riskDescriptions.get(p.name) ?? p.role}`);
+
+  // Add owner tracking line
+  const ownerUser = await ctx.runQuery(internal.decisionAgents.getUser, {
+    userId: decision.userId,
+  });
+  if (ownerUser && !ownerIncluded) {
+    tagLines.push(`• **${ownerUser.name}** — Decision owner (tracking)`);
+  }
+
+  const introMessage = [
+    `📋 **${decision.title}**`,
+    "",
+    decision.summary,
+    "",
+    decision.outcome?.comment ? `**Decision:** ${decision.outcome.comment}` : "",
+    "",
+    "**Stakeholders & risk areas:**",
+    ...tagLines,
+    "",
+    "I'll help coordinate next steps. What should we tackle first?",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (botUser) {
+    await ctx.runMutation(internal.decisionAgents.sendGroupMessage, {
+      conversationId,
+      authorId: botUser._id,
+      body: introMessage,
+    });
+  }
+
+  results.push(`Group conversation created with ${participantIds.length} stakeholders.`);
+  return results.join("\n");
+}
+
+// ─── Internal mutations for coordinate handler ──────────────────────────────
+
+export const createGroupConversation = internalMutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    createdBy: v.id("users"),
+    name: v.string(),
+    memberIds: v.array(v.string()),
+    agentMemberIds: v.array(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const conversationId = await ctx.db.insert("directConversations", {
+      workspaceId: args.workspaceId,
+      kind: "agent_group",
+      name: args.name,
+      createdBy: args.createdBy,
+      isArchived: false,
+    });
+
+    const addedUserIds = new Set<string>();
+
+    // Add agent members
+    for (const agentId of args.agentMemberIds) {
+      if (addedUserIds.has(agentId)) continue;
+      await ctx.db.insert("directConversationMembers", {
+        conversationId,
+        userId: agentId,
+        isAgent: true,
+      });
+      addedUserIds.add(agentId);
+    }
+
+    // Add human members
+    for (const memberId of args.memberIds) {
+      if (addedUserIds.has(memberId)) continue;
+      await ctx.db.insert("directConversationMembers", {
+        conversationId,
+        userId: memberId as any,
+        isAgent: false,
+      });
+      addedUserIds.add(memberId);
+    }
+
+    return conversationId;
+  },
+});
+
+export const sendGroupMessage = internalMutation({
+  args: {
+    conversationId: v.id("directConversations"),
+    authorId: v.id("users"),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("directMessages", {
+      conversationId: args.conversationId,
+      authorId: args.authorId,
+      body: args.body,
+      type: "bot",
+      isEdited: false,
+    });
+  },
+});
+
+export const getUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
+  },
+});
 
 // ─── Internal queries for agent use ──────────────────────────────────────────
 

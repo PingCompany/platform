@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu } from "lucide-react";
 import { TOPBAR_HEIGHT } from "@/lib/constants";
 import { Breadcrumbs } from "./Breadcrumbs";
@@ -65,7 +66,8 @@ export function TopBar({
           <Menu className="h-4 w-4" />
         </button>
         <Link href={inboxHref} className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
-          <span className="text-sm font-bold text-ping-purple">PING</span>
+          <Image src="/ping-logo.png" alt="PING" width={20} height={20} className="dark:invert" />
+          <span className="text-sm font-bold text-foreground">PING</span>
           {workspaceName && (
             <>
               <span className="text-foreground/40">·</span>

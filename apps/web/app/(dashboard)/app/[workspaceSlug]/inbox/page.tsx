@@ -8,7 +8,7 @@ import { DecisionCard, type InboxItemData, type OrgTracePerson } from "@/compone
 import { InboxModal, type ModalItem } from "@/components/inbox/InboxModal";
 import { DraftReminderCard } from "@/components/inbox/DraftReminderCard";
 import { type InboxCategory, type PriorityLevel, CATEGORY_ORDER, CATEGORY_TO_PRIORITY } from "@/components/inbox/InboxCard";
-import { CheckCircle2, Loader2, FlaskConical, ChevronDown, Check, Archive } from "lucide-react";
+import { CheckCircle2, Loader2, FlaskConical, Sparkles, ChevronDown, Check, Archive } from "lucide-react";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { cn } from "@/lib/utils";
 
@@ -110,11 +110,34 @@ export default function InboxPage() {
   const archiveMutation = useMutation(api.inboxItems.archive);
   const snoozeMutation = useMutation(api.inboxItems.snooze);
   const seedMutation = useMutation(api.seed.seedDecisions);
+  const generateMutation = useMutation(api.generateDecision.generateDecision);
   const clearMutation = useMutation(api.seed.clearSeedDecisions);
 
   const [openItem, setOpenItem] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [showArchive, setShowArchive] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const prevItemCount = useRef<number | null>(null);
+
+  // Track when new items arrive to stop the generating spinner
+  useEffect(() => {
+    if (!isGenerating) {
+      prevItemCount.current = null;
+      return;
+    }
+    const currentCount = inboxItems?.length ?? 0;
+    if (prevItemCount.current === null) {
+      prevItemCount.current = currentCount;
+    } else if (currentCount > prevItemCount.current) {
+      setIsGenerating(false);
+      prevItemCount.current = null;
+    }
+  }, [isGenerating, inboxItems?.length]);
+
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    generateMutation({});
+  };
 
   // Filters
   const [selectedCategories, setSelectedCategories] = useState<Set<InboxCategory>>(new Set());
@@ -217,13 +240,23 @@ export default function InboxPage() {
           Items appear here as your team communicates in channels.
           Send messages in a channel — AI summaries and decisions generate every 5–15 minutes.
         </p>
-        <button
-          onClick={() => seedMutation({})}
-          className="mt-2 flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
-        >
-          <FlaskConical className="h-3.5 w-3.5" />
-          Load demo data
-        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {isGenerating ? "Generating…" : "Generate decision"}
+          </button>
+          <button
+            onClick={() => seedMutation({})}
+            className="flex items-center gap-1.5 rounded-md border border-subtle px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            Load demo data
+          </button>
+        </div>
       </div>
     );
   }
@@ -363,6 +396,15 @@ export default function InboxPage() {
 
         {/* Demo controls */}
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            title="Generate decision from real data"
+            className="flex items-center gap-1 rounded px-2 py-1 text-2xs text-foreground/20 transition-colors hover:bg-surface-2 hover:text-muted-foreground disabled:opacity-50"
+          >
+            {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+            {isGenerating ? "generating…" : "generate"}
+          </button>
           <button
             onClick={() => seedMutation({})}
             title="Load demo data"
