@@ -125,8 +125,15 @@ export const get = query({
     if (!channel) throw new Error("Channel not found");
     if (channel.type === "dm" || channel.type === "group") {
       await requireChannelMember(ctx, args.channelId, user._id);
+      return { ...channel, isMember: true };
     }
-    return channel;
+    const membership = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel_user", (q) =>
+        q.eq("channelId", channel._id).eq("userId", user._id),
+      )
+      .unique();
+    return { ...channel, isMember: !!membership };
   },
 });
 

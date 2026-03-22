@@ -17,6 +17,7 @@ import {
   BarChart2,
   Settings,
   ChevronDown,
+  ChevronRight,
   User,
   Building2,
   Keyboard,
@@ -137,6 +138,7 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
   const createChannel = useMutation(api.channels.create);
 
   const [addChannelOpen, setAddChannelOpen] = useState(false);
+  const [browseChannelsOpen, setBrowseChannelsOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelPrivate, setNewChannelPrivate] = useState(false);
   const [newDmOpen, setNewDmOpen] = useState(false);
@@ -358,30 +360,64 @@ export function Sidebar({ onOpenSearch, onOpenShortcuts }: SidebarProps) {
             ))}
           </>
         ) : (
-          channels.map((channel) => {
-            const isActive = pathname.endsWith(`/channel/${channel._id}`);
-            return (
-              <Link
-                key={channel._id}
-                href={buildPath(`/channel/${channel._id}`)}
-                className={cn(
-                  "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
-                  "transition-colors duration-100",
-                  isActive
-                    ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
-                    : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
-                )}
-              >
-                <span className="text-2xs font-medium text-foreground/30">#</span>
-                <span className="flex-1 truncate">{channel.name}</span>
-                {channel.unreadCount > 0 && (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-2xs font-medium text-foreground/70 tabular-nums">
-                    {channel.unreadCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })
+          <>
+            {channels.filter((ch) => ch.isMember).map((channel) => {
+              const isActive = pathname.endsWith(`/channel/${channel._id}`);
+              return (
+                <Link
+                  key={channel._id}
+                  href={buildPath(`/channel/${channel._id}`)}
+                  className={cn(
+                    "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+                    "transition-colors duration-100",
+                    isActive
+                      ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
+                      : "text-muted-foreground hover:bg-surface-3 hover:text-foreground"
+                  )}
+                >
+                  <span className="text-2xs font-medium text-foreground/30">#</span>
+                  <span className="flex-1 truncate">{channel.name}</span>
+                  {channel.unreadCount > 0 && (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground/10 px-1 text-2xs font-medium text-foreground/70 tabular-nums">
+                      {channel.unreadCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+
+            {/* Browse channels (non-joined public channels) */}
+            {channels.filter((ch) => !ch.isMember).length > 0 && (
+              <>
+                <button
+                  onClick={() => setBrowseChannelsOpen((v) => !v)}
+                  className="flex h-7 w-full items-center gap-1 rounded px-2 pt-2 text-2xs font-medium uppercase tracking-widest text-foreground/30 transition-colors hover:text-foreground/50"
+                >
+                  {browseChannelsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  Browse
+                </button>
+                {browseChannelsOpen && channels.filter((ch) => !ch.isMember).map((channel) => {
+                  const isActive = pathname.endsWith(`/channel/${channel._id}`);
+                  return (
+                    <Link
+                      key={channel._id}
+                      href={buildPath(`/channel/${channel._id}`)}
+                      className={cn(
+                        "group relative flex h-7 items-center gap-2 rounded px-2 text-sm",
+                        "transition-colors duration-100",
+                        isActive
+                          ? "bg-ping-purple-muted text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:-translate-y-1/2 before:w-0.5 before:rounded-r before:bg-ping-purple"
+                          : "text-foreground/40 hover:bg-surface-3 hover:text-foreground/60"
+                      )}
+                    >
+                      <span className="text-2xs font-medium text-foreground/20">#</span>
+                      <span className="flex-1 truncate">{channel.name}</span>
+                    </Link>
+                  );
+                })}
+              </>
+            )}
+          </>
         )}
 
         {/* Settings */}

@@ -30,10 +30,12 @@ export default function ChannelPage({ params }: Props) {
 
   const { isAuthenticated } = useConvexAuth();
   const channel = useQuery(api.channels.get, isAuthenticated ? { channelId: typedChannelId } : "skip");
+  const isMember = channel?.isMember ?? false;
   const results = useQuery(
     api.messages.listByChannel,
     isAuthenticated ? { channelId: typedChannelId } : "skip",
   );
+  const joinChannel = useMutation(api.channels.join);
   const sendMessage = useMutation(api.messages.send);
   const editMessage = useMutation(api.messages.edit);
   const deleteMessage = useMutation(api.messages.remove);
@@ -41,16 +43,16 @@ export default function ChannelPage({ params }: Props) {
   const memberCount = useQuery(api.channels.memberCount, isAuthenticated ? { channelId: typedChannelId } : "skip");
   const alerts = useQuery(api.proactiveAlerts.listPending, isAuthenticated ? {} : "skip");
   const dismissAlert = useMutation(api.proactiveAlerts.dismiss);
-  const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId);
+  const { typingUsers, onTyping, onSendClear } = useChannelTyping(typedChannelId, isMember);
   const { openThreadPanel, closeThreadPanel } = useThreadPanel();
   const currentUser = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
 
   const { setSubtitle } = useTopBar();
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !isMember) return;
     markRead({ channelId: typedChannelId });
-  }, [isAuthenticated, markRead, typedChannelId]);
+  }, [isAuthenticated, isMember, markRead, typedChannelId]);
 
   // Close thread panel when navigating to a different channel
   useEffect(() => {
@@ -128,6 +130,10 @@ export default function ChannelPage({ params }: Props) {
     [openThreadPanel, channelId, channel?.name],
   );
 
+  const handleJoinChannel = useCallback(() => {
+    joinChannel({ channelId: typedChannelId });
+  }, [joinChannel, typedChannelId]);
+
   const firstAlert = alerts?.[0];
 
   return (
@@ -135,17 +141,33 @@ export default function ChannelPage({ params }: Props) {
       <MessageList
         channelName={channel?.name ?? channelId}
         messages={messages}
-        onSend={handleSend}
+        onSend={isMember ? handleSend : undefined}
         isLoading={results === undefined}
         typingUsers={typingUsers}
-        onTyping={onTyping}
+        onTyping={isMember ? onTyping : undefined}
         onOpenThread={handleOpenThread}
-        onToggleReaction={toggleReaction}
+        onToggleReaction={isMember ? toggleReaction : undefined}
         currentUserId={currentUser?._id}
         reactionsByMessage={reactionsByMessage}
-        onEditMessage={handleEditMessage}
-        onDeleteMessage={handleDeleteMessage}
+        onEditMessage={isMember ? handleEditMessage : undefined}
+        onDeleteMessage={isMember ? handleDeleteMessage : undefined}
       />
+
+      {!isMember && channel && (
+        <div className="border-t border-subtle bg-surface-1 px-6 py-4">
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              You&apos;re previewing <span className="font-medium text-foreground">#{channel.name}</span>
+            </span>
+            <button
+              onClick={handleJoinChannel}
+              className="rounded-md bg-ping-purple px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-ping-purple/90"
+            >
+              Join Channel
+            </button>
+          </div>
+        </div>
+      )}
 
       {firstAlert && (
         <AlertBanner

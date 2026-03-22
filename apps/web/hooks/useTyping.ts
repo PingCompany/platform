@@ -6,8 +6,8 @@ import type { TypingUser } from "@/components/channel/MessageList";
 
 const THROTTLE_MS = 3000;
 
-/** Typing indicator for channel messages. */
-export function useChannelTyping(channelId: Id<"channels">) {
+/** Typing indicator for channel messages. Pass enabled=false to suppress write mutations (e.g. for non-members previewing a channel). */
+export function useChannelTyping(channelId: Id<"channels">, enabled = true) {
   const { isAuthenticated } = useConvexAuth();
   const typingUsers =
     useQuery(
@@ -20,16 +20,18 @@ export function useChannelTyping(channelId: Id<"channels">) {
   const lastFired = useRef(0);
 
   const onTyping = useCallback(() => {
+    if (!enabled) return;
     const now = Date.now();
     if (now - lastFired.current < THROTTLE_MS) return;
     lastFired.current = now;
     setTyping({ channelId });
-  }, [setTyping, channelId]);
+  }, [setTyping, channelId, enabled]);
 
   const onSendClear = useCallback(() => {
+    if (!enabled) return;
     lastFired.current = 0;
     clearTyping({ channelId });
-  }, [clearTyping, channelId]);
+  }, [clearTyping, channelId, enabled]);
 
   return { typingUsers: typingUsers as TypingUser[], onTyping, onSendClear };
 }

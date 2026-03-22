@@ -591,22 +591,24 @@ export function MessageList({
       )}
 
       {/* Typing indicator */}
-      <TypingIndicator users={typingUsers} />
+      {onSend && <TypingIndicator users={typingUsers} />}
 
       {/* Composer */}
-      <div className="border-t border-subtle p-3">
-        <RichTextComposer
-          ref={composerRef}
-          placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
-          onSend={handleSend}
-          onTyping={onTyping}
-          showActions
-          isDM={isDM}
-        />
-        <p className="mt-1 text-2xs text-foreground/20">
-          Enter to send · Shift+Enter for new line{!isDM && " · @mention to summon agents"}
-        </p>
-      </div>
+      {onSend && (
+        <div className="border-t border-subtle p-3">
+          <RichTextComposer
+            ref={composerRef}
+            placeholder={isDM ? `Message ${channelName}...` : `Message #${channelName}... or @KnowledgeBot`}
+            onSend={handleSend}
+            onTyping={onTyping}
+            showActions
+            isDM={isDM}
+          />
+          <p className="mt-1 text-2xs text-foreground/20">
+            Enter to send · Shift+Enter for new line{!isDM && " · @mention to summon agents"}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

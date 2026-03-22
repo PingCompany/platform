@@ -63,6 +63,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     }
     if (channels) {
       for (const ch of channels) {
+        if (!ch.isMember) continue;
         items.push({ path: `${workspacePrefix}/channel/${ch._id}`, unread: ch.unreadCount ?? 0 });
       }
     }

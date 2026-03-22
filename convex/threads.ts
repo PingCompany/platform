@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { requireUser, requireChannelMember, requireDMmember } from "./auth";
+import { requireUser, requireChannelMember, requireDMmember, requirePublicChannelOrMember } from "./auth";
 
 // ── Channel threads ─────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ export const listReplies = query({
     const parent = await ctx.db.get(args.threadId);
     if (!parent) throw new Error("Parent message not found");
 
-    await requireChannelMember(ctx, parent.channelId, user._id);
+    await requirePublicChannelOrMember(ctx, parent.channelId, user._id);
 
     const replies = await ctx.db
       .query("messages")

@@ -1,6 +1,6 @@
 import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireUser, requireChannelMember, requireDMmember } from "./auth";
+import { requireUser, requireChannelMember, requireDMmember, requirePublicChannelOrMember } from "./auth";
 
 const TYPING_TTL = 5000;
 
@@ -54,7 +54,7 @@ export const getTypingUsers = query({
   args: { channelId: v.id("channels") },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    await requireChannelMember(ctx, args.channelId, user._id);
+    await requirePublicChannelOrMember(ctx, args.channelId, user._id);
 
     const indicators = await ctx.db
       .query("typingIndicators")
@@ -206,7 +206,7 @@ export const getTypingUsersThread = query({
     const user = await requireUser(ctx);
     const parent = await ctx.db.get(args.threadMessageId);
     if (!parent) throw new Error("Parent message not found");
-    await requireChannelMember(ctx, parent.channelId, user._id);
+    await requirePublicChannelOrMember(ctx, parent.channelId, user._id);
 
     const indicators = await ctx.db
       .query("typingIndicators")

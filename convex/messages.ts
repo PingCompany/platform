@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { requireUser } from "./auth";
+import { requireUser, requireChannelMember } from "./auth";
 
 export const send = mutation({
   args: {
@@ -10,6 +10,7 @@ export const send = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await requireChannelMember(ctx, args.channelId, user._id);
 
     const messageId = await ctx.db.insert("messages", {
       channelId: args.channelId,
