@@ -249,6 +249,7 @@ function WorkspaceSettingsContent() {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleConnect();
             }}
+            autoFocus
           />
 
           <DialogFooter>
