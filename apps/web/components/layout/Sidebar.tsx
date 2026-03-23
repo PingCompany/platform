@@ -19,6 +19,7 @@ import {
   Keyboard,
   LogOut,
   Lock,
+  Key,
   ArrowLeft,
   PanelLeftClose,
   Check,
@@ -726,6 +727,7 @@ function SettingsNav({ pathname, buildPath }: SettingsNavProps) {
       {isAdmin && <NavItem href={buildPath("/settings/agents")} icon={Bot} label="Agents" isActive={pathname.endsWith("/settings/agents")} />}
       <NavItem href={buildPath("/settings/knowledge-graph")} icon={GitBranch} label="Knowledge Graph" isActive={pathname.endsWith("/settings/knowledge-graph")} />
       <NavItem href={buildPath("/settings/email")} icon={Mail} label="Email" isActive={pathname.endsWith("/settings/email")} />
+      <NavItem href={buildPath("/settings/api-keys")} icon={Key} label="API Keys" isActive={pathname.endsWith("/settings/api-keys")} />
       {isAdmin && <NavItem href={buildPath("/settings/analytics")} icon={BarChart2} label="Analytics" isActive={pathname.endsWith("/settings/analytics")} />}
 
       {isAdmin && (
