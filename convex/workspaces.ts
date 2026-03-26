@@ -2,6 +2,7 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireAuth, requireUser } from "./auth";
+import { cleanupEmptyPersonalWorkspaces } from "./invitations";
 
 export const create = mutation({
   args: {
@@ -195,5 +196,86 @@ export const listForUser = query({
       memberships.map((m) => ctx.db.get(m.workspaceId)),
     );
     return workspaces.filter(Boolean) as NonNullable<(typeof workspaces)[number]>[];
+  },
+});
+
+export const getPublicInfo = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (!workspace) return null;
+    return {
+      _id: workspace._id,
+      name: workspace.name,
+      slug: workspace.slug,
+      publicInviteEnabled: workspace.publicInviteEnabled,
+    };
+  },
+});
+
+export const joinViaPublicLink = mutation({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+
+    const workspace = await ctx.db
+      .query("workspaces")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (!workspace) throw new Error("Workspace not found");
+    if (workspace.publicInviteEnabled !== true) {
+      throw new Error("Public invite is not enabled for this workspace");
+    }
+
+    const existingMembership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_user_workspace", (q) =>
+        q.eq("userId", user._id).eq("workspaceId", workspace._id),
+      )
+      .unique();
+    if (existingMembership) {
+      return { workspaceId: workspace._id, slug: workspace.slug, alreadyMember: true };
+    }
+
+    await ctx.db.insert("workspaceMembers", {
+      userId: user._id,
+      workspaceId: workspace._id,
+      role: "member",
+      joinedAt: Date.now(),
+    });
+
+    const generalChannel = await ctx.db
+      .query("channels")
+      .withIndex("by_workspace_name", (q) =>
+        q.eq("workspaceId", workspace._id).eq("name", "general"),
+      )
+      .unique();
+    if (generalChannel) {
+      await ctx.db.insert("channelMembers", {
+        channelId: generalChannel._id,
+        userId: user._id,
+      });
+    }
+
+    await cleanupEmptyPersonalWorkspaces(ctx, user._id, workspace._id);
+
+    return { workspaceId: workspace._id, slug: workspace.slug, alreadyMember: false };
+  },
+});
+
+export const togglePublicInvite = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireAuth(ctx, args.workspaceId);
+    if (user.role !== "admin") {
+      throw new Error("Only admins can toggle public invite");
+    }
+    await ctx.db.patch(args.workspaceId, { publicInviteEnabled: args.enabled });
   },
 });
