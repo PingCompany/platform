@@ -92,7 +92,7 @@ function ToolbarButton({ onClick, isActive, disabled, title, children }: Toolbar
       data-toolbar-item
       tabIndex={-1}
       className={cn(
-        "rounded p-1 transition-colors",
+        "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         isActive
           ? "bg-foreground/10 text-foreground"
           : "text-muted-foreground hover:bg-surface-3 hover:text-foreground",
@@ -252,7 +252,7 @@ function ComposerBar({
               data-toolbar-item
               tabIndex={-1}
               aria-label="Emoji"
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               title="Emoji"
             >
               <Smile className="h-3.5 w-3.5" />
@@ -525,7 +525,7 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
                 onClick={handleSendClick}
                 disabled={isEmpty}
                 className={cn(
-                  "rounded p-1 transition-colors",
+                  "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
                   !isEmpty
                     ? "bg-ping-purple text-white hover:bg-ping-purple-hover"
                     : "text-muted-foreground/60"
