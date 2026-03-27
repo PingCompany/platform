@@ -8,15 +8,33 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Alert,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageComposer } from "@/components/MessageComposer";
+import { MessageActionSheet } from "@/components/MessageActionSheet";
+import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useReactions } from "@/hooks/useReactions";
+
+function isSameDay(a: number, b: number): boolean {
+  const da = new Date(a);
+  const db = new Date(b);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
+type ListItem =
+  | { type: "message"; data: any }
+  | { type: "date"; timestamp: number };
 
 export default function ChannelDetailScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
@@ -33,6 +51,11 @@ export default function ChannelDetailScreen() {
   const { user } = useCurrentUser();
 
   const [joining, setJoining] = useState(false);
+  const [actionSheet, setActionSheet] = useState<{
+    visible: boolean;
+    messageId?: string;
+    timestamp?: number;
+  }>({ visible: false });
 
   const messageIds = useMemo(
     () => (messages ?? []).map((m: any) => m._id as Id<"messages">),
@@ -44,7 +67,7 @@ export default function ChannelDetailScreen() {
     if (channel?.isMember) {
       markRead({ channelId: typedChannelId });
     }
-  }, [channel?.isMember, typedChannelId]);
+  }, [channel?.isMember, typedChannelId, markRead]);
 
   const handleSend = useCallback(
     (body: string) => {
@@ -62,6 +85,26 @@ export default function ChannelDetailScreen() {
       setJoining(false);
     }
   };
+
+  // Build list items with date separators (inverted, so newest first)
+  const listItems = useMemo(() => {
+    if (!messages) return [];
+    const items: ListItem[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      items.push({ type: "message", data: msg });
+      // In inverted list, next item is older — add separator when day changes
+      const nextMsg = messages[i + 1];
+      if (nextMsg && !isSameDay(msg._creationTime, nextMsg._creationTime)) {
+        items.push({ type: "date", timestamp: msg._creationTime });
+      }
+    }
+    // Add separator for the oldest group
+    if (messages.length > 0) {
+      items.push({ type: "date", timestamp: messages[messages.length - 1]._creationTime });
+    }
+    return items;
+  }, [messages]);
 
   if (messages === undefined || channel === undefined) {
     return (
@@ -100,21 +143,50 @@ export default function ChannelDetailScreen() {
       />
 
       <FlatList
-        data={messages}
-        keyExtractor={(item: any) => item._id}
-        renderItem={({ item }: { item: any }) => (
-          <MessageBubble
-            authorName={item.author?.name ?? "Unknown"}
-            body={item.body}
-            timestamp={item._creationTime}
-            isOwn={item.authorId === user?._id}
-            type={item.type}
-            messageId={item._id}
-            reactions={reactionsByMessage[item._id] ?? []}
-            onToggleReaction={(emoji) => toggleReaction(item._id, emoji)}
-            currentUserId={user?._id}
-          />
-        )}
+        data={listItems}
+        keyExtractor={(item, idx) =>
+          item.type === "message" ? item.data._id : `date-${idx}`
+        }
+        renderItem={({ item }) => {
+          if (item.type === "date") {
+            return (
+              <View style={styles.dateSeparatorInverted}>
+                <DateSeparator timestamp={item.timestamp} />
+              </View>
+            );
+          }
+          const msg = item.data;
+          return (
+            <MessageBubble
+              authorName={msg.author?.name ?? "Unknown"}
+              body={msg.body}
+              timestamp={msg._creationTime}
+              isOwn={msg.authorId === user?._id}
+              type={msg.type}
+              messageId={msg._id}
+              reactions={reactionsByMessage[msg._id] ?? []}
+              onToggleReaction={(emoji) => toggleReaction(msg._id, emoji)}
+              currentUserId={user?._id}
+              onLongPress={() =>
+                setActionSheet({
+                  visible: true,
+                  messageId: msg._id,
+                  timestamp: msg._creationTime,
+                })
+              }
+              threadReplyCount={msg.threadReplyCount}
+              threadLastReplyAuthor={
+                msg.threadParticipants?.[msg.threadParticipants.length - 1]?.name
+              }
+              onThreadPress={() =>
+                router.push({
+                  pathname: "/thread/[messageId]",
+                  params: { messageId: msg._id, channelId },
+                })
+              }
+            />
+          );
+        }}
         inverted
         contentContainerStyle={styles.messageList}
         ListEmptyComponent={
@@ -143,6 +215,35 @@ export default function ChannelDetailScreen() {
           </Pressable>
         </View>
       )}
+
+      <MessageActionSheet
+        visible={actionSheet.visible}
+        onClose={() => setActionSheet({ visible: false })}
+        onReaction={(emoji) => {
+          if (actionSheet.messageId) {
+            toggleReaction(actionSheet.messageId as Id<"messages">, emoji);
+          }
+        }}
+        onReply={() => {
+          if (actionSheet.messageId) {
+            router.push({
+              pathname: "/thread/[messageId]",
+              params: { messageId: actionSheet.messageId, channelId },
+            });
+          }
+        }}
+        onForward={() => {
+          Alert.alert("Forward", "Forward feature coming soon");
+        }}
+        onCopyLink={() => {
+          if (actionSheet.messageId) {
+            Clipboard.setStringAsync(
+              `openping://channel/${channelId}/message/${actionSheet.messageId}`,
+            );
+          }
+        }}
+        messageDate={actionSheet.timestamp ?? Date.now()}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -161,10 +262,12 @@ const styles = StyleSheet.create({
   messageList: {
     paddingVertical: 8,
   },
+  dateSeparatorInverted: {
+    transform: [{ scaleY: -1 }],
+  },
   emptyMessages: {
     alignItems: "center",
     paddingVertical: 40,
-    // Inverted FlatList flips the empty component
     transform: [{ scaleY: -1 }],
   },
   emptyText: {

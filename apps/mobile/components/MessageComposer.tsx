@@ -15,8 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import type { Attachment } from "@/lib/fileUpload";
-import { formatFileSize, isImageType } from "@/lib/fileUpload";
+import { isImageType } from "@/lib/fileUpload";
 import { MentionPopover } from "./MentionPopover";
 import { useMentionUsers } from "@/hooks/useMentionUsers";
 

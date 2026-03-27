@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import {
   MessageReactions,
   EmojiPickerModal,
 } from "@/components/MessageReactions";
+import { ThreadIndicator } from "@/components/ThreadIndicator";
+import { CodeBlock } from "@/components/CodeBlock";
 import type { ReactionGroup } from "@/hooks/useReactions";
 
 interface MessageBubbleProps {
@@ -17,11 +19,66 @@ interface MessageBubbleProps {
   onToggleReaction?: (emoji: string) => void;
   currentUserId?: string;
   onLongPress?: () => void;
+  threadReplyCount?: number;
+  threadLastReplyAuthor?: string;
+  onThreadPress?: () => void;
 }
 
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// Parse message body into segments: text and code blocks
+interface TextSegment {
+  type: "text";
+  content: string;
+}
+interface CodeSegment {
+  type: "code";
+  language?: string;
+  content: string;
+}
+type Segment = TextSegment | CodeSegment;
+
+function parseBody(body: string): Segment[] {
+  const segments: Segment[] = [];
+  const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = codeBlockRegex.exec(body)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ type: "text", content: body.slice(lastIndex, match.index) });
+    }
+    segments.push({
+      type: "code",
+      language: match[1] || undefined,
+      content: match[2].replace(/\n$/, ""),
+    });
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < body.length) {
+    segments.push({ type: "text", content: body.slice(lastIndex) });
+  }
+
+  return segments;
+}
+
+// Render inline code within text
+function renderInlineText(text: string) {
+  const parts = text.split(/(`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <Text key={i} style={styles.inlineCode}>
+          {part.slice(1, -1)}
+        </Text>
+      );
+    }
+    return part;
+  });
 }
 
 export function MessageBubble({
@@ -34,8 +91,13 @@ export function MessageBubble({
   onToggleReaction,
   currentUserId,
   onLongPress,
+  threadReplyCount,
+  threadLastReplyAuthor,
+  onThreadPress,
 }: MessageBubbleProps) {
   const [pickerVisible, setPickerVisible] = useState(false);
+
+  const segments = useMemo(() => parseBody(body), [body]);
 
   const handleLongPress = () => {
     if (onLongPress) {
@@ -54,6 +116,7 @@ export function MessageBubble({
   }
 
   const hasReactions = reactions && reactions.length > 0 && onToggleReaction;
+  const hasThread = threadReplyCount != null && threadReplyCount > 0 && onThreadPress;
 
   return (
     <Pressable onLongPress={handleLongPress}>
@@ -65,12 +128,29 @@ export function MessageBubble({
           </Text>
           <Text style={styles.time}>{formatTime(timestamp)}</Text>
         </View>
-        <Text style={styles.body}>{body}</Text>
+        <View>
+          {segments.map((seg, i) =>
+            seg.type === "code" ? (
+              <CodeBlock key={i} code={seg.content} language={seg.language} />
+            ) : (
+              <Text key={i} style={styles.body}>
+                {renderInlineText(seg.content)}
+              </Text>
+            ),
+          )}
+        </View>
         {hasReactions && (
           <MessageReactions
             reactions={reactions}
             onToggle={onToggleReaction}
             currentUserId={currentUserId}
+          />
+        )}
+        {hasThread && (
+          <ThreadIndicator
+            replyCount={threadReplyCount}
+            lastReplyAuthor={threadLastReplyAuthor}
+            onPress={onThreadPress}
           />
         )}
       </View>
@@ -93,9 +173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  ownContainer: {
-    // Could add different styling for own messages
-  },
+  ownContainer: {},
   header: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -118,6 +196,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#e0e0e0",
     lineHeight: 22,
+  },
+  inlineCode: {
+    fontFamily: "monospace",
+    fontSize: 13,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    color: "#f0abfc",
+    borderRadius: 3,
+    paddingHorizontal: 4,
   },
   systemContainer: {
     paddingHorizontal: 16,

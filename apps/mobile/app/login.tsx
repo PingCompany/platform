@@ -14,15 +14,12 @@ import {
   saveRefreshToken,
 } from "@/lib/auth";
 import { notifyTokenSaved } from "@/hooks/useConvexAuth";
-import { useRouter } from "expo-router";
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-
   const handleSignIn = async () => {
     setIsLoading(true);
     setError(null);

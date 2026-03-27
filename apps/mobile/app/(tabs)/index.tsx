@@ -19,11 +19,11 @@ type InboxItem = {
   summary: string;
   status: "pending" | "snoozed" | "archived";
   channelName?: string | null;
-  recommendedActions?: Array<{
+  recommendedActions?: {
     label: string;
     actionKey: string;
     primary?: boolean;
-  }> | null;
+  }[] | null;
   createdAt: number;
   _creationTime: number;
 };

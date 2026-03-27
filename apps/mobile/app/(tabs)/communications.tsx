@@ -15,6 +15,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
 import { useRouter, Stack } from "expo-router";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { Feather } from "@expo/vector-icons";
 
 type CommunicationItem = {
   id: string;
@@ -26,6 +27,7 @@ type CommunicationItem = {
   isStarred: boolean;
   timestamp: number;
   route: { pathname: string; params: Record<string, string> };
+  kind?: "1to1" | "group" | "agent_1to1" | "agent_group";
 };
 
 export default function CommunicationsScreen() {
@@ -83,6 +85,7 @@ export default function CommunicationsScreen() {
         pathname: "/dm/[conversationId]",
         params: { conversationId: conv._id },
       },
+      kind: (conv as any).kind,
     });
   }
 
@@ -139,12 +142,21 @@ export default function CommunicationsScreen() {
             >
               <View style={styles.iconWrap}>
                 {item.type === "channel" ? (
-                  <Text style={styles.channelIcon}>#</Text>
+                  <View style={styles.channelIconWrap}>
+                    <Feather name="hash" size={20} color="#888" />
+                  </View>
                 ) : (
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {item.name.charAt(0).toUpperCase()}
-                    </Text>
+                  <View style={styles.dmIconWrap}>
+                    {item.kind === "group" || item.kind === "agent_group" ? (
+                      <Feather name="users" size={20} color="#aaa" />
+                    ) : (
+                      <Feather name="user" size={20} color="#aaa" />
+                    )}
+                    {(item.kind === "agent_1to1" || item.kind === "agent_group") && (
+                      <View style={styles.agentBadge}>
+                        <Text style={styles.agentBadgeText}>AI</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -223,16 +235,37 @@ const styles = StyleSheet.create({
   },
   rowPressed: { backgroundColor: "#1a1a1a" },
   iconWrap: { width: 44, alignItems: "center", justifyContent: "center" },
-  channelIcon: { fontSize: 22, fontWeight: "700", color: "#666" },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#333",
+  channelIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#222",
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarText: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  dmIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#222",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative" as const,
+  },
+  agentBadge: {
+    position: "absolute" as const,
+    top: -2,
+    right: -4,
+    backgroundColor: "#7c3aed",
+    borderRadius: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
+  agentBadgeText: {
+    fontSize: 8,
+    fontWeight: "700" as const,
+    color: "#fff",
+  },
   content: { flex: 1 },
   topRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
   name: { fontSize: 16, color: "#ccc", flex: 1 },

@@ -28,7 +28,7 @@ function AuthGate() {
     } else if (isAuthenticated && inLoginScreen) {
       router.replace("/(tabs)");
     }
-  }, [isLoading, isAuthenticated]);
+  }, [isLoading, isAuthenticated, router]);
 
   if (isLoading) {
     return (

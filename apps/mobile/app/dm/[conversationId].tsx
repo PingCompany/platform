@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import {
   View,
   FlatList,
@@ -8,23 +8,35 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Alert,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
-import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery, useConvex } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { MessageBubble } from "@/components/MessageBubble";
 import { MessageComposer } from "@/components/MessageComposer";
-import { AttachmentPreview } from "@/components/AttachmentPreview";
+import { MessageActionSheet } from "@/components/MessageActionSheet";
+import { CollapsibleAttachments } from "@/components/CollapsibleAttachments";
+import { DateSeparator } from "@/components/DateSeparator";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { uploadFile } from "@/lib/fileUpload";
 import { getDMDisplayName } from "@/lib/dmDisplayName";
-import { useConvex } from "convex/react";
 
-// NOTE: Reactions are not supported in DMs. The reactions API (api.reactions.toggle)
-// accepts Id<"messages"> and checks channelMembers for authorization. DM messages
-// use Id<"directMessages"> which is incompatible. Reactions would need a separate
-// backend mutation that handles directMessages to work here.
+function isSameDay(a: number, b: number): boolean {
+  const da = new Date(a);
+  const db = new Date(b);
+  return (
+    da.getFullYear() === db.getFullYear() &&
+    da.getMonth() === db.getMonth() &&
+    da.getDate() === db.getDate()
+  );
+}
+
+type ListItem =
+  | { type: "message"; data: any }
+  | { type: "date"; timestamp: number };
 
 export default function DMDetailScreen() {
   const { conversationId } = useLocalSearchParams<{
@@ -46,39 +58,38 @@ export default function DMDetailScreen() {
   const { user } = useCurrentUser();
   const convex = useConvex();
 
-  const [isSending, setIsSending] = useState(false);
+  const [actionSheet, setActionSheet] = useState<{
+    visible: boolean;
+    messageId?: string;
+    timestamp?: number;
+  }>({ visible: false });
 
   useEffect(() => {
     markRead({ conversationId: typedConversationId });
-  }, [typedConversationId]);
+  }, [typedConversationId, markRead]);
 
   const handleSend = useCallback(
     async (
       body: string,
-      pendingFiles?: Array<{
+      pendingFiles?: {
         uri: string;
         name: string;
         mimeType: string;
         size: number;
-      }>,
+      }[],
     ) => {
-      setIsSending(true);
-      try {
-        let attachments;
-        if (pendingFiles && pendingFiles.length > 0) {
-          attachments = await Promise.all(
-            pendingFiles.map((file) => uploadFile(convex, file)),
-          );
-        }
-
-        await sendMessage({
-          conversationId: typedConversationId,
-          body: body || " ",
-          ...(attachments ? { attachments } : {}),
-        });
-      } finally {
-        setIsSending(false);
+      let attachments;
+      if (pendingFiles && pendingFiles.length > 0) {
+        attachments = await Promise.all(
+          pendingFiles.map((file) => uploadFile(convex, file)),
+        );
       }
+
+      await sendMessage({
+        conversationId: typedConversationId,
+        body: body || " ",
+        ...(attachments ? { attachments } : {}),
+      });
     },
     [sendMessage, typedConversationId, convex],
   );
@@ -94,6 +105,24 @@ export default function DMDetailScreen() {
     conversation?.members ?? [],
     user?._id,
   );
+
+  // Build list items with date separators
+  const listItems = useMemo(() => {
+    if (!messages) return [];
+    const items: ListItem[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      items.push({ type: "message", data: msg });
+      const nextMsg = messages[i + 1];
+      if (nextMsg && !isSameDay(msg._creationTime, nextMsg._creationTime)) {
+        items.push({ type: "date", timestamp: msg._creationTime });
+      }
+    }
+    if (messages.length > 0) {
+      items.push({ type: "date", timestamp: messages[messages.length - 1]._creationTime });
+    }
+    return items;
+  }, [messages]);
 
   if (messages === undefined) {
     return (
@@ -132,29 +161,51 @@ export default function DMDetailScreen() {
       />
 
       <FlatList
-        data={messages}
-        keyExtractor={(item: any) => item._id}
-        renderItem={({ item }: { item: any }) => (
-          <View>
-            <MessageBubble
-              authorName={item.author?.name ?? "Unknown"}
-              body={item.body}
-              timestamp={item._creationTime}
-              isOwn={item.authorId === user?._id}
-              type={item.type}
-            />
-            {item.attachments?.map((att: any, idx: number) => (
-              <View key={idx} style={styles.attachment}>
-                <AttachmentPreview
-                  storageId={att.storageId}
-                  filename={att.filename}
-                  mimeType={att.mimeType}
-                  size={att.size}
-                />
+        data={listItems}
+        keyExtractor={(item, idx) =>
+          item.type === "message" ? item.data._id : `date-${idx}`
+        }
+        renderItem={({ item }) => {
+          if (item.type === "date") {
+            return (
+              <View style={styles.dateSeparatorInverted}>
+                <DateSeparator timestamp={item.timestamp} />
               </View>
-            ))}
-          </View>
-        )}
+            );
+          }
+          const msg = item.data;
+          return (
+            <View>
+              <MessageBubble
+                authorName={msg.author?.name ?? "Unknown"}
+                body={msg.body}
+                timestamp={msg._creationTime}
+                isOwn={msg.authorId === user?._id}
+                type={msg.type}
+                onLongPress={() =>
+                  setActionSheet({
+                    visible: true,
+                    messageId: msg._id,
+                    timestamp: msg._creationTime,
+                  })
+                }
+                threadReplyCount={msg.threadReplyCount}
+                threadLastReplyAuthor={
+                  msg.threadParticipants?.[msg.threadParticipants.length - 1]?.name
+                }
+                onThreadPress={() =>
+                  router.push({
+                    pathname: "/dm-thread/[messageId]",
+                    params: { messageId: msg._id, conversationId },
+                  })
+                }
+              />
+              {msg.attachments && msg.attachments.length > 0 && (
+                <CollapsibleAttachments attachments={msg.attachments} />
+              )}
+            </View>
+          );
+        }}
         inverted
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
@@ -179,6 +230,34 @@ export default function DMDetailScreen() {
         enableAttachments
         placeholder="Message..."
       />
+
+      <MessageActionSheet
+        visible={actionSheet.visible}
+        onClose={() => setActionSheet({ visible: false })}
+        onReaction={() => {
+          // DM reactions not yet supported by backend
+          Alert.alert("Reactions", "Reactions in DMs coming soon");
+        }}
+        onReply={() => {
+          if (actionSheet.messageId) {
+            router.push({
+              pathname: "/dm-thread/[messageId]",
+              params: { messageId: actionSheet.messageId, conversationId },
+            });
+          }
+        }}
+        onForward={() => {
+          Alert.alert("Forward", "Forward feature coming soon");
+        }}
+        onCopyLink={() => {
+          if (actionSheet.messageId) {
+            Clipboard.setStringAsync(
+              `openping://dm/${conversationId}/message/${actionSheet.messageId}`,
+            );
+          }
+        }}
+        messageDate={actionSheet.timestamp ?? Date.now()}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -197,8 +276,8 @@ const styles = StyleSheet.create({
   messageList: {
     paddingVertical: 8,
   },
-  attachment: {
-    paddingHorizontal: 16,
+  dateSeparatorInverted: {
+    transform: [{ scaleY: -1 }],
   },
   loadingMore: {
     paddingVertical: 16,

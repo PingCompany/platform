@@ -9,10 +9,69 @@ import {
 } from "react-native";
 import type { ReactionGroup } from "@/hooks/useReactions";
 
-const POPULAR_EMOJI = [
-  "\u{1F44D}", "\u{1F44E}", "\u{1F602}", "\u2764\uFE0F", "\u{1F389}", "\u{1F64C}", "\u{1F440}", "\u{1F525}",
-  "\u{1F4AF}", "\u2705", "\u274C", "\u{1F914}", "\u{1F60D}", "\u{1F680}", "\u{1F44F}", "\u{1F4AA}",
-  "\u{1F622}", "\u{1F62E}", "\u{1F64F}", "\u{1F4A1}", "\u2B50", "\u{1FAE1}", "\u{1F44B}", "\u2795",
+const EMOJI_CATEGORIES: { label: string; emoji: string[] }[] = [
+  {
+    label: "Popular",
+    emoji: [
+      "👍", "👎", "😂", "❤️", "🎉", "🙌", "👀", "🔥",
+      "💯", "✅", "❌", "🤔", "😍", "🚀", "👏", "💪",
+      "😢", "😮", "🙏", "💡", "⭐", "🫡", "👋", "➕",
+    ],
+  },
+  {
+    label: "Smileys",
+    emoji: [
+      "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂",
+      "🙂", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗",
+      "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝",
+      "🤑", "🤗", "🤭", "🫢", "🫣", "🤫", "🤨", "😐",
+      "😑", "😶", "🫥", "😏", "😒", "🙄", "😬", "🤥",
+      "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕",
+      "🤢", "🤮", "🥵", "🥶", "🥴", "😵", "🤯", "🤠",
+      "🥳", "🥸", "😎", "🤓", "🧐", "😕", "🫤", "😟",
+      "🙁", "☹️", "😮", "😯", "😲", "😳", "🥺", "🥹",
+      "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱",
+      "😖", "😣", "😞", "😓", "😩", "😫", "🥱", "😤",
+      "😡", "😠", "🤬", "😈", "👿", "💀", "☠️", "💩",
+    ],
+  },
+  {
+    label: "Gestures",
+    emoji: [
+      "👋", "🤚", "🖐️", "✋", "🖖", "🫱", "🫲", "🫳",
+      "🫴", "👌", "🤌", "🤏", "✌️", "🤞", "🫰", "🤟",
+      "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️",
+      "🫵", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏",
+      "🙌", "🫶", "👐", "🤲", "🤝", "🙏", "💪", "🦾",
+    ],
+  },
+  {
+    label: "Hearts",
+    emoji: [
+      "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+      "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖",
+      "💘", "💝", "❤️‍🔥", "❤️‍🩹", "💟", "♥️",
+    ],
+  },
+  {
+    label: "Objects",
+    emoji: [
+      "🔥", "⭐", "🌟", "✨", "⚡", "💥", "🎉", "🎊",
+      "🏆", "🥇", "🥈", "🥉", "🎯", "🎪", "🎨", "🎬",
+      "🎵", "🎶", "🔔", "📣", "💬", "💭", "🗯️", "💤",
+      "💡", "🔑", "🗝️", "🔒", "🔓", "📌", "📎", "🔗",
+      "📝", "✏️", "📊", "📈", "📉", "🗓️", "⏰", "⏳",
+    ],
+  },
+  {
+    label: "Symbols",
+    emoji: [
+      "✅", "❌", "❓", "❗", "‼️", "⁉️", "💯", "🔴",
+      "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤",
+      "➕", "➖", "✖️", "➗", "♻️", "🔄", "🔃", "▶️",
+      "⏸️", "⏹️", "⏺️", "⏭️", "⏮️", "🔀", "🔁", "🔂",
+    ],
+  },
 ];
 
 interface MessageReactionsProps {
@@ -83,17 +142,47 @@ export function EmojiPickerModal({
   onClose: () => void;
   onSelect: (emoji: string) => void;
 }) {
+  const [activeCategory, setActiveCategory] = useState(0);
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
       <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.pickerContainer}>
+        <View style={styles.pickerContainer} onStartShouldSetResponder={() => true}>
+          {/* Category tabs */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryTabs}
+          >
+            {EMOJI_CATEGORIES.map((cat, idx) => (
+              <Pressable
+                key={cat.label}
+                style={[
+                  styles.categoryTab,
+                  idx === activeCategory && styles.categoryTabActive,
+                ]}
+                onPress={() => setActiveCategory(idx)}
+              >
+                <Text
+                  style={[
+                    styles.categoryLabel,
+                    idx === activeCategory && styles.categoryLabelActive,
+                  ]}
+                >
+                  {cat.label}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* Emoji grid */}
           <View style={styles.emojiGrid}>
-            {POPULAR_EMOJI.map((emoji) => (
+            {EMOJI_CATEGORIES[activeCategory].emoji.map((emoji) => (
               <Pressable
                 key={emoji}
                 style={styles.emojiButton}
@@ -159,29 +248,55 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: "flex-end",
   },
   pickerContainer: {
-    backgroundColor: "#222",
-    borderRadius: 16,
-    padding: 16,
-    width: 280,
+    backgroundColor: "#1c1c1e",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    paddingTop: 8,
+    paddingBottom: 34,
+    maxHeight: 400,
+  },
+  categoryTabs: {
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#333",
+  },
+  categoryTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  categoryTabActive: {
+    backgroundColor: "#333",
+  },
+  categoryLabel: {
+    fontSize: 13,
+    color: "#888",
+  },
+  categoryLabelActive: {
+    color: "#fff",
+    fontWeight: "600",
   },
   emojiGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 4,
+    justifyContent: "flex-start",
+    gap: 2,
+    padding: 12,
   },
   emojiButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 8,
   },
   emojiText: {
-    fontSize: 22,
+    fontSize: 24,
   },
 });
