@@ -319,17 +319,24 @@ type ApiCtx = {
 
 type ApiCallerUser = {
   kind: "user";
-  user: { _id: string; name: string; email: string };
-  workspaceId: string;
-  tokenId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  user: { _id: any; name: string; email: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  workspaceId: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tokenId: any;
 };
 
 type ApiCallerAgent = {
   kind: "agent";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   agent: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   user: any;
-  workspaceId: string;
-  tokenId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  workspaceId: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tokenId: any;
 };
 
 type ApiCaller = ApiCallerUser | ApiCallerAgent;
@@ -836,7 +843,7 @@ http.route({
     }
 
     const result = await ctx.runMutation(internal.apiAuth.revokeToken, {
-      tokenId: keyId,
+      tokenId: keyId as any,
       userId: caller.user._id,
     });
 
