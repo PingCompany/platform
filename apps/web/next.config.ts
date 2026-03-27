@@ -3,6 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["convex", "@ping/shared"],
+  // TODO: Fix existing lint errors, then remove ignoreDuringBuilds
   eslint: {
     ignoreDuringBuilds: true,
   },
