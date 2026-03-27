@@ -124,6 +124,7 @@ export default function KnowledgeGraphPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expanded, setExpanded] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 800, h: 384 });
@@ -194,6 +195,7 @@ export default function KnowledgeGraphPage() {
   // ── Node paint ──────────────────────────────────────────────────
 
   const paintNode = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as GNode;
       const r = Math.max(4, n.val * 1.5);
@@ -226,6 +228,7 @@ export default function KnowledgeGraphPage() {
   // ── Link paint ────────────────────────────────────────────────
 
   const paintLink = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (link: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const s = link.source;
       const t = link.target;
@@ -251,6 +254,7 @@ export default function KnowledgeGraphPage() {
     [linkStroke, labelDimColor],
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onNodeClick = useCallback((node: any) => {
     setSelectedNode((prev) => (prev?.id === (node as GNode).id ? null : node as GNode));
   }, []);
@@ -258,6 +262,7 @@ export default function KnowledgeGraphPage() {
   const focusNode = useCallback((node: GNode) => {
     setSelectedNode(node);
     if (fgRef.current) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       fgRef.current.centerAt((node as any).x, (node as any).y, 500);
       fgRef.current.zoom(2.5, 500);
     }
@@ -340,6 +345,7 @@ export default function KnowledgeGraphPage() {
             height={dims.h}
             graphData={graphData}
             nodeCanvasObject={paintNode}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
               ctx.beginPath();
               ctx.arc(node.x, node.y, Math.max(4, (node as GNode).val * 1.5) + 6, 0, 2 * Math.PI);

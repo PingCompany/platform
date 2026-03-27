@@ -86,10 +86,11 @@ export async function GET() {
     } finally {
       await session.close();
     }
-  } catch (err: any) {
-    console.error("[knowledge-graph] Neo4j query failed:", err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Neo4j query failed";
+    console.error("[knowledge-graph] Neo4j query failed:", message);
     return NextResponse.json(
-      { error: err.message ?? "Neo4j query failed" },
+      { error: message },
       { status: 500 },
     );
   } finally {
