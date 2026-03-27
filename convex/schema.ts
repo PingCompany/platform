@@ -338,6 +338,16 @@ export default defineSchema({
     type: v.union(v.literal("user"), v.literal("bot"), v.literal("system")),
     isEdited: v.boolean(),
     graphitiEpisodeId: v.optional(v.string()),
+    attachments: v.optional(
+      v.array(
+        v.object({
+          storageId: v.string(),
+          filename: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+        }),
+      ),
+    ),
     // Thread fields
     threadId: v.optional(v.id("directMessages")),
     alsoSentToConversation: v.optional(v.boolean()),

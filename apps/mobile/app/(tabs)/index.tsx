@@ -17,7 +17,7 @@ type InboxItem = {
   category: "do" | "decide" | "delegate" | "skip";
   title: string;
   summary: string;
-  status: "pending" | "snoozed";
+  status: "pending" | "snoozed" | "archived";
   channelName?: string | null;
   recommendedActions?: Array<{
     label: string;

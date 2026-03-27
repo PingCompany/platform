@@ -8,12 +8,14 @@ import {
 
 export function useNotifications() {
   const router = useRouter();
-  const responseListener = useRef<Notifications.Subscription>();
-  const notificationListener = useRef<Notifications.Subscription>();
+  const responseListener = useRef<Notifications.Subscription | null>(null);
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    requestPermissions();
-    setupNotificationCategories();
+    (async () => {
+      await requestPermissions();
+      await setupNotificationCategories();
+    })();
 
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
@@ -45,12 +47,8 @@ export function useNotifications() {
       });
 
     return () => {
-      if (responseListener.current)
-        Notifications.removeNotificationSubscription(responseListener.current);
-      if (notificationListener.current)
-        Notifications.removeNotificationSubscription(
-          notificationListener.current,
-        );
+      responseListener.current?.remove();
+      notificationListener.current?.remove();
     };
-  }, []);
+  }, [router]);
 }
