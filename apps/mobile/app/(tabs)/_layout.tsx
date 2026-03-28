@@ -1,121 +1,94 @@
 import { View, TextInput, Pressable, StyleSheet } from "react-native";
 import { Tabs, useRouter } from "expo-router";
 import { Home, MessageSquare, User, Search } from "lucide-react-native";
-
-function FloatingSearchBar() {
-  const router = useRouter();
-
-  return (
-    <Pressable
-      style={styles.searchContainer}
-      onPress={() => router.push("/search")}
-    >
-      <View style={styles.searchInputWrap}>
-        <Search size={16} color="#666" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search..."
-          placeholderTextColor="#666"
-          editable={false}
-          pointerEvents="none"
-        />
-      </View>
-    </Pressable>
-  );
-}
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  // Tab bar height: icons (22) + padding (8+8) + safe area
+  const tabBarHeight = 38 + insets.bottom;
+  // Search sits above tab bar
+  const searchBottom = tabBarHeight + 4;
+
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: "#0a7ea4",
-        tabBarInactiveTintColor: "#666",
-        tabBarStyle: {
-          backgroundColor: "#111",
-          borderTopColor: "#333",
-        },
-        tabBarHideOnKeyboard: true,
-        headerStyle: {
-          backgroundColor: "#111",
-        },
-        headerTintColor: "#fff",
-      }}
-      tabBar={(props: any) => (
-        <View>
-          <FloatingSearchBar />
-          <View style={styles.tabBarInner}>
-            {props.state.routes
-              .filter((route: any) => route.name !== "search-tab")
-              .map((route: any) => {
-                const routeIndex = props.state.routes.indexOf(route);
-                const isFocused = props.state.index === routeIndex;
-                const color = isFocused ? "#0a7ea4" : "#666";
+    <View style={styles.root}>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: "#0a7ea4",
+          tabBarInactiveTintColor: "#666",
+          tabBarStyle: {
+            backgroundColor: "#111",
+            borderTopColor: "#333",
+            height: tabBarHeight,
+            paddingTop: 8,
+          },
+          tabBarShowLabel: false,
+          tabBarHideOnKeyboard: true,
+          headerStyle: {
+            backgroundColor: "#111",
+          },
+          headerTintColor: "#fff",
+          // Extra padding at bottom of content for the floating search
+          sceneStyle: { paddingBottom: 50 },
+        }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Home",
+            tabBarIcon: ({ color }) => <Home size={22} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="communications"
+          options={{
+            title: "DMs",
+            tabBarIcon: ({ color }) => <MessageSquare size={22} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color }) => <User size={22} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="search-tab"
+          options={{ href: null }}
+        />
+      </Tabs>
 
-                let icon: React.ReactNode = null;
-                if (route.name === "index")
-                  icon = <Home size={22} color={color} />;
-                else if (route.name === "communications")
-                  icon = <MessageSquare size={22} color={color} />;
-                else if (route.name === "profile")
-                  icon = <User size={22} color={color} />;
-
-                if (!icon) return null;
-
-                return (
-                  <Pressable
-                    key={route.key}
-                    style={styles.tabItem}
-                    onPress={() => {
-                      const event = props.navigation.emit({
-                        type: "tabPress",
-                        target: route.key,
-                        canPreventDefault: true,
-                      });
-                      if (!isFocused && !event.defaultPrevented) {
-                        props.navigation.navigate(route.name);
-                      }
-                    }}
-                  >
-                    {icon}
-                  </Pressable>
-                );
-              })}
-          </View>
+      {/* Floating search bar — positioned absolutely above tab bar */}
+      <Pressable
+        style={[styles.searchOverlay, { bottom: searchBottom }]}
+        onPress={() => router.push("/search")}
+      >
+        <View style={styles.searchInputWrap}>
+          <Search size={16} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search..."
+            placeholderTextColor="#666"
+            editable={false}
+            pointerEvents="none"
+          />
         </View>
-      )}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-        }}
-      />
-      <Tabs.Screen
-        name="communications"
-        options={{
-          title: "DMs",
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-        }}
-      />
-      <Tabs.Screen
-        name="search-tab"
-        options={{
-          href: null,
-        }}
-      />
-    </Tabs>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 6,
+  root: {
+    flex: 1,
+  },
+  searchOverlay: {
+    position: "absolute",
+    left: 16,
+    right: 16,
   },
   searchInputWrap: {
     flexDirection: "row",
@@ -130,20 +103,5 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#fff",
     fontSize: 15,
-  },
-  tabBarInner: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingTop: 8,
-    paddingBottom: 24,
-    backgroundColor: "#111",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#333",
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 4,
   },
 });
