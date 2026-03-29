@@ -125,6 +125,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
   const router = useRouter();
   const wsCtx = useContext(WorkspaceContext);
   const isAdmin = wsCtx?.role === "admin";
+  const isGuest = wsCtx?.role === "guest";
 
   const workspaceSlug = pathname.match(/^\/app\/([^/]+)/)?.[1];
   const workspacePrefix = workspaceSlug ? `/app/${workspaceSlug}` : "";
@@ -244,6 +245,7 @@ export function Sidebar({ isSettingsRoute, onOpenShortcuts, onCollapse }: Sideba
             channels={channels}
             user={user}
             onlineUserIds={onlineUserIds}
+            isGuest={isGuest}
             onNewDm={() => router.push(buildPath("/dms?new=1"))}
             onNewChannel={() => router.push(buildPath("/channels?new=1"))}
             onToggleStar={(channelId) => toggleStar({ channelId: channelId as Id<"channels"> })}
@@ -471,6 +473,7 @@ interface MainNavProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   user: any;
   onlineUserIds: Set<string>;
+  isGuest?: boolean;
   onNewDm: () => void;
   onNewChannel: () => void;
   onToggleStar: (channelId: string) => void;
@@ -557,6 +560,7 @@ function MainNav({
   channels,
   user,
   onlineUserIds,
+  isGuest,
   onNewDm,
   onNewChannel,
   onToggleStar,
@@ -564,15 +568,21 @@ function MainNav({
   // Combine inbox unread + email unread for the Decision Inbox badge
   const totalInboxUnread = (inboxUnread ?? 0) + (emailUnread ?? 0);
 
+  // Filter channels for guests (only show assigned channels)
+  const visibleChannels = useMemo(() => {
+    if (!channels) return undefined;
+    return isGuest ? channels.filter((c) => c.isMember) : channels;
+  }, [channels, isGuest]);
+
   // Sort channels: starred first, then alphabetical
   const sortedChannels = useMemo(() => {
-    if (!channels) return undefined;
-    return [...channels].sort((a, b) => {
+    if (!visibleChannels) return undefined;
+    return [...visibleChannels].sort((a, b) => {
       if (a.isStarred && !b.isStarred) return -1;
       if (!a.isStarred && b.isStarred) return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [channels]);
+  }, [visibleChannels]);
 
   return (
     <>
@@ -620,14 +630,16 @@ function MainNav({
         label="Channels"
         href={buildPath("/channels")}
         action={
-          <button
-            onClick={onNewChannel}
-            tabIndex={-1}
-            className="rounded p-0.5 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground/80"
-            aria-label="New channel"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
+          !isGuest ? (
+            <button
+              onClick={onNewChannel}
+              tabIndex={-1}
+              className="rounded p-0.5 text-foreground/50 transition-colors hover:bg-surface-3 hover:text-foreground/80"
+              aria-label="New channel"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          ) : undefined
         }
       />
 
@@ -706,6 +718,7 @@ function SettingsNav({ pathname, buildPath }: SettingsNavProps) {
   const router = useRouter();
   const wsCtx = useContext(WorkspaceContext);
   const isAdmin = wsCtx?.role === "admin";
+  const isGuest = wsCtx?.role === "guest";
 
   return (
     <>
@@ -725,9 +738,9 @@ function SettingsNav({ pathname, buildPath }: SettingsNavProps) {
       {isAdmin && <NavItem href={buildPath("/settings/workspace")} icon={Building2} label="Workspace" isActive={pathname.endsWith("/settings/workspace")} />}
       {isAdmin && <NavItem href={buildPath("/settings/team")} icon={Users} label="Team" isActive={pathname.endsWith("/settings/team")} />}
       {isAdmin && <NavItem href={buildPath("/settings/agents")} icon={Bot} label="Agents" isActive={pathname.endsWith("/settings/agents")} />}
-      <NavItem href={buildPath("/settings/knowledge-graph")} icon={GitBranch} label="Knowledge Graph" isActive={pathname.endsWith("/settings/knowledge-graph")} />
-      <NavItem href={buildPath("/settings/email")} icon={Mail} label="Email" isActive={pathname.endsWith("/settings/email")} />
-      <NavItem href={buildPath("/settings/api-keys")} icon={Key} label="API Keys" isActive={pathname.endsWith("/settings/api-keys")} />
+      {!isGuest && <NavItem href={buildPath("/settings/knowledge-graph")} icon={GitBranch} label="Knowledge Graph" isActive={pathname.endsWith("/settings/knowledge-graph")} />}
+      {!isGuest && <NavItem href={buildPath("/settings/email")} icon={Mail} label="Email" isActive={pathname.endsWith("/settings/email")} />}
+      {!isGuest && <NavItem href={buildPath("/settings/api-keys")} icon={Key} label="API Keys" isActive={pathname.endsWith("/settings/api-keys")} />}
       {isAdmin && <NavItem href={buildPath("/settings/analytics")} icon={BarChart2} label="Analytics" isActive={pathname.endsWith("/settings/analytics")} />}
 
       {isAdmin && (
