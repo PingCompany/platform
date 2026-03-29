@@ -69,7 +69,7 @@ export default defineSchema({
   workspaceMembers: defineTable({
     userId: v.id("users"),
     workspaceId: v.id("workspaces"),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
     joinedAt: v.number(),
   })
     .index("by_user", ["userId"])
@@ -437,7 +437,7 @@ export default defineSchema({
     workspaceId: v.id("workspaces"),
     email: v.string(),
     invitedBy: v.id("users"),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
     status: v.union(v.literal("pending"), v.literal("accepted"), v.literal("expired")),
     token: v.string(),
     expiresAt: v.number(),

@@ -6,7 +6,7 @@ import { requireAuth, requireUser } from "./auth";
 export const send = mutation({
   args: {
     email: v.string(),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
     workspaceId: v.id("workspaces"),
   },
   handler: async (ctx, args) => {

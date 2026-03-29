@@ -84,7 +84,7 @@ export const updateRole = mutation({
   args: {
     workspaceId: v.id("workspaces"),
     userId: v.id("users"),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
   },
   handler: async (ctx, args) => {
     const currentUser = await requireAuth(ctx, args.workspaceId);
@@ -134,7 +134,7 @@ export const inviteByEmail = mutation({
   args: {
     workspaceId: v.id("workspaces"),
     email: v.string(),
-    role: v.union(v.literal("admin"), v.literal("member")),
+    role: v.union(v.literal("admin"), v.literal("member"), v.literal("guest")),
   },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
