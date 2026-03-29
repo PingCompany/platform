@@ -58,6 +58,9 @@ export const create = mutation({
     }
 
     const user = await requireAuth(ctx, args.workspaceId);
+    if (user.role === "guest") {
+      throw new Error("Guests cannot create channels");
+    }
 
     const existing = await ctx.db
       .query("channels")
@@ -94,6 +97,17 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     const user = await requireAuth(ctx, args.workspaceId);
+    const isGuest = user.role === "guest";
+
+    // For guests, pre-fetch their channel memberships to restrict visibility
+    let guestChannelIds: Set<string> | null = null;
+    if (isGuest) {
+      const memberships = await ctx.db
+        .query("channelMembers")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+      guestChannelIds = new Set(memberships.map((m) => m.channelId));
+    }
 
     const channels = await ctx.db
       .query("channels")
@@ -103,7 +117,7 @@ export const list = query({
     // Get unread counts from denormalized channelMembers field
     const channelsWithUnread = await Promise.all(
       channels
-        .filter((c) => !c.isArchived && (!c.type || c.type === "public"))
+        .filter((c) => !c.isArchived && (!c.type || c.type === "public") && (!isGuest || guestChannelIds!.has(c._id)))
         .map(async (channel) => {
           const membership = await ctx.db
             .query("channelMembers")
@@ -193,6 +207,17 @@ export const join = mutation({
       throw new Error("Cannot self-join a private conversation");
     }
 
+    // Check if user is a guest (guests cannot self-join)
+    const wsMembership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_user_workspace", (q) =>
+        q.eq("userId", user._id).eq("workspaceId", channel.workspaceId),
+      )
+      .unique();
+    if (wsMembership?.role === "guest") {
+      throw new Error("Guests cannot self-join channels");
+    }
+
     const existing = await ctx.db
       .query("channelMembers")
       .withIndex("by_channel_user", (q) =>
@@ -277,6 +302,17 @@ export const invite = mutation({
       )
       .unique();
     if (!callerMembership) throw new Error("You must be a member to invite others");
+
+    // Guests cannot invite others to channels
+    const callerWsMembership = await ctx.db
+      .query("workspaceMembers")
+      .withIndex("by_user_workspace", (q) =>
+        q.eq("userId", user._id).eq("workspaceId", channel.workspaceId),
+      )
+      .unique();
+    if (callerWsMembership?.role === "guest") {
+      throw new Error("Guests cannot invite others to channels");
+    }
 
     for (const targetUserId of args.userIds) {
       // Verify target user exists and is in same workspace
